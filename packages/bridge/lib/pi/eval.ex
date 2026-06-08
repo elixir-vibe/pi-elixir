@@ -8,7 +8,15 @@ defmodule Pi.Eval do
 
   def sandbox(code, opts \\ []) when is_binary(code), do: Sandbox.eval(code, opts)
 
+  def run_structured(code, opts \\ []) when is_binary(code) do
+    run_eval(code, opts, :structured)
+  end
+
   def run(code, opts \\ []) when is_binary(code) do
+    run_eval(code, opts, :text)
+  end
+
+  defp run_eval(code, opts, mode) do
     timeout = Keyword.get(opts, :timeout, 30_000)
     parent = self()
 
@@ -16,7 +24,7 @@ defmodule Pi.Eval do
     code = prepend_aliases(code)
 
     {pid, ref} =
-      spawn_monitor(fn -> send(parent, {:result, eval_with_captured_io(code)}) end)
+      spawn_monitor(fn -> send(parent, {:result, eval_with_captured_io(code, mode)}) end)
 
     receive do
       {:result, result} ->
@@ -57,7 +65,7 @@ defmodule Pi.Eval do
     end
   end
 
-  defp eval_with_captured_io(code) do
+  defp eval_with_captured_io(code, mode) do
     {{success?, result}, io} =
       capture_io(fn ->
         try do
@@ -68,6 +76,15 @@ defmodule Pi.Eval do
         end
       end)
 
+    formatted = format_eval_result(result, success?, io)
+
+    case mode do
+      :structured -> structured_eval_result(result, success?, io, formatted)
+      :text -> formatted
+    end
+  end
+
+  defp format_eval_result(result, success?, io) do
     case {result, success?, io} do
       {:"do not show this result in output", true, io} -> {:ok, io}
       {result, false, ""} -> {:error, result}
@@ -75,6 +92,18 @@ defmodule Pi.Eval do
       {result, true, ""} -> {:ok, inspect(result, @inspect_opts)}
       {result, true, io} -> {:ok, "IO:\n\n#{io}\n\nResult:\n\n#{inspect(result, @inspect_opts)}"}
     end
+  end
+
+  defp structured_eval_result(:"do not show this result in output", true, io, {:ok, text}) do
+    {:ok, %{kind: "eval", io: io, result: nil, text: text}}
+  end
+
+  defp structured_eval_result(result, true, io, {:ok, text}) do
+    {:ok, %{kind: "eval", io: io, result: inspect(result, @inspect_opts), text: text}}
+  end
+
+  defp structured_eval_result(_result, false, io, {:error, text}) do
+    {:error, %{kind: "eval", io: io, error: text, text: text}}
   end
 
   defp env do

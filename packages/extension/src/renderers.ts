@@ -102,6 +102,71 @@ function stackFrames(text: string): string[] {
     .slice(0, 6)
 }
 
+interface EvalPayload {
+  io?: string
+  result?: string | null
+  error?: string
+}
+
+function evalPayload(result: AgentToolResult<unknown>): EvalPayload | null {
+  const details = (result as { details?: unknown }).details
+  if (typeof details !== 'object' || details === null) return null
+  const payload = (details as { eval?: unknown }).eval
+  return typeof payload === 'object' && payload !== null ? (payload as EvalPayload) : null
+}
+
+function renderErrorBlock(message: string, expanded: boolean, theme: Theme) {
+  const title = errorTitle(message)
+  if (!expanded)
+    return renderLines([
+      `${icon(false, theme)} ${theme.fg('error', oneLine(title))}`,
+      expandHint(theme)
+    ])
+
+  const frames = stackFrames(message)
+  return renderLines([
+    `${icon(false, theme)} ${theme.fg('error', title)}`,
+    ...frames.map((frame) => `  ${theme.fg('muted', frame)}`)
+  ])
+}
+
+function renderEvalValue(value: string, expanded: boolean, theme: Theme) {
+  if (!value) return renderLines([theme.fg('muted', '(no output)')])
+  if (!expanded)
+    return renderLines([`${icon(true, theme)} ${theme.fg('toolOutput', oneLine(value))}`])
+
+  const lines = codeLines(value, 'elixir', theme)
+  const [firstLine, ...rest] = lines
+  return renderLines([`${icon(true, theme)} ${firstLine?.trimStart() ?? ''}`, ...rest])
+}
+
+function renderIoAndValue(io: string, value: string, expanded: boolean, theme: Theme) {
+  const cleanIo = stripFinalNewline(io)
+  const ioPreview = firstContentLine(cleanIo)
+  if (!expanded) {
+    const suffix = value ? theme.fg('muted', `  ↳ ${oneLine(value, 60)}`) : ''
+    return renderLines([
+      `${icon(true, theme)} ${theme.fg('toolOutput', oneLine(ioPreview))}${suffix}`,
+      expandHint(theme)
+    ])
+  }
+
+  return renderLines([
+    `${icon(true, theme)} ${theme.fg('toolOutput', firstContentLine(cleanIo))}`,
+    ...cleanIo
+      .split('\n')
+      .slice(1)
+      .map((line) => `  ${theme.fg('toolOutput', line)}`),
+    ...(value ? ['', ...codeLines(value, 'elixir', theme)] : [])
+  ])
+}
+
+function renderStructuredEval(payload: EvalPayload, expanded: boolean, theme: Theme) {
+  const io = payload.io ?? ''
+  const value = payload.result ?? ''
+  return io ? renderIoAndValue(io, value, expanded, theme) : renderEvalValue(value, expanded, theme)
+}
+
 function parseIoResult(text: string): { io: string; result: string } | null {
   const marker = '\n\nResult:\n\n'
   if (!text.startsWith('IO:\n\n') || !text.includes(marker)) return null
@@ -118,52 +183,22 @@ export function renderEvalResult(
   { expanded }: ToolRenderResultOptions,
   theme: Theme
 ) {
+  const payload = evalPayload(result)
   const text = decodeInspectedString(resultText(result)).trim()
-  if (!text) return renderLines([theme.fg('muted', '(no output)')])
+  if (!text && !payload) return renderLines([theme.fg('muted', '(no output)')])
 
-  if (resultIsError(result)) {
-    const title = errorTitle(text)
-    if (!expanded)
-      return renderLines([
-        `${icon(false, theme)} ${theme.fg('error', oneLine(title))}`,
-        expandHint(theme)
-      ])
+  if (payload?.error) return renderErrorBlock(payload.error, expanded, theme)
 
-    const frames = stackFrames(text)
-    return renderLines([
-      `${icon(false, theme)} ${theme.fg('error', title)}`,
-      ...frames.map((frame) => `  ${theme.fg('muted', frame)}`)
-    ])
+  if (payload) {
+    return renderStructuredEval(payload, expanded, theme)
   }
+
+  if (resultIsError(result)) return renderErrorBlock(text, expanded, theme)
 
   const ioResult = parseIoResult(text)
-  if (ioResult) {
-    const ioPreview = firstContentLine(ioResult.io)
-    if (!expanded) {
-      const suffix = ioResult.result ? theme.fg('muted', `  ↳ ${oneLine(ioResult.result, 60)}`) : ''
-      return renderLines([
-        `${icon(true, theme)} ${theme.fg('toolOutput', oneLine(ioPreview))}${suffix}`,
-        expandHint(theme)
-      ])
-    }
+  if (ioResult) return renderIoAndValue(ioResult.io, ioResult.result, expanded, theme)
 
-    return renderLines([
-      `${icon(true, theme)} ${theme.fg('toolOutput', firstContentLine(ioResult.io))}`,
-      ...ioResult.io
-        .split('\n')
-        .slice(1)
-        .map((line) => `  ${theme.fg('toolOutput', line)}`),
-      '',
-      ...codeLines(ioResult.result, 'elixir', theme)
-    ])
-  }
-
-  if (!expanded)
-    return renderLines([`${icon(true, theme)} ${theme.fg('toolOutput', oneLine(text))}`])
-
-  const lines = codeLines(text, 'elixir', theme)
-  const [firstLine, ...rest] = lines
-  return renderLines([`${icon(true, theme)} ${firstLine?.trimStart() ?? ''}`, ...rest])
+  return renderEvalValue(text, expanded, theme)
 }
 
 interface AstMatch {

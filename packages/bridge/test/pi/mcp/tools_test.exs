@@ -3,9 +3,36 @@ defmodule Pi.MCP.ToolsTest do
 
   alias Pi.MCP.Tools
 
+  describe "dispatch/2 project_eval_structured" do
+    test "returns structured result payload" do
+      assert {:ok, json} = Tools.dispatch("project_eval_structured", %{"code" => "1 + 1"})
+
+      assert %{"kind" => "eval", "io" => "", "result" => "2", "text" => "2"} =
+               Jason.decode!(json)
+    end
+
+    test "returns structured IO and result payload" do
+      assert {:ok, json} =
+               Tools.dispatch("project_eval_structured", %{
+                 "code" => "IO.puts(\"hi\"); {:ok, :done}"
+               })
+
+      assert %{
+               "kind" => "eval",
+               "io" => "hi\n",
+               "result" => "{:ok, :done}",
+               "text" => text
+             } = Jason.decode!(json)
+
+      assert text =~ "IO:\n\nhi"
+      assert text =~ "Result:\n\n{:ok, :done}"
+    end
+  end
+
   describe "dispatch/2 ex_ast_search" do
     test "requires pattern" do
-      assert {:error, "Missing required parameter: pattern"} = Tools.dispatch("ex_ast_search", %{})
+      assert {:error, "Missing required parameter: pattern"} =
+               Tools.dispatch("ex_ast_search", %{})
     end
 
     test "returns structured search payload" do

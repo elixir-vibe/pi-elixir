@@ -12,6 +12,33 @@ import {
 import type { ToolArgs } from '../protocol/types.ts'
 import { renderElixirResult } from '../renderers.ts'
 
+interface EvalPayload {
+  kind?: string
+  io?: string
+  result?: string | null
+  error?: string
+  text?: string
+}
+
+function parseEvalPayload(text: string): EvalPayload | null {
+  try {
+    const parsed: unknown = JSON.parse(text)
+    return typeof parsed === 'object' && parsed !== null ? (parsed as EvalPayload) : null
+  } catch {
+    return null
+  }
+}
+
+function evalDetails(text: string) {
+  const payload = parseEvalPayload(text)
+  return payload?.kind === 'eval' ? { eval: payload } : {}
+}
+
+function evalText(text: string) {
+  const payload = parseEvalPayload(text)
+  return payload?.kind === 'eval' && typeof payload.text === 'string' ? payload.text : text
+}
+
 function renderEvalCall(toolName: string) {
   return (args: ToolArgs, theme: Theme) => {
     const code = displayString(args.code)
@@ -28,7 +55,7 @@ export function register(pi: ExtensionAPI) {
   bridgeTool(
     pi,
     'elixir_eval',
-    'project_eval',
+    'project_eval_structured',
     'Elixir Eval',
     `Evaluate Elixir code in the running application.
 
@@ -42,7 +69,7 @@ Output truncated to ${DEFAULT_MAX_LINES} lines / ${formatSize(DEFAULT_MAX_BYTES)
       timeout: Type.Optional(Type.Integer({ description: 'Timeout in ms (default: 30000)' }))
     }),
     renderEvalCall('elixir_eval'),
-    { renderResult: renderElixirResult }
+    { transformResult: evalText, resultDetails: evalDetails, renderResult: renderElixirResult }
   )
 
   bridgeTool(
