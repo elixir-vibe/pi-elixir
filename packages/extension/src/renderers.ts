@@ -1,4 +1,5 @@
 import {
+  getLanguageFromPath,
   highlightCode,
   keyHint,
   type AgentToolResult,
@@ -194,11 +195,8 @@ function parseAstMatches(text: string): AstMatch[] {
   return matches
 }
 
-function languageFromPath(path: string) {
-  if (path.endsWith('.heex')) return 'heex'
-  if (path.endsWith('.eex') || path.endsWith('.leex')) return 'html'
-  if (path.endsWith('.ex') || path.endsWith('.exs')) return 'elixir'
-  return 'text'
+function codeLanguage(path: string) {
+  return getLanguageFromPath(path) ?? 'text'
 }
 
 function searchHeader(count: number, pattern: string | undefined, theme: Theme) {
@@ -211,16 +209,6 @@ function matchLine(match: AstMatch, theme: Theme) {
   const location = `${match.path}:${match.line}`
   const snippet = match.snippet ? `  ${theme.fg('toolOutput', oneLine(match.snippet, 80))}` : ''
   return `  ${theme.fg('muted', location)}${snippet}`
-}
-
-function groupedMatches(matches: AstMatch[]) {
-  const groups = new Map<string, AstMatch[]>()
-  for (const match of matches) {
-    const group = groups.get(match.path) ?? []
-    group.push(match)
-    groups.set(match.path, group)
-  }
-  return groups
 }
 
 function renderToolUnavailableOrError(
@@ -265,21 +253,14 @@ export function renderAstSearchResult(
   }
 
   const lines = [searchHeader(matches.length, pattern, theme)]
-  let shown = 0
-  for (const [path, group] of groupedMatches(matches)) {
-    if (shown >= 12) break
+  const shownMatches = matches.slice(0, 12)
+  for (const match of shownMatches) {
     lines.push('')
-    lines.push(theme.fg('muted', path))
-
-    for (const match of group) {
-      if (shown >= 12) break
-      lines.push(`  ${theme.fg('accent', match.line)}`)
-      if (match.snippet) lines.push(...codeLines(match.snippet, languageFromPath(path), theme, 3))
-      shown += 1
-    }
+    lines.push(`  ${theme.fg('muted', `${match.path}:`)}${theme.fg('accent', match.line)}`)
+    if (match.snippet) lines.push(...codeLines(match.snippet, codeLanguage(match.path), theme, 3))
   }
 
-  const more = hiddenLine(matches.length - shown, theme)
+  const more = hiddenLine(matches.length - shownMatches.length, theme)
   if (more) lines.push('', more)
   return renderLines(lines)
 }
