@@ -6,9 +6,14 @@ import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
 const TOOLS_DIR = path.resolve(__dirname, '../../scripts/tools')
 const PROJECT_DIR =
-  process.env.PI_ELIXIR_INTEGRATION_PROJECT ?? path.resolve(__dirname, '../../../bridge')
+  process.env.PI_ELIXIR_INTEGRATION_PROJECT ??
+  path.resolve(__dirname, '../../../fixtures/demo_project')
 const START_SERVER_EXPR = 'Pi.MCP.Server.start!(System.argv())'
 const STARTUP_TIMEOUT = 120_000
+
+function ensureDeps(): void {
+  execSync('mix deps.get', { cwd: PROJECT_DIR, stdio: 'pipe' })
+}
 
 function hasElixir(): boolean {
   try {
@@ -73,6 +78,7 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded MCP server', ()
   let baseUrl: string
 
   beforeAll(async () => {
+    ensureDeps()
     await new Promise<void>((resolve, reject) => {
       const proc = spawn(
         'mix',
@@ -124,7 +130,7 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded MCP server', ()
     const res = await fetch(`${baseUrl}/config`)
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.project_name).toBe('pi_bridge')
+    expect(body.project_name).toBe('pi_demo_project')
     expect(body.framework_type).toBe('embedded')
   })
 

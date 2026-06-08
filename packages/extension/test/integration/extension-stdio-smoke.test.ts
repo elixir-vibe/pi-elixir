@@ -13,8 +13,13 @@ import {
 } from '../../src/embedded/stdio-process.ts'
 
 const PROJECT_DIR =
-  process.env.PI_ELIXIR_INTEGRATION_PROJECT ?? path.resolve(__dirname, '../../../bridge')
+  process.env.PI_ELIXIR_INTEGRATION_PROJECT ??
+  path.resolve(__dirname, '../../../fixtures/demo_project')
 const STARTUP_TIMEOUT = 120_000
+
+function ensureDeps(): void {
+  execSync('mix deps.get', { cwd: PROJECT_DIR, stdio: 'pipe' })
+}
 
 function hasElixir(): boolean {
   try {
@@ -57,6 +62,7 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
     const originalStream = process.env.PI_TEST_LLM_STREAM_RESPONSE
 
     beforeAll(async () => {
+      ensureDeps()
       process.env.PI_TEST_LLM_COMPLETE_RESPONSE = 'extension fake completion'
       process.env.PI_TEST_LLM_STREAM_RESPONSE = 'stream |from |extension'
       startEmbeddedInBackground(PROJECT_DIR)
@@ -76,9 +82,11 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
     it('captures structured bridge info from ready event', () => {
       const info = getBridgeInfo(PROJECT_DIR)
 
-      expect(info?.project).toBe('pi_bridge')
+      expect(info?.project).toBe('pi_demo_project')
       expect(info?.transport).toBe('stdio')
       expect(info?.apis?.runtime?.some((api) => api.name === 'llm')).toBe(true)
+      expect(info?.skills?.some((skill) => skill.name === 'demo-skill')).toBe(true)
+      expect(info?.plugins?.some((plugin) => plugin.name === 'DemoPlugin')).toBe(true)
     })
 
     it('routes Pi.LLM.complete through the extension request handler', async () => {
