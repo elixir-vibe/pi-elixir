@@ -22,26 +22,46 @@ export interface BridgeInfo {
   project?: string
   transport?: string
   integrations?: string[]
-  skills?: Array<{
-    name?: string
-    path?: string
-    module?: string
-    metadata?: Record<string, unknown>
-    markdown?: string
-    apis?: BridgeAPIExtension[]
-  }>
-  plugins?: Array<{ name?: string; module?: string }>
-  endpoints?: Array<{ module?: string; url?: string | null; port?: number | null }>
-  apis?: {
-    runtime?: BridgeAPIModule[]
-    extensions?: BridgeAPIExtension[]
-  }
+  skills?: BridgeSkillInfo[]
+  plugins?: BridgePluginInfo[]
+  endpoints?: BridgeEndpoint[]
+  apis?: BridgeAPIInventory
+}
+
+export interface BridgeSkillInfo {
+  name?: string
+  path?: string
+  module?: string
+  metadata?: Record<string, unknown>
+  markdown?: string
+  apis?: BridgeAPIExtension[]
+}
+
+export interface BridgePluginInfo {
+  name?: string
+  module?: string
+}
+
+export interface BridgeEndpoint {
+  module?: string
+  url?: string | null
+  port?: number | null
+}
+
+export interface BridgeAPIInventory {
+  runtime?: BridgeAPIModule[]
+  extensions?: BridgeAPIExtension[]
 }
 
 export interface BridgeAPIModule {
   name?: string
   module?: string
-  functions?: Array<{ name?: string; arity?: number }>
+  functions?: BridgeAPIFunction[]
+}
+
+export interface BridgeAPIFunction {
+  name?: string
+  arity?: number
 }
 
 export interface BridgeAPIExtension {
