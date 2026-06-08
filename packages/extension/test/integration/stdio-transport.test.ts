@@ -141,6 +141,24 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded stdio transport
     expect(result.text).toContain('fake completion')
   })
 
+  it('routes BEAM-initiated LLM stream chunks and done events', async () => {
+    const resultPromise = call('project_eval', {
+      code: 'Pi.LLM.stream("stream").stream |> Enum.join()',
+      timeout: 5_000
+    })
+    const request = await queue.next((message) => message.type === 'request')
+
+    expect(request.op).toBe('llm_stream')
+
+    proc.stdin?.write(JSON.stringify({ type: 'llm_chunk', id: request.id, delta: 'hello ' }) + '\n')
+    proc.stdin?.write(JSON.stringify({ type: 'llm_chunk', id: request.id, delta: 'stream' }) + '\n')
+    proc.stdin?.write(JSON.stringify({ type: 'llm_done', id: request.id, result: '' }) + '\n')
+
+    const result = await resultPromise
+    expect(result.isError).toBe(false)
+    expect(result.text).toContain('hello stream')
+  })
+
   it('multiplexes concurrent BEAM-initiated LLM requests out of order', async () => {
     const code = `
 first = Task.async(fn -> Pi.LLM.complete("first") end)

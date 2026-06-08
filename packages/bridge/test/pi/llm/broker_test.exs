@@ -30,9 +30,9 @@ defmodule Pi.LLM.BrokerTest do
     stream = LLM.stream("stream")
     request = receive_request(:llm_stream)
 
-    send(self(), {:pi_llm_chunk, request.id, "first "})
-    send(self(), {:pi_llm_chunk, request.id, "second"})
-    send(self(), {:pi_llm_done, request.id, " done"})
+    Broker.deliver_stream(request.id, :chunk, "first ")
+    Broker.deliver_stream(request.id, :chunk, "second")
+    Broker.deliver_stream(request.id, :done, " done")
 
     assert stream.id == request.id
     assert Enum.to_list(stream.stream) == ["first ", "second", " done"]
@@ -42,7 +42,7 @@ defmodule Pi.LLM.BrokerTest do
     stream = LLM.stream("stream")
     request = receive_request(:llm_stream)
 
-    send(self(), {:pi_llm_chunk, request.id, "first"})
+    Broker.deliver_stream(request.id, :chunk, "first")
 
     assert Enum.take(stream.stream, 1) == ["first"]
     assert receive_cancel(request.id, "closed")
@@ -60,7 +60,7 @@ defmodule Pi.LLM.BrokerTest do
     stream = LLM.stream("stream")
     request = receive_request(:llm_stream)
 
-    send(self(), {:pi_llm_error, request.id, "boom"})
+    Broker.deliver_stream(request.id, :error, "boom")
 
     assert_raise RuntimeError, ~s("boom"), fn -> Enum.to_list(stream.stream) end
   end

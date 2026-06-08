@@ -41,8 +41,14 @@ defmodule Pi.LLM.Broker do
     GenServer.cast(__MODULE__, {:deliver, id, result})
   end
 
+  def deliver_stream(id, event, payload)
+      when is_binary(id) and event in [:chunk, :done, :error] do
+    install()
+    GenServer.cast(__MODULE__, {:deliver_stream, id, event, payload})
+  end
+
   @impl true
-  def init(_opts), do: {:ok, %{next_id: 0, pending: %{}}}
+  def init(_opts), do: {:ok, %{next_id: 0, pending: %{}, streams: %{}}}
 
   @impl true
   def handle_call({:request, op, payload, timeout}, from, state) do
@@ -54,9 +60,32 @@ defmodule Pi.LLM.Broker do
     {:noreply, %{state | next_id: state.next_id + 1, pending: pending}}
   end
 
+  def handle_call({:register_stream, id, owner}, _from, state) do
+    {:reply, :ok, %{state | streams: Map.put(state.streams, id, owner)}}
+  end
+
+  def handle_call({:unregister_stream, id}, _from, state) do
+    {:reply, :ok, %{state | streams: Map.delete(state.streams, id)}}
+  end
+
   @impl true
   def handle_cast({:deliver, id, result}, state) do
     {:noreply, reply(state, id, Response.to_result(result))}
+  end
+
+  def handle_cast({:deliver_stream, id, event, payload}, state) do
+    case Map.get(state.streams, id) do
+      nil ->
+        {:noreply, state}
+
+      owner ->
+        send_stream(owner, id, event, payload)
+
+        streams =
+          if event in [:done, :error], do: Map.delete(state.streams, id), else: state.streams
+
+        {:noreply, %{state | streams: streams}}
+    end
   end
 
   @impl true
@@ -79,6 +108,7 @@ defmodule Pi.LLM.Broker do
   defp request_stream(op, payload, opts) do
     install()
     id = request_id(System.unique_integer([:positive]))
+    GenServer.call(__MODULE__, {:register_stream, id, self()})
     Stdio.emit_request(id, op, payload)
 
     stream =
@@ -100,13 +130,21 @@ defmodule Pi.LLM.Broker do
             end
         end,
         fn
-          :done -> :ok
-          stream_id -> Stdio.emit(%Cancel{type: :llm_cancel, id: stream_id, reason: "closed"})
+          :done ->
+            :ok
+
+          stream_id ->
+            GenServer.call(__MODULE__, {:unregister_stream, stream_id})
+            Stdio.emit(%Cancel{type: :llm_cancel, id: stream_id, reason: "closed"})
         end
       )
 
     %LLMStream{id: id, stream: stream}
   end
+
+  defp send_stream(owner, id, :chunk, delta), do: send(owner, {:pi_llm_chunk, id, delta})
+  defp send_stream(owner, id, :done, result), do: send(owner, {:pi_llm_done, id, result})
+  defp send_stream(owner, id, :error, error), do: send(owner, {:pi_llm_error, id, error})
 
   defp request_id(next_id), do: "llm_#{System.unique_integer([:positive])}_#{next_id}"
 end

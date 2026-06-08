@@ -95,9 +95,9 @@ defmodule Pi.Transport.Stdio do
     do: spawn(fn -> respond(call.id, dispatch(call.name, call.arguments)) end)
 
   defp handle_payload(%Response{} = response), do: Broker.deliver(response.id, response)
-  defp handle_payload(%Chunk{} = chunk), do: send(self(), {:pi_llm_chunk, chunk.id, chunk.delta})
-  defp handle_payload(%Done{} = done), do: send(self(), {:pi_llm_done, done.id, done.result})
-  defp handle_payload(%Error{} = error), do: send(self(), {:pi_llm_error, error.id, error.error})
+  defp handle_payload(%Chunk{} = chunk), do: Broker.deliver_stream(chunk.id, :chunk, chunk.delta)
+  defp handle_payload(%Done{} = done), do: Broker.deliver_stream(done.id, :done, done.result)
+  defp handle_payload(%Error{} = error), do: Broker.deliver_stream(error.id, :error, error.error)
 
   defp dispatch("pi_skills_list", _args) do
     {:ok, encode_structs(Loader.serializable())}

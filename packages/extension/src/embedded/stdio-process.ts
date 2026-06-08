@@ -22,9 +22,34 @@ export interface BridgeInfo {
   project?: string
   transport?: string
   integrations?: string[]
-  skills?: Array<{ name?: string; path?: string; module?: string }>
-  plugins?: Array<{ name?: string }>
+  skills?: Array<{
+    name?: string
+    path?: string
+    module?: string
+    metadata?: Record<string, unknown>
+    markdown?: string
+    apis?: BridgeAPIExtension[]
+  }>
+  plugins?: Array<{ name?: string; module?: string }>
   endpoints?: Array<{ module?: string; url?: string | null; port?: number | null }>
+  apis?: {
+    runtime?: BridgeAPIModule[]
+    extensions?: BridgeAPIExtension[]
+  }
+}
+
+export interface BridgeAPIModule {
+  name?: string
+  module?: string
+  functions?: Array<{ name?: string; arity?: number }>
+}
+
+export interface BridgeAPIExtension {
+  name?: string
+  module?: string
+  alias?: string | null
+  description?: string
+  examples?: string[]
 }
 
 export interface BridgeUIEvent {
@@ -127,8 +152,12 @@ function markReady(cwd: string, entry: EmbeddedProcess, url?: string): void {
   emitStatusChange(cwd, 'embedded')
 }
 
+function writeToBeam(entry: EmbeddedProcess, message: Record<string, unknown>): void {
+  entry.proc.stdin?.write(JSON.stringify(message) + '\n')
+}
+
 function sendResponse(entry: EmbeddedProcess, id: string, response: Record<string, unknown>): void {
-  entry.proc.stdin?.write(JSON.stringify({ type: 'response', id, ...response }) + '\n')
+  writeToBeam(entry, { type: 'response', id, ...response })
 }
 
 async function handleBridgeRequest(
@@ -149,6 +178,24 @@ async function handleBridgeRequest(
       ok: false,
       error: 'Pi LLM completion is not available from this extension runtime yet.',
       cwd
+    })
+    return
+  }
+
+  if (message.op === 'llm_stream') {
+    const fakeStream = process.env.PI_TEST_LLM_STREAM_RESPONSE
+    if (fakeStream) {
+      for (const delta of fakeStream.split('|')) {
+        writeToBeam(entry, { type: 'llm_chunk', id: message.id, delta })
+      }
+      writeToBeam(entry, { type: 'llm_done', id: message.id, result: '' })
+      return
+    }
+
+    writeToBeam(entry, {
+      type: 'llm_error',
+      id: message.id,
+      error: 'Pi LLM streaming is not available from this extension runtime yet.'
     })
     return
   }
