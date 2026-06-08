@@ -3,7 +3,7 @@ import * as fs from 'node:fs'
 import * as path from 'node:path'
 
 import { clearMissingDependency, markMissingDependency } from '../connection/status.ts'
-import { addPiDependency, hasPiDependency, readMixExs } from './project.ts'
+import { addPiDependency, hasPiDependency, readAppName, readMixExs } from './project.ts'
 
 const PI_BEAM_PATH = path.resolve(__dirname, '../../../bridge')
 
@@ -49,7 +49,7 @@ export async function ensurePiBeamDependency(cwd: string, options?: InstallOptio
   const mixExs = readMixExs(cwd)
   if (!mixExs) return true
 
-  if (hasPiDependency(mixExs)) {
+  if (readAppName(cwd) === 'pi_bridge' || hasPiDependency(mixExs)) {
     clearMissingDependency(cwd)
     return true
   }

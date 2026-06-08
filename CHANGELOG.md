@@ -33,6 +33,7 @@
 ### Fixed
 
 - Mix projects without `:pi_bridge` are now shown as `BEAM tools missing` instead of starting a doomed embedded BEAM and getting stuck offline.
+- Monorepo roots such as `pi-elixir` now resolve nested Mix projects for BEAM status and tools.
 - `elixir_eval` exceptions now return tool errors instead of successful text payloads.
 - AST tool scripts now report missing `ex_ast` as normal tool output instead of eval exceptions.
 - LLM stream completion now halts immediately on `llm_done` instead of timing out.

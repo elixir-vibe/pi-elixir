@@ -18,7 +18,7 @@ The npm package is still the user-facing install target. The `pi_bridge` Mix pac
 pi install npm:pi-elixir
 ```
 
-Works with Phoenix apps, libraries, and other Mix projects. When a pi tool needs the embedded server and the project does not have Pi BEAM tools installed, pi asks for confirmation, adds a dev-only `:pi_bridge` dependency to `mix.exs`, runs `mix deps.get`, then starts the server.
+Works with Phoenix apps, libraries, monorepos with a nested Mix project, and other Mix projects. When a pi tool needs the embedded server and the project does not have Pi BEAM tools installed, pi asks for confirmation, adds a dev-only `:pi_bridge` dependency to `mix.exs`, runs `mix deps.get`, then starts the server.
 
 ## How it connects
 

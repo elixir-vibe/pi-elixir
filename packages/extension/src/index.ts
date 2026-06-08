@@ -1,5 +1,3 @@
-import * as fs from 'node:fs'
-
 import type { ExtensionAPI, ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
 
 import { showStartupInfo } from './bridge/startup-info.ts'
@@ -19,6 +17,7 @@ import {
   stopEmbedded,
   type BridgeUIEvent
 } from './embedded/stdio-process.ts'
+import { resolveMixProjectCwd } from './mix/project.ts'
 import type { BridgeInfo, BridgePluginCommand, StdioMessage, ToolArgs } from './protocol/types.ts'
 import { discoverExecutableSkillPath } from './skills/executable-skills.ts'
 import { register as registerEval } from './tools/eval.ts'
@@ -55,8 +54,8 @@ interface PluginCommandResult {
   error?: string
 }
 
-function isElixirProject(cwd: string): boolean {
-  return fs.existsSync(`${cwd}/mix.exs`)
+function resolveElixirCwd(cwd: string): string | null {
+  return resolveMixProjectCwd(cwd)
 }
 
 function subscriptionKey(ctx: ExtensionContext) {
@@ -134,7 +133,8 @@ function registerBridgeCommands(
     pi.registerCommand(name, {
       description: command.description ?? `Run BEAM plugin command ${command.name}`,
       handler: async (args, ctx) => {
-        const conn = await resolveUrl(ctx.cwd)
+        const beamCwd = resolveElixirCwd(ctx.cwd)
+        const conn = beamCwd ? await resolveUrl(beamCwd) : null
         if (!conn) {
           ctx.ui.notify('No BEAM connection for this project.', 'error')
           return
@@ -239,9 +239,8 @@ export default function (pi: ExtensionAPI) {
     const key = subscriptionKey(ctx)
     clearStatusSubscription(key)
 
-    if (!isElixirProject(ctx.cwd)) return
-
-    const sessionCwd = ctx.cwd
+    const sessionCwd = resolveElixirCwd(ctx.cwd)
+    if (!sessionCwd) return
     const unsubscribeStatus = onStatusChange((cwd, kind) => {
       if (cwd === sessionCwd) updateStatus(ctx, kind)
     })
@@ -272,7 +271,10 @@ export default function (pi: ExtensionAPI) {
   })
 
   pi.on('before_agent_start', async (event, ctx) => {
-    await sendBridgeEvent(ctx.cwd, {
+    const beamCwd = resolveElixirCwd(ctx.cwd)
+    if (!beamCwd) return
+
+    await sendBridgeEvent(beamCwd, {
       type: 'before_agent_start',
       cwd: ctx.cwd,
       prompt: event.prompt
@@ -280,21 +282,30 @@ export default function (pi: ExtensionAPI) {
   })
 
   pi.on('turn_start', async (event, ctx) => {
-    await sendBridgeEvent(ctx.cwd, { type: 'turn_start', cwd: ctx.cwd, turnIndex: event.turnIndex })
+    const beamCwd = resolveElixirCwd(ctx.cwd)
+    if (!beamCwd) return
+
+    await sendBridgeEvent(beamCwd, { type: 'turn_start', cwd: ctx.cwd, turnIndex: event.turnIndex })
   })
 
   pi.on('turn_end', async (event, ctx) => {
-    await sendBridgeEvent(ctx.cwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
+    const beamCwd = resolveElixirCwd(ctx.cwd)
+    if (!beamCwd) return
+
+    await sendBridgeEvent(beamCwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
   })
 
   pi.on('tool_call', async (event, ctx) => {
-    await sendBridgeEvent(ctx.cwd, {
+    const beamCwd = resolveElixirCwd(ctx.cwd)
+    if (!beamCwd) return undefined
+
+    await sendBridgeEvent(beamCwd, {
       type: 'tool_call',
       cwd: ctx.cwd,
       name: event.toolName
     })
 
-    const conn = await resolveUrl(ctx.cwd)
+    const conn = await resolveUrl(beamCwd)
     if (!conn) return undefined
 
     const result = await callTool(conn.url, 'pi_plugin_tool_call', {
@@ -310,14 +321,17 @@ export default function (pi: ExtensionAPI) {
   })
 
   pi.on('tool_result', async (event, ctx) => {
-    await sendBridgeEvent(ctx.cwd, {
+    const beamCwd = resolveElixirCwd(ctx.cwd)
+    if (!beamCwd) return undefined
+
+    await sendBridgeEvent(beamCwd, {
       type: 'tool_result',
       cwd: ctx.cwd,
       name: event.toolName,
       isError: event.isError
     })
 
-    const conn = await resolveUrl(ctx.cwd)
+    const conn = await resolveUrl(beamCwd)
     if (!conn) return undefined
 
     const result = await callTool(conn.url, 'pi_plugin_tool_result', {
@@ -344,9 +358,10 @@ export default function (pi: ExtensionAPI) {
   })
 
   pi.on('resources_discover', async (_event, ctx) => {
-    if (!isElixirProject(ctx.cwd)) return {}
+    const beamCwd = resolveElixirCwd(ctx.cwd)
+    if (!beamCwd) return {}
 
-    const skillPath = await discoverExecutableSkillPath(ctx.cwd)
+    const skillPath = await discoverExecutableSkillPath(beamCwd)
     return skillPath ? { skillPaths: [skillPath] } : {}
   })
 
@@ -354,10 +369,11 @@ export default function (pi: ExtensionAPI) {
     const key = subscriptionKey(ctx)
     clearStatusSubscription(key)
 
-    await sendBridgeEvent(ctx.cwd, { type: 'session_shutdown', cwd: ctx.cwd })
+    const beamCwd = resolveElixirCwd(ctx.cwd)
+    if (beamCwd) await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
 
-    if (!hasStatusSubscriptionForCwd(ctx.cwd)) {
-      stopEmbedded(ctx.cwd)
+    if (beamCwd && !hasStatusSubscriptionForCwd(beamCwd)) {
+      stopEmbedded(beamCwd)
     }
   })
 

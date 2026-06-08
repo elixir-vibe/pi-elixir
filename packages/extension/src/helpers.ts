@@ -20,6 +20,7 @@ import {
   getConnectionKind,
   type InstallPrompt
 } from './connection/resolver.ts'
+import { resolveMixProjectCwd } from './mix/project.ts'
 import type { ToolArgs, ToolResult } from './protocol/types.ts'
 
 export { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize }
@@ -119,13 +120,16 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
     description: tool.description,
     parameters: tool.parameters,
     async execute(_id, params, signal, _onUpdate, ctx) {
-      const conn = await resolveUrl(ctx.cwd, {
+      const beamCwd = resolveMixProjectCwd(ctx.cwd)
+      if (!beamCwd) return connectionError(ctx.cwd)
+
+      const conn = await resolveUrl(beamCwd, {
         confirmInstall: (prompt) =>
           ctx.hasUI
             ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
             : Promise.resolve(false)
       })
-      if (!conn) return connectionError(ctx.cwd)
+      if (!conn) return connectionError(beamCwd)
 
       let { text, isError } = await tool.executeToolCall(params, conn.url, signal)
       if (tool.opts?.transformResult) text = tool.opts.transformResult(text)
