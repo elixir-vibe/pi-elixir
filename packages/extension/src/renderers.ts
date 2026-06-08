@@ -148,20 +148,22 @@ export function renderEvalResult(
     }
 
     return renderLines([
-      `${icon(true, theme)} ${theme.fg('toolTitle', theme.bold('IO'))}`,
-      ...ioResult.io.split('\n').map((line) => `  ${theme.fg('toolOutput', line)}`),
+      `${icon(true, theme)} ${theme.fg('toolOutput', firstContentLine(ioResult.io))}`,
+      ...ioResult.io
+        .split('\n')
+        .slice(1)
+        .map((line) => `  ${theme.fg('toolOutput', line)}`),
       '',
-      theme.fg('muted', '↳ result'),
       ...codeLines(ioResult.result, 'elixir', theme)
     ])
   }
 
   if (!expanded)
     return renderLines([`${icon(true, theme)} ${theme.fg('toolOutput', oneLine(text))}`])
-  return renderLines([
-    `${icon(true, theme)} ${theme.fg('toolTitle', theme.bold('Result'))}`,
-    ...codeLines(text, 'elixir', theme)
-  ])
+
+  const lines = codeLines(text, 'elixir', theme)
+  const [firstLine, ...rest] = lines
+  return renderLines([`${icon(true, theme)} ${firstLine?.trimStart() ?? ''}`, ...rest])
 }
 
 interface AstMatch {
