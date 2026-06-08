@@ -160,15 +160,36 @@ defmodule Pi.Plugin.Manager do
   end
 
   defp run_tool_call_pipeline(state, call, context) do
-    Enum.reduce_while(state.children, {:ok, call}, fn {_module, pid}, {:ok, current_call} ->
-      case Worker.tool_call(pid, current_call, context) do
-        {:block, reason} -> {:halt, {:block, reason}}
-        {:ok, patch} when is_map(patch) -> {:cont, {:ok, Map.merge(current_call, patch)}}
-        :ok -> {:cont, {:ok, current_call}}
-        _other -> {:cont, {:ok, current_call}}
-      end
-    end)
+    result =
+      Enum.reduce_while(state.children, {:ok, call, %{}}, fn {_module, pid},
+                                                             {:ok, current_call, input_patch} ->
+        case Worker.tool_call(pid, current_call, context) do
+          {:block, reason} ->
+            {:halt, {:block, reason}}
+
+          {:ok, patch} when is_map(patch) ->
+            current_call = update_plugin_hook_input(current_call, patch)
+            {:cont, {:ok, current_call, Map.merge(input_patch, patch)}}
+
+          :ok ->
+            {:cont, {:ok, current_call, input_patch}}
+
+          _other ->
+            {:cont, {:ok, current_call, input_patch}}
+        end
+      end)
+
+    case result do
+      {:ok, _call, input_patch} -> {:ok, input_patch}
+      {:block, reason} -> {:block, reason}
+    end
   end
+
+  defp update_plugin_hook_input(%{"input" => input} = call, patch) when is_map(input) do
+    Map.put(call, "input", Map.merge(input, patch))
+  end
+
+  defp update_plugin_hook_input(call, _patch), do: call
 
   defp run_tool_result_pipeline(state, result, context) do
     Enum.reduce(state.children, {:ok, result}, fn {_module, pid}, {:ok, current_result} ->

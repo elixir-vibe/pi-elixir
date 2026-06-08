@@ -39,6 +39,8 @@ For untrusted snippets, use the Dune-backed sandbox:
 
 ```elixir
 {:ok, %{inspected: "42"}} = Pi.Eval.sandbox("40 + 2")
+
+# Negative example: restricted system access is blocked.
 {:error, message} = Pi.Eval.sandbox(~s(System.cmd("ls", [])))
 ```
 
@@ -78,6 +80,16 @@ ReqLLM may warn that `pi:current` is not in its public model catalog. That is ex
 
 `Pi.Agent.run/2` keeps the single-run shape `{:ok, %Pi.Agent.Result{}} | {:error, %Pi.Agent.Result{}}`. `chain/2`, `parallel/2`, and `fanout/2` return `{:ok, %Pi.Agent.Run{}} | {:error, %Pi.Agent.Run{}}` so orchestration metadata and partial results are explicit.
 
+## Plugin command/event/hook lifecycle
+
+1. On stdio startup, BEAM sends `ready` with plugin command inventory.
+2. The TypeScript extension registers each plugin command as `/elixir:<name>`.
+3. Running the slash command sends `pi_plugin_command` to BEAM and dispatches `handle_command/3`.
+4. `Pi.Plugin.Event.emit/2` sends `{type: "event"}` back to pi and is published on `pi.events`.
+5. Before a pi tool executes, the extension calls `pi_plugin_tool_call`; plugin `tool_call/3` may block or return an input-only patch.
+6. After a pi tool result, the extension calls `pi_plugin_tool_result`; plugin `tool_result/3` may patch result `content` or `isError`.
+7. Malformed hook payloads are rejected before plugin callbacks run.
+
 ## Session bridge APIs
 
 BEAM code can ask the pi extension for small session-state snapshots and persist branch-aware custom entries:
@@ -104,7 +116,8 @@ defmodule DemoPiPlugin do
 
   def handle_command(:demo, args, state), do: {{:ok, "demo #{args}"}, state}
 
-  # Return {:block, reason} to prevent a tool call, or {:ok, patch} to merge into the tool input.
+  # Negative example: block a tool call.
+  # Return {:block, reason} to prevent a tool call, or {:ok, patch} to merge into the tool input only.
   def tool_call(%{"toolName" => "bash"}, _context, state), do: {{:block, "bash blocked"}, state}
   def tool_call(_call, _context, state), do: {:ok, state}
 

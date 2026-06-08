@@ -23,8 +23,8 @@ defmodule Pi.Plugin.ManagerTest do
   defmodule HookDemo do
     use Pi.Plugin
 
-    def tool_call(%{"input" => input}, _context, state) do
-      {{:ok, %{"input" => Map.put(input, "patched", true)}}, state}
+    def tool_call(%{"input" => _input}, _context, state) do
+      {{:ok, %{"patched" => true}}, state}
     end
 
     def tool_result(_result, _context, state),
@@ -69,8 +69,7 @@ defmodule Pi.Plugin.ManagerTest do
   test "runs plugin tool hook pipelines" do
     {:ok, _pid} = Manager.start_link(plugins: [HookDemo])
 
-    assert {:ok, %{"input" => %{"patched" => true}}} =
-             Manager.tool_call(%{"input" => %{}}, %{})
+    assert {:ok, %{"patched" => true}} = Manager.tool_call(%{"input" => %{}}, %{})
 
     assert {:ok, %{"content" => "patched result"}} = Manager.tool_result(%{}, %{})
   end

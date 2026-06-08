@@ -25,7 +25,7 @@ import * as path from 'node:path'
 
 import { resolveUrl, getConnectionKind } from '../src/connection/resolver.ts'
 import { onStatusChange } from '../src/connection/status.ts'
-import { stopEmbedded } from '../src/embedded/stdio-process.ts'
+import { onBridgeRequest, stopEmbedded } from '../src/embedded/stdio-process.ts'
 import extension from '../src/index.js'
 
 let tempRoot: string
@@ -58,8 +58,12 @@ function fakePi() {
 function fakeCtx(cwd: string, sessionFile = `${cwd}/session.jsonl`) {
   return {
     cwd,
+    mode: 'tui',
+    hasUI: true,
+    isIdle: () => true,
     sessionManager: {
-      getSessionFile: () => sessionFile
+      getSessionFile: () => sessionFile,
+      getLeafId: () => 'leaf-1'
     },
     ui: {
       theme: {
@@ -177,6 +181,35 @@ describe('extension status lifecycle', () => {
 
     expect(unsubscribe).toHaveBeenCalledTimes(1)
     expect(onStatusChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('handles BEAM session request APIs', async () => {
+    const projectA = makeProject('project-a')
+    let handler:
+      | ((cwd: string, message: any) => Promise<Record<string, unknown> | undefined>)
+      | undefined
+    vi.mocked(onBridgeRequest).mockImplementation((cb) => {
+      handler = cb as typeof handler
+      return vi.fn()
+    })
+
+    const { pi, handlers } = fakePi()
+    extension(pi as any)
+    await handlers.get('session_start')!({}, fakeCtx(projectA))
+
+    const info = await handler?.(projectA, { op: 'session_info' })
+    expect(info?.result).toMatchObject({ cwd: projectA, leafId: 'leaf-1', isIdle: true })
+
+    vi.mocked(pi.getActiveTools).mockReturnValueOnce(['read', 'bash'])
+    const activeTools = await handler?.(projectA, { op: 'active_tools' })
+    expect(activeTools?.result).toEqual({ tools: ['read', 'bash'] })
+
+    const appended = await handler?.(projectA, {
+      op: 'append_entry',
+      payload: { customType: 'demo', data: { ok: true } }
+    })
+    expect(appended).toEqual({ ok: true, result: 'ok' })
+    expect(pi.appendEntry).toHaveBeenCalledWith('demo', { ok: true })
   })
 
   it('treats status UI updates as best-effort when a context is stale', async () => {

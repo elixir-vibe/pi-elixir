@@ -157,6 +157,14 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded stdio transport
     expect(blocked.isError).toBe(false)
     expect(JSON.parse(blocked.text).block).toBe('blocked by demo plugin')
 
+    const inputPatch = await call('pi_plugin_tool_call', {
+      toolName: 'demo_patch_call',
+      toolCallId: 'tool-1b',
+      input: { existing: true }
+    })
+    expect(inputPatch.isError).toBe(false)
+    expect(JSON.parse(inputPatch.text).ok).toEqual({ patched: true })
+
     const patched = await call('pi_plugin_tool_result', {
       toolName: 'demo_patch_result',
       toolCallId: 'tool-2',

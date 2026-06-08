@@ -13,6 +13,7 @@ defmodule PiDemoProject.DemoPlugin do
   end
 
   def tool_call(%{"toolName" => "demo_blocked"}, _context, state), do: {{:block, "blocked by demo plugin"}, state}
+  def tool_call(%{"toolName" => "demo_patch_call"}, _context, state), do: {{:ok, %{"patched" => true}}, state}
   def tool_call(_call, _context, state), do: {:ok, state}
 
   def tool_result(%{"toolName" => "demo_patch_result"}, _context, state) do

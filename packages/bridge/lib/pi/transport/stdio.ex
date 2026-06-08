@@ -234,6 +234,13 @@ defmodule Pi.Transport.Stdio do
     }
   end
 
+  defp to_payload(%PluginHookResponse{} = response) do
+    response
+    |> Map.from_struct()
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new(fn {key, value} -> {to_string(key), value} end)
+  end
+
   defp to_payload(%module{} = struct) do
     if function_exported?(module, :to_map, 1),
       do: module.to_map(struct),

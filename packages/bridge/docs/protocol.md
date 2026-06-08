@@ -102,7 +102,7 @@ Plugin commands are called by the TypeScript extension after it registers `/elix
 { "type": "call", "id": 2, "name": "pi_plugin_command", "arguments": { "name": "demo_plugin_status", "args": "smoke" } }
 ```
 
-Tool hooks use strict hook payload shapes before dispatching to plugin callbacks:
+Tool hooks use strict hook payload shapes before dispatching to plugin callbacks. `pi_plugin_tool_call` responses patch tool input only; result hook responses may patch result `content` or `isError`.
 
 ```json
 { "type": "call", "id": 3, "name": "pi_plugin_tool_call", "arguments": { "toolName": "bash", "toolCallId": "tool_1", "input": { "command": "pwd" } } }
