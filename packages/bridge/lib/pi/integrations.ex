@@ -1,6 +1,8 @@
 defmodule Pi.Integrations do
   @moduledoc "Optional project integration discovery."
 
+  alias Pi.Protocol.Integration.Status
+
   def modules do
     loaded_app_modules()
     |> Enum.filter(&integration?/1)
@@ -17,6 +19,7 @@ defmodule Pi.Integrations do
   def statuses do
     modules()
     |> Enum.flat_map(&optional(&1, :statuses))
+    |> Enum.map(&normalize_status/1)
     |> Enum.uniq_by(& &1.key)
   end
 
@@ -38,6 +41,9 @@ defmodule Pi.Integrations do
   end
 
   defp behaviours(module), do: module.module_info(:attributes) |> Keyword.get(:behaviour, [])
+
+  defp normalize_status(%Status{} = status), do: status
+  defp normalize_status(%{} = status), do: Status.from_map!(status)
 
   defp optional(module, function) do
     if function_exported?(module, function, 0) do

@@ -3,7 +3,7 @@ defmodule Pi.Integration do
 
   @callback name() :: atom()
   @callback endpoints() :: [map()]
-  @callback statuses() :: [map()]
+  @callback statuses() :: [Pi.Protocol.Integration.Status.t()]
 
   @optional_callbacks endpoints: 0, statuses: 0
 end

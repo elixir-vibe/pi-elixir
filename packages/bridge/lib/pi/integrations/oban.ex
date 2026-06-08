@@ -4,11 +4,13 @@ if Code.ensure_loaded?(Oban) do
 
     @behaviour Pi.Integration
 
+    alias Pi.Protocol.Integration.Status
+
     def name, do: :oban
 
     def statuses do
       names = names()
-      if names == [], do: [], else: [%{key: :oban, text: "oban #{length(names)}"}]
+      if names == [], do: [], else: [%Status{key: :oban, text: "oban #{length(names)}"}]
     end
 
     defp names do

@@ -4,6 +4,8 @@ if Code.ensure_loaded?(Ecto.Repo) do
 
     @behaviour Pi.Integration
 
+    alias Pi.Protocol.Integration.Status
+
     def name, do: :ecto
 
     def repos do
@@ -15,8 +17,11 @@ if Code.ensure_loaded?(Ecto.Repo) do
 
     def statuses do
       case repos() do
-        [] -> []
-        repos -> [%{key: :ecto, text: "ecto #{Enum.count(repos, & &1.running)}/#{length(repos)}"}]
+        [] ->
+          []
+
+        repos ->
+          [%Status{key: :ecto, text: "ecto #{Enum.count(repos, & &1.running)}/#{length(repos)}"}]
       end
     end
 

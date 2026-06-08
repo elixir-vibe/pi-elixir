@@ -4,10 +4,12 @@ if Code.ensure_loaded?(ExUnit) do
 
     @behaviour Pi.Integration
 
+    alias Pi.Protocol.Integration.Status
+
     def name, do: :ex_unit
 
     def statuses do
-      if Mix.env() == :test, do: [%{key: :ex_unit, text: "test env"}], else: []
+      if Mix.env() == :test, do: [%Status{key: :ex_unit, text: "test env"}], else: []
     rescue
       _ -> []
     end

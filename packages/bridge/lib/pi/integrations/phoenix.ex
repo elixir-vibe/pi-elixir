@@ -4,6 +4,8 @@ if Code.ensure_loaded?(Phoenix.Endpoint) do
 
     @behaviour Pi.Integration
 
+    alias Pi.Protocol.Integration.Status
+
     def name, do: :phoenix
 
     def endpoints do
@@ -20,7 +22,7 @@ if Code.ensure_loaded?(Phoenix.Endpoint) do
     def statuses do
       endpoints()
       |> Enum.filter(& &1.port)
-      |> Enum.map(fn endpoint -> %{key: :phoenix, text: "phx :#{endpoint.port}"} end)
+      |> Enum.map(fn endpoint -> %Status{key: :phoenix, text: "phx :#{endpoint.port}"} end)
     end
 
     defp endpoint_url(endpoint) do
