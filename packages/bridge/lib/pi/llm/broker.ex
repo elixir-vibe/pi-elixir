@@ -84,16 +84,20 @@ defmodule Pi.LLM.Broker do
     stream =
       Elixir.Stream.resource(
         fn -> id end,
-        fn stream_id ->
-          receive do
-            {:pi_llm_chunk, ^stream_id, delta} -> {[delta], stream_id}
-            {:pi_llm_done, ^stream_id, result} -> {[result], :done}
-            {:pi_llm_error, ^stream_id, error} -> raise RuntimeError, message: inspect(error)
-          after
-            Keyword.get(opts, :timeout, @timeout) ->
-              Stdio.emit(%Cancel{type: :llm_cancel, id: stream_id, reason: "timeout"})
-              {:halt, stream_id}
-          end
+        fn
+          :done ->
+            {:halt, :done}
+
+          stream_id ->
+            receive do
+              {:pi_llm_chunk, ^stream_id, delta} -> {[delta], stream_id}
+              {:pi_llm_done, ^stream_id, result} -> {[result], :done}
+              {:pi_llm_error, ^stream_id, error} -> raise RuntimeError, message: inspect(error)
+            after
+              Keyword.get(opts, :timeout, @timeout) ->
+                Stdio.emit(%Cancel{type: :llm_cancel, id: stream_id, reason: "timeout"})
+                {:halt, stream_id}
+            end
         end,
         fn
           :done -> :ok
