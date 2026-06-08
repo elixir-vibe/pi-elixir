@@ -66,9 +66,11 @@ export async function resolveUrl(
   }
 
   if (process.env.PI_DISABLE_EMBEDDED === '1') return null
-  if (hasEmbeddedFailed(cwd)) return null
 
+  const failedBeforeInstall = hasEmbeddedFailed(cwd)
+  const missingBeforeInstall = hasMissingDependency(cwd)
   if (!(await ensurePiBeamDependency(cwd, options))) return null
+  if (failedBeforeInstall && !missingBeforeInstall) return null
   clearEmbeddedFailed(cwd)
 
   if (isEmbeddedReady(cwd)) {

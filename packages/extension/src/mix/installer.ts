@@ -45,8 +45,6 @@ function runMixDepsGet(cwd: string): Promise<void> {
 }
 
 export async function ensurePiBeamDependency(cwd: string, options?: InstallOptions) {
-  if (!options?.confirmInstall) return true
-
   const mixExsPath = path.join(cwd, 'mix.exs')
   const mixExs = readMixExs(cwd)
   if (!mixExs) return true
@@ -59,6 +57,7 @@ export async function ensurePiBeamDependency(cwd: string, options?: InstallOptio
   const dependency = dependencyLine(cwd)
   markMissingDependency(cwd)
 
+  if (!options?.confirmInstall) return false
   if (!(await options.confirmInstall({ dependency, mixExsPath }))) return false
 
   const updated = addPiDependency(mixExs, dependency)

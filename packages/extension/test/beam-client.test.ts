@@ -277,6 +277,24 @@ describe('resolveUrl', () => {
     )
   })
 
+  it('marks Mix projects without pi_bridge as missing instead of starting a doomed BEAM', async () => {
+    vi.mocked(fetch).mockRejectedValue(new Error('connection refused'))
+    vi.mocked(fs.readFileSync).mockReturnValue(`defmodule Demo.MixProject do
+  use Mix.Project
+  def project, do: [app: :demo]
+  defp deps do
+    []
+  end
+end`)
+    vi.mocked(childProcess.spawn).mockClear()
+
+    const result = await resolveUrl('/missing-dep-project')
+
+    expect(result).toBeNull()
+    expect(getConnectionKind('/missing-dep-project')).toBe('missing')
+    expect(childProcess.spawn).not.toHaveBeenCalled()
+  })
+
   it('returns null immediately for failed cwds', async () => {
     // First: trigger embedded failure
     vi.mocked(fetch).mockRejectedValue(new Error('connection refused'))

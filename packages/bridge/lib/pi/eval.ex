@@ -21,7 +21,7 @@ defmodule Pi.Eval do
     receive do
       {:result, result} ->
         Process.demonitor(ref, [:flush])
-        {:ok, result}
+        result
 
       {:DOWN, ^ref, :process, ^pid, reason} ->
         {:error, "Process exited: #{Exception.format_exit(reason)}"}
@@ -69,10 +69,11 @@ defmodule Pi.Eval do
       end)
 
     case {result, success?, io} do
-      {:"do not show this result in output", _success?, io} -> io
-      {result, false, _io} -> result
-      {result, _success?, ""} -> inspect(result, @inspect_opts)
-      {result, _success?, io} -> "IO:\n\n#{io}\n\nResult:\n\n#{inspect(result, @inspect_opts)}"
+      {:"do not show this result in output", true, io} -> {:ok, io}
+      {result, false, ""} -> {:error, result}
+      {result, false, io} -> {:error, "IO:\n\n#{io}\n\nError:\n\n#{result}"}
+      {result, true, ""} -> {:ok, inspect(result, @inspect_opts)}
+      {result, true, io} -> {:ok, "IO:\n\n#{io}\n\nResult:\n\n#{inspect(result, @inspect_opts)}"}
     end
   end
 
