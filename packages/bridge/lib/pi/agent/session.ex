@@ -1,6 +1,9 @@
 defmodule Pi.Agent.Session do
   @moduledoc "Logical Pi agent session. Child sessions model subagents."
 
+  alias Pi.Agent.Messages
+  alias Pi.Protocol.LLM.Message
+
   @enforce_keys [:id]
   defstruct [:id, :parent_id, :name, :system, messages: [], metadata: %{}]
 
@@ -9,7 +12,7 @@ defmodule Pi.Agent.Session do
           parent_id: String.t() | nil,
           name: atom() | String.t() | nil,
           system: String.t() | nil,
-          messages: [map()],
+          messages: [Message.t()],
           metadata: map()
         }
 
@@ -19,7 +22,7 @@ defmodule Pi.Agent.Session do
       parent_id: Keyword.get(opts, :parent_id),
       name: Keyword.get(opts, :name),
       system: Keyword.get(opts, :system),
-      messages: Keyword.get(opts, :messages, []),
+      messages: opts |> Keyword.get(:messages, []) |> Enum.map(&Messages.normalize/1),
       metadata: Keyword.get(opts, :metadata, %{})
     }
   end

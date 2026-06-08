@@ -3,6 +3,7 @@ defmodule Pi.Agent.Registry do
 
   use GenServer
 
+  alias Pi.Agent.Messages
   alias Pi.Agent.Session
 
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -21,7 +22,7 @@ defmodule Pi.Agent.Registry do
 
   def append(session_id, message) when is_binary(session_id) do
     install()
-    GenServer.call(__MODULE__, {:append, session_id, message})
+    GenServer.call(__MODULE__, {:append, session_id, Messages.normalize(message)})
   end
 
   def sessions do

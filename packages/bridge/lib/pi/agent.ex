@@ -3,9 +3,11 @@ defmodule Pi.Agent do
 
   alias Pi.Agent.Registry
   alias Pi.Agent.Result
+  alias Pi.Agent.Run
   alias Pi.Agent.Session
   alias Pi.Agent.Step
   alias Pi.LLM
+  alias Pi.Protocol.LLM.Message
 
   def run(prompt_or_opts, opts \\ []) do
     session = prompt_or_opts |> session(opts) |> Registry.put()
@@ -13,7 +15,7 @@ defmodule Pi.Agent do
 
     case LLM.complete(messages, Keyword.put(opts, :agent, session.id)) do
       {:ok, result} ->
-        Registry.append(session.id, %{role: :assistant, content: result})
+        Registry.append(session.id, %Message{role: :assistant, content: result})
         {:ok, Result.ok(session, result)}
 
       {:error, reason} ->
@@ -39,20 +41,25 @@ defmodule Pi.Agent do
   end
 
   def parallel(runs, opts \\ []) when is_list(runs) do
-    runs
-    |> Enum.map(&async(&1, opts))
-    |> await_many(Keyword.get(opts, :timeout, 60_000) + 1_000)
+    results =
+      runs
+      |> Enum.map(&async(&1, opts))
+      |> await_many(Keyword.get(opts, :timeout, 60_000) + 1_000)
+
+    if Enum.all?(results, &match?({:ok, %Result{}}, &1)) do
+      {:ok, Run.ok(:parallel, Enum.map(results, fn {:ok, result} -> result end))}
+    else
+      {:error, Run.error(:parallel, results, :one_or_more_failed)}
+    end
   end
 
-  def chain(steps, opts \\ []) when is_list(steps) do
-    Enum.reduce_while(steps, {:ok, nil}, fn step, {:ok, previous} ->
-      input = chain_input(step, previous)
+  def fanout(inputs, opts \\ []) when is_list(inputs), do: parallel(inputs, opts)
 
-      case run(input, opts) do
-        {:ok, %Result{result: result}} = ok -> {:cont, ok_result(ok, result)}
-        {:error, reason} -> {:halt, {:error, reason}}
-      end
-    end)
+  def chain(steps, opts \\ []) when is_list(steps) do
+    case reduce_chain(steps, opts, nil, []) do
+      {:ok, results} -> {:ok, Run.ok(:chain, Enum.reverse(results))}
+      {:error, results, reason} -> {:error, Run.error(:chain, Enum.reverse(results), reason)}
+    end
   end
 
   def child(%Session{} = parent, opts \\ []) do
@@ -71,7 +78,7 @@ defmodule Pi.Agent do
 
   def session(prompt, opts) when is_binary(prompt) do
     opts
-    |> Keyword.put(:messages, [%{role: :user, content: prompt}])
+    |> Keyword.put(:messages, [%Message{role: :user, content: prompt}])
     |> Session.new()
   end
 
@@ -86,7 +93,21 @@ defmodule Pi.Agent do
   defp messages(%Session{system: nil, messages: messages}), do: messages
 
   defp messages(%Session{system: system, messages: messages}),
-    do: [%{role: :system, content: system} | messages]
+    do: [%Message{role: :system, content: system} | messages]
+
+  defp reduce_chain([], _opts, _previous, results), do: {:ok, results}
+
+  defp reduce_chain([step | steps], opts, previous, results) do
+    input = chain_input(step, previous)
+
+    case run(input, opts) do
+      {:ok, %Result{result: result} = agent_result} ->
+        reduce_chain(steps, opts, result, [agent_result | results])
+
+      {:error, reason} ->
+        {:error, results, reason}
+    end
+  end
 
   defp chain_input(step, nil), do: step
 
@@ -94,10 +115,13 @@ defmodule Pi.Agent do
     do: step <> "\n\nPrevious result:\n" <> inspect(previous)
 
   defp chain_input(step, previous) when is_list(step) do
-    Keyword.update(step, :messages, [%{role: :user, content: inspect(previous)}], fn messages ->
-      messages ++ [%{role: :user, content: inspect(previous)}]
-    end)
+    Keyword.update(
+      step,
+      :messages,
+      [%Message{role: :user, content: inspect(previous)}],
+      fn messages ->
+        messages ++ [%Message{role: :user, content: inspect(previous)}]
+      end
+    )
   end
-
-  defp ok_result({:ok, %Result{session: session}}, result), do: {:ok, Result.ok(session, result)}
 end

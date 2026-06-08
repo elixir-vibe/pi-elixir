@@ -2,6 +2,7 @@ defmodule Pi.Agent.Step do
   @moduledoc "Declarative Pi agent orchestration step."
 
   alias Pi.Agent.Session
+  alias Pi.Protocol.LLM.Message
 
   defstruct [:name, :system, :prompt, :messages, :parent_id, metadata: %{}]
 
@@ -9,7 +10,7 @@ defmodule Pi.Agent.Step do
           name: atom() | String.t() | nil,
           system: String.t() | nil,
           prompt: String.t() | nil,
-          messages: [map()] | nil,
+          messages: [Message.t()] | nil,
           parent_id: String.t() | nil,
           metadata: map()
         }

@@ -111,8 +111,17 @@ defmodule Pi.Skill.Loader do
       module: module,
       metadata: metadata,
       markdown: module.markdown(),
-      apis: Enum.map(module.apis(), &API.new/1)
+      apis: normalize_apis(module.apis())
     }
+  end
+
+  defp normalize_apis(apis) do
+    apis = List.wrap(apis)
+
+    case apis do
+      [{key, _value} | _rest] when is_atom(key) -> [API.new(apis)]
+      apis -> Enum.map(apis, &API.new/1)
+    end
   end
 
   defp atom_keys_to_strings(map) do

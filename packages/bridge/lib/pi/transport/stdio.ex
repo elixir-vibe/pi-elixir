@@ -32,6 +32,9 @@ defmodule Pi.Transport.Stdio do
   @doc false
   def __test_payload__(payload), do: payload |> to_payload() |> normalize()
 
+  @doc false
+  def __test_handle_line__(line), do: handle_line(line)
+
   def start do
     :persistent_term.put({__MODULE__, :pid}, self())
     Event.install()
@@ -64,36 +67,37 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp handle_line(line) do
-    case Jason.decode(line) do
-      {:ok, %{"type" => "call"} = request} ->
-        with {:ok, call} <- Call.from_map(request) do
-          spawn(fn -> respond(call.id, dispatch(call.name, call.arguments)) end)
-        end
-
-      {:ok, %{"type" => "response"} = response} ->
-        with {:ok, response} <- Response.from_map(response) do
-          Broker.deliver(response.id, response)
-        end
-
-      {:ok, %{"type" => "llm_chunk"} = chunk} ->
-        with {:ok, chunk} <- Chunk.from_map(chunk) do
-          send(self(), {:pi_llm_chunk, chunk.id, chunk.delta})
-        end
-
-      {:ok, %{"type" => "llm_done"} = done} ->
-        with {:ok, done} <- Done.from_map(done) do
-          send(self(), {:pi_llm_done, done.id, done.result})
-        end
-
-      {:ok, %{"type" => "llm_error"} = error} ->
-        with {:ok, error} <- Error.from_map(error) do
-          send(self(), {:pi_llm_error, error.id, error.error})
-        end
-
-      _ ->
-        :ok
+    case decode_line(line) do
+      {:ok, payload} -> handle_payload(payload)
+      :ignore -> :ok
     end
   end
+
+  defp decode_line(line) do
+    case Jason.decode(line) do
+      {:ok, %{"type" => "call"} = payload} -> decode_payload(Call, payload)
+      {:ok, %{"type" => "response"} = payload} -> decode_payload(Response, payload)
+      {:ok, %{"type" => "llm_chunk"} = payload} -> decode_payload(Chunk, payload)
+      {:ok, %{"type" => "llm_done"} = payload} -> decode_payload(Done, payload)
+      {:ok, %{"type" => "llm_error"} = payload} -> decode_payload(Error, payload)
+      _ -> :ignore
+    end
+  end
+
+  defp decode_payload(module, payload) do
+    case module.from_map(payload) do
+      {:ok, payload} -> {:ok, payload}
+      {:error, _reason} -> :ignore
+    end
+  end
+
+  defp handle_payload(%Call{} = call),
+    do: spawn(fn -> respond(call.id, dispatch(call.name, call.arguments)) end)
+
+  defp handle_payload(%Response{} = response), do: Broker.deliver(response.id, response)
+  defp handle_payload(%Chunk{} = chunk), do: send(self(), {:pi_llm_chunk, chunk.id, chunk.delta})
+  defp handle_payload(%Done{} = done), do: send(self(), {:pi_llm_done, done.id, done.result})
+  defp handle_payload(%Error{} = error), do: send(self(), {:pi_llm_error, error.id, error.error})
 
   defp dispatch("pi_skills_list", _args) do
     {:ok, encode_structs(Loader.serializable())}

@@ -3,7 +3,7 @@ defmodule Pi.Plugin.Manager do
 
   use GenServer
 
-  alias Pi.Plugin.API
+  alias Pi.Plugin.Worker
   alias Pi.Protocol.PluginInfo
 
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -32,63 +32,46 @@ defmodule Pi.Plugin.Manager do
 
   @impl true
   def init(_opts) do
-    plugins = discover()
+    children =
+      discover()
+      |> Enum.map(&start_plugin/1)
+      |> Enum.reject(&is_nil/1)
 
-    states = Map.new(plugins, &{&1, init_plugin(&1)})
-
-    {:ok, %{plugins: plugins, states: states}}
+    {:ok, %{children: children}}
   end
 
   @impl true
   def handle_cast({:event, event}, state) do
-    states =
-      Map.new(state.plugins, fn module ->
-        plugin_state = Map.get(state.states, module, %{})
-        {module, handle_plugin_event(module, event, plugin_state)}
-      end)
-
-    {:noreply, %{state | states: states}}
+    Enum.each(state.children, fn {_module, pid} -> Worker.dispatch_event(pid, event) end)
+    {:noreply, state}
   end
 
   @impl true
   def handle_call(:plugins, _from, state) do
-    plugins = Enum.map(state.plugins, &%PluginInfo{module: &1, name: module_name(&1)})
+    plugins =
+      Enum.map(state.children, fn {module, pid} ->
+        case Worker.info(pid) do
+          {^module, name} -> %PluginInfo{module: module, name: name}
+        end
+      end)
+
     {:reply, plugins, state}
   end
 
   def handle_call(:apis, _from, state) do
     apis =
-      state.plugins
-      |> Enum.flat_map(&plugin_apis/1)
+      state.children
+      |> Enum.flat_map(fn {_module, pid} -> Worker.apis(pid) end)
       |> Enum.uniq_by(&{&1.alias, &1.module})
 
     {:reply, apis, state}
   end
 
-  defp init_plugin(module) do
-    if function_exported?(module, :init, 1) do
-      normalize_init(module.init([]))
-    else
-      %{}
+  defp start_plugin(module) do
+    case Worker.start_link(module) do
+      {:ok, pid} -> {module, pid}
+      {:error, _reason} -> nil
     end
-  end
-
-  defp normalize_init({:ok, state}), do: state
-  defp normalize_init({:error, _reason}), do: %{}
-  defp normalize_init(state), do: state
-
-  defp handle_plugin_event(module, event, state) do
-    if function_exported?(module, :handle_event, 2) do
-      case module.handle_event(event, state) do
-        {:noreply, next_state} -> next_state
-        next_state -> next_state
-      end
-    else
-      state
-    end
-  rescue
-    _exception in [ArgumentError, FunctionClauseError, KeyError, MatchError, RuntimeError] ->
-      state
   end
 
   defp discover do
@@ -128,14 +111,4 @@ defmodule Pi.Plugin.Manager do
     |> Enum.flat_map(&Path.wildcard/1)
     |> Enum.uniq()
   end
-
-  defp plugin_apis(module) do
-    if function_exported?(module, :apis, 0) do
-      Enum.map(module.apis(), &API.new/1)
-    else
-      []
-    end
-  end
-
-  defp module_name(module), do: module |> Module.split() |> List.last()
 end
