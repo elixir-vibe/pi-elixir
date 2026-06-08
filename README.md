@@ -28,6 +28,18 @@ packages/
 pi install npm:pi-elixir
 ```
 
+For local development, install the extension package directory, not the monorepo root:
+
+```sh
+git clone https://github.com/dannote/pi-elixir
+cd pi-elixir
+bun install
+cd packages/bridge && mix deps.get
+pi install "$PWD/../extension"
+```
+
+`pi list` should then show a package path ending in `pi-elixir/packages/extension`.
+
 When the embedded BEAM side is needed and the target project lacks `:pi_bridge`, pi asks before editing `mix.exs` or running `mix deps.get`.
 
 ## Connection model
@@ -140,6 +152,44 @@ defmodule MyApp.PiIntegration do
   def endpoints, do: []
 end
 ```
+
+## Development
+
+Prerequisites:
+
+- Bun
+- Elixir `~> 1.20`
+- pi installed globally
+
+Common commands from the repo root:
+
+```sh
+bun run fmt
+bun run check
+bun run check:js
+bun run check:beam
+bun run test:integration
+```
+
+Package-specific checks:
+
+```sh
+cd packages/extension
+bun run check
+
+cd ../bridge
+mix ci
+```
+
+Local pi setup for contributors:
+
+```sh
+pi remove /path/to/pi-elixir || true
+pi install /path/to/pi-elixir/packages/extension
+pi list
+```
+
+Do not install the monorepo root as a pi package during development. The root package is only a workspace/CI coordinator; the pi manifest lives in `packages/extension/package.json`.
 
 ## Protocol contracts
 
