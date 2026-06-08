@@ -14,6 +14,10 @@ defmodule Pi.Plugin.Worker do
     GenServer.start_link(__MODULE__, module)
   end
 
+  def start(module) when is_atom(module) do
+    GenServer.start(__MODULE__, module)
+  end
+
   def dispatch_event(pid, event) when is_pid(pid) and is_map(event) do
     GenServer.cast(pid, {:event, event})
   end

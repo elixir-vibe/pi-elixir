@@ -30,6 +30,8 @@ Pi.ReqLLM.install()
 ReqLLM.generate_text("pi:current", "Summarize the current project")
 ```
 
+ReqLLM may warn that `pi:current` is not in its public model catalog. That is expected: `pi:current` is a local provider/model route into the active pi session, not a hosted catalog model.
+
 ## Agents
 
 ```elixir
@@ -44,7 +46,7 @@ ReqLLM.generate_text("pi:current", "Summarize the current project")
 {:ok, fanout} = Pi.Agent.fanout(["Review tests", "Review API", "Review docs"])
 ```
 
-`Pi.Agent.Run` is the structured orchestration result for `chain/2`, `parallel/2`, and `fanout/2`.
+`Pi.Agent.run/2` keeps the single-run shape `{:ok, %Pi.Agent.Result{}} | {:error, %Pi.Agent.Result{}}`. `chain/2`, `parallel/2`, and `fanout/2` return `{:ok, %Pi.Agent.Run{}} | {:error, %Pi.Agent.Run{}}` so orchestration metadata and partial results are explicit.
 
 ## Plugins
 

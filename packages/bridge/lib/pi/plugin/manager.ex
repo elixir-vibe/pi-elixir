@@ -31,13 +31,10 @@ defmodule Pi.Plugin.Manager do
   end
 
   @impl true
-  def init(_opts) do
-    children =
-      discover()
-      |> Enum.map(&start_plugin/1)
-      |> Enum.reject(&is_nil/1)
-
-    {:ok, %{children: children}}
+  def init(opts) do
+    modules = Keyword.get_lazy(opts, :plugins, &discover/0)
+    {children, monitors} = start_plugins(modules)
+    {:ok, %{children: children, monitors: monitors}}
   end
 
   @impl true
@@ -67,8 +64,49 @@ defmodule Pi.Plugin.Manager do
     {:reply, apis, state}
   end
 
+  @impl true
+  def handle_info({:DOWN, ref, :process, _pid, _reason}, state) do
+    case Map.pop(state.monitors, ref) do
+      {nil, monitors} ->
+        {:noreply, %{state | monitors: monitors}}
+
+      {module, monitors} ->
+        children = Map.delete(state.children, module)
+        {:noreply, %{state | children: children, monitors: monitors} |> restart_plugin(module)}
+    end
+  end
+
+  defp start_plugins(modules) do
+    Enum.reduce(modules, {%{}, %{}}, fn module, {children, monitors} ->
+      case start_plugin(module) do
+        nil ->
+          {children, monitors}
+
+        {module, pid} ->
+          ref = Process.monitor(pid)
+          {Map.put(children, module, pid), Map.put(monitors, ref, module)}
+      end
+    end)
+  end
+
+  defp restart_plugin(state, module) do
+    case start_plugin(module) do
+      nil ->
+        state
+
+      {module, pid} ->
+        ref = Process.monitor(pid)
+
+        %{
+          state
+          | children: Map.put(state.children, module, pid),
+            monitors: Map.put(state.monitors, ref, module)
+        }
+    end
+  end
+
   defp start_plugin(module) do
-    case Worker.start_link(module) do
+    case Worker.start(module) do
       {:ok, pid} -> {module, pid}
       {:error, _reason} -> nil
     end
