@@ -3,6 +3,7 @@ import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
 import { displayString, evalTool, loadScript, wrapWithBindings } from '../helpers.ts'
+import { renderAstReplaceResult } from '../renderers.ts'
 
 export function register(pi: ExtensionAPI) {
   evalTool(
@@ -45,6 +46,7 @@ Examples:
       if (path) text += theme.fg('muted', ` ${path}`)
       if (args.dryRun) text += theme.fg('warning', ' (dry-run)')
       return new Text(text, 0, 0)
-    }
+    },
+    { renderResult: renderAstReplaceResult }
   )
 }

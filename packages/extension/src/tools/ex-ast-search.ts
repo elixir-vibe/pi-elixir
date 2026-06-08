@@ -3,6 +3,7 @@ import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
 import { displayString, evalTool, loadScript, wrapWithBindings } from '../helpers.ts'
+import { renderAstSearchResult } from '../renderers.ts'
 
 export function register(pi: ExtensionAPI) {
   evalTool(
@@ -33,6 +34,7 @@ Examples:
       const path = displayString(args.path)
       if (path) text += theme.fg('muted', ` ${path}`)
       return new Text(text, 0, 0)
-    }
+    },
+    { renderResult: renderAstSearchResult }
   )
 }
