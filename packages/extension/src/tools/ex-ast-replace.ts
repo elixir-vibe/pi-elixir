@@ -2,7 +2,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
-import { displayString, evalTool, loadScript, wrapWithBindings } from '../helpers.ts'
+import { bridgeTool, displayString } from '../helpers.ts'
 import { renderAstReplaceResult } from '../renderers.ts'
 
 interface AstReplacePayload {
@@ -41,9 +41,10 @@ function astReplaceText(text: string) {
 }
 
 export function register(pi: ExtensionAPI) {
-  evalTool(
+  bridgeTool(
     pi,
     'elixir_ast_replace',
+    'ex_ast_replace',
     'AST Replace',
     `Replace Elixir code by AST pattern using ExAST. Patterns are valid Elixir syntax.
 Captures from the pattern are substituted into the replacement by name.
@@ -65,13 +66,6 @@ Examples:
         })
       )
     }),
-    (params) =>
-      wrapWithBindings(loadScript('ex_ast_replace'), {
-        pattern: displayString(params.pattern),
-        replacement: displayString(params.replacement),
-        path: params.path ?? null,
-        dry_run: params.dryRun ?? false
-      }),
     (args, theme) => {
       let text = theme.fg('toolTitle', theme.bold('elixir_ast_replace '))
       text += theme.fg('accent', displayString(args.pattern))
