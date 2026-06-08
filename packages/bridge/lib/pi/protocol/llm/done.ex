@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.LLMDone do
+defmodule Pi.Protocol.LLM.Done do
   @moduledoc "Streaming LLM completion marker routed by request id."
 
   use JSONCodec, fast_path: :json, case: :camel

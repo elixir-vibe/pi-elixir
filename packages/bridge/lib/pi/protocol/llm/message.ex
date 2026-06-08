@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.LLMMessage do
+defmodule Pi.Protocol.LLM.Message do
   @moduledoc "LLM message passed across the Pi bridge."
 
   use JSONCodec, fast_path: :json

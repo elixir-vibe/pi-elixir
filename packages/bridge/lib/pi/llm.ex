@@ -2,7 +2,7 @@ defmodule Pi.LLM do
   @moduledoc "BEAM API for model calls backed by the active pi session."
 
   alias Pi.LLM.Broker
-  alias Pi.Protocol.LLMMessage
+  alias Pi.Protocol.LLM.Message
 
   def complete(messages, opts \\ []) do
     Broker.complete(normalize_messages(messages), opts)
@@ -22,14 +22,14 @@ defmodule Pi.LLM do
   end
 
   defp normalize_messages(messages) when is_binary(messages),
-    do: [LLMMessage.from_map!(%{role: :user, content: messages})]
+    do: [Message.from_map!(%{role: :user, content: messages})]
 
   defp normalize_messages(messages) when is_list(messages),
     do: Enum.map(messages, &normalize_message/1)
 
-  defp normalize_message(%LLMMessage{} = message), do: message
-  defp normalize_message(%{} = message), do: LLMMessage.from_map!(message)
+  defp normalize_message(%Message{} = message), do: message
+  defp normalize_message(%{} = message), do: Message.from_map!(message)
 
   defp normalize_message(message) when is_binary(message),
-    do: LLMMessage.from_map!(%{role: :user, content: message})
+    do: Message.from_map!(%{role: :user, content: message})
 end

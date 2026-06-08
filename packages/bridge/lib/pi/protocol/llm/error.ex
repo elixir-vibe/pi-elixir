@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.LLMError do
+defmodule Pi.Protocol.LLM.Error do
   @moduledoc "Streaming LLM error routed by request id."
 
   use JSONCodec, fast_path: :json, case: :camel

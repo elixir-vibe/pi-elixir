@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.MCPRequest do
+defmodule Pi.Protocol.MCP.Request do
   @moduledoc "MCP JSON-RPC request envelope."
 
   use JSONCodec, fast_path: :json

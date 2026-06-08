@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.LLMChunk do
+defmodule Pi.Protocol.LLM.Chunk do
   @moduledoc "Streaming LLM content chunk routed by request id."
 
   use JSONCodec, fast_path: :json, case: :camel

@@ -5,7 +5,7 @@ case Code.ensure_compiled(ReqLLM.Provider) do
 
       @behaviour ReqLLM.Provider
 
-      alias Pi.Protocol.LLMMessage
+      alias Pi.Protocol.LLM.Message
       alias ReqLLM.Context
       alias ReqLLM.Response
 
@@ -35,7 +35,7 @@ case Code.ensure_compiled(ReqLLM.Provider) do
 
       defp messages(%Context{} = context) do
         Enum.map(context.messages, fn message ->
-          LLMMessage.from_map!(%{
+          Message.from_map!(%{
             role: message.role,
             content: text_content(message.content)
           })

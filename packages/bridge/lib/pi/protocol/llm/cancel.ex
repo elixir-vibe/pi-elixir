@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.LLMCancel do
+defmodule Pi.Protocol.LLM.Cancel do
   @moduledoc "BEAM-to-Pi LLM cancellation envelope."
 
   use JSONCodec, fast_path: :json, case: :camel

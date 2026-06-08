@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.MCPError do
+defmodule Pi.Protocol.MCP.Error do
   @moduledoc "MCP JSON-RPC transport error payload."
 
   use JSONCodec, fast_path: :json

@@ -4,7 +4,7 @@ defmodule Pi.LLM.Broker do
   use GenServer
 
   alias Pi.LLM.Stream, as: LLMStream
-  alias Pi.Protocol.LLMCancel
+  alias Pi.Protocol.LLM.Cancel
   alias Pi.Protocol.Response
   alias Pi.Transport.Stdio
 
@@ -91,13 +91,13 @@ defmodule Pi.LLM.Broker do
             {:pi_llm_error, ^stream_id, error} -> raise RuntimeError, message: inspect(error)
           after
             Keyword.get(opts, :timeout, @timeout) ->
-              Stdio.emit(%LLMCancel{type: :llm_cancel, id: stream_id, reason: "timeout"})
+              Stdio.emit(%Cancel{type: :llm_cancel, id: stream_id, reason: "timeout"})
               {:halt, stream_id}
           end
         end,
         fn
           :done -> :ok
-          stream_id -> Stdio.emit(%LLMCancel{type: :llm_cancel, id: stream_id, reason: "closed"})
+          stream_id -> Stdio.emit(%Cancel{type: :llm_cancel, id: stream_id, reason: "closed"})
         end
       )
 
