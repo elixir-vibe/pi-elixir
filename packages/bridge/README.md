@@ -14,6 +14,17 @@ end
 
 `pi_bridge` is intended for development-time agent tooling.
 
+## Public API ergonomics
+
+The public API intentionally separates single-call and orchestration shapes:
+
+- `Pi.LLM.complete/2` and `Pi.LLM.stream/2` are low-level model calls over the active pi session.
+- `Pi.Agent.run/2` returns a single `%Pi.Agent.Result{}`.
+- `Pi.Agent.chain/2`, `Pi.Agent.parallel/2`, and `Pi.Agent.fanout/2` return `%Pi.Agent.Run{}` so partial results, kind, status, and errors are explicit.
+- `Pi.Plugin` modules expose optional `init/1`, `handle_event/2`, and `apis/0`; plugin process lifecycle is handled by `Pi.Plugin.Manager` and `Pi.Plugin.Supervisor`.
+
+Boundary JSON examples are documented in [`docs/protocol.md`](docs/protocol.md).
+
 ## LLM
 
 ```elixir

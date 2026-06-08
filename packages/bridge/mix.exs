@@ -10,7 +10,7 @@ defmodule PiBridge.MixProject do
       description: "BEAM runtime bridge for pi development agents",
       package: package(),
       source_url: "https://github.com/dannote/pi-elixir",
-      docs: [main: "readme", extras: ["README.md"]],
+      docs: [main: "readme", extras: ["README.md", "docs/protocol.md"]],
       aliases: aliases(),
       dialyzer: [
         plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
@@ -46,7 +46,7 @@ defmodule PiBridge.MixProject do
     [
       licenses: ["MIT"],
       links: %{"GitHub" => "https://github.com/dannote/pi-elixir"},
-      files: ~w[lib mix.exs README.md]
+      files: ~w[lib docs mix.exs README.md]
     ]
   end
 

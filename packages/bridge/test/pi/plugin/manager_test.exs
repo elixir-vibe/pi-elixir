@@ -13,6 +13,7 @@ defmodule Pi.Plugin.ManagerTest do
 
   setup do
     if pid = Process.whereis(Manager), do: GenServer.stop(pid)
+    if pid = Process.whereis(Pi.Plugin.Supervisor), do: DynamicSupervisor.stop(pid)
     :ok
   end
 

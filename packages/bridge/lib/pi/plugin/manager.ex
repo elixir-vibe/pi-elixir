@@ -3,6 +3,7 @@ defmodule Pi.Plugin.Manager do
 
   use GenServer
 
+  alias Pi.Plugin.Supervisor, as: PluginSupervisor
   alias Pi.Plugin.Worker
   alias Pi.Protocol.PluginInfo
 
@@ -32,6 +33,7 @@ defmodule Pi.Plugin.Manager do
 
   @impl true
   def init(opts) do
+    PluginSupervisor.install()
     modules = Keyword.get_lazy(opts, :plugins, &discover/0)
     {children, monitors} = start_plugins(modules)
     {:ok, %{children: children, monitors: monitors}}
@@ -106,7 +108,7 @@ defmodule Pi.Plugin.Manager do
   end
 
   defp start_plugin(module) do
-    case Worker.start(module) do
+    case PluginSupervisor.start_plugin(module) do
       {:ok, pid} -> {module, pid}
       {:error, _reason} -> nil
     end

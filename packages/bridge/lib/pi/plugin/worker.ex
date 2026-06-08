@@ -10,12 +10,17 @@ defmodule Pi.Plugin.Worker do
 
   @type t :: %__MODULE__{module: module(), state: term()}
 
-  def start_link(module) when is_atom(module) do
-    GenServer.start_link(__MODULE__, module)
+  def child_spec(module) when is_atom(module) do
+    %{
+      id: {__MODULE__, module},
+      start: {__MODULE__, :start_link, [module]},
+      restart: :temporary,
+      type: :worker
+    }
   end
 
-  def start(module) when is_atom(module) do
-    GenServer.start(__MODULE__, module)
+  def start_link(module) when is_atom(module) do
+    GenServer.start_link(__MODULE__, module)
   end
 
   def dispatch_event(pid, event) when is_pid(pid) and is_map(event) do

@@ -43,6 +43,7 @@ for file <- [
       "pi/plugin/event.ex",
       "pi/plugin/ui.ex",
       "pi/plugin/worker.ex",
+      "pi/plugin/supervisor.ex",
       "pi/plugin/manager.ex",
       "pi/llm/stream.ex",
       "pi/llm/broker.ex",
