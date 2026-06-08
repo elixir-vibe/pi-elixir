@@ -1,22 +1,29 @@
 defmodule Pi.API do
   @moduledoc "Discoverable BEAM-facing Pi APIs."
 
+  alias Pi.Protocol.APIFunction
+  alias Pi.Protocol.APIModule
+
+  @api_modules [
+    agent: Pi.Agent,
+    llm: Pi.LLM,
+    bridge_info: Pi.Bridge.Info,
+    plugin_ui: Pi.Plugin.UI,
+    plugin_events: Pi.Plugin.Event,
+    integrations: Pi.Integrations
+  ]
+
   def all do
-    [
-      %{name: :agent, module: Pi.Agent, functions: functions(Pi.Agent)},
-      %{name: :llm, module: Pi.LLM, functions: functions(Pi.LLM)},
-      %{name: :bridge_info, module: Pi.Bridge.Info, functions: functions(Pi.Bridge.Info)},
-      %{name: :plugin_ui, module: Pi.Plugin.UI, functions: functions(Pi.Plugin.UI)},
-      %{name: :plugin_events, module: Pi.Plugin.Event, functions: functions(Pi.Plugin.Event)},
-      %{name: :integrations, module: Pi.Integrations, functions: functions(Pi.Integrations)}
-    ]
+    Enum.map(@api_modules, fn {name, module} ->
+      %APIModule{name: name, module: module, functions: functions(module)}
+    end)
   end
 
-  def all_json, do: Jason.encode!(all())
+  def all_json, do: Jason.encode!(Enum.map(all(), &APIModule.to_map/1))
 
   defp functions(module) do
     module.__info__(:functions)
     |> Enum.reject(fn {name, _arity} -> name in [:module_info, :__info__] end)
-    |> Enum.map(fn {name, arity} -> %{name: name, arity: arity} end)
+    |> Enum.map(fn {name, arity} -> %APIFunction{name: name, arity: arity} end)
   end
 end

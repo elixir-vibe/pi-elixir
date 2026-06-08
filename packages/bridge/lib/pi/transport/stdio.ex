@@ -108,7 +108,7 @@ defmodule Pi.Transport.Stdio do
 
   defp emit_integration_statuses do
     Enum.each(Integrations.statuses(), fn %{key: key, text: text} ->
-      write(%{type: :ui, op: :status, key: key, text: text})
+      write(%Pi.Protocol.UIEvent{type: :ui, op: :status, key: key, text: text})
     end)
   end
 

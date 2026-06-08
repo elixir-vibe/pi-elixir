@@ -3,6 +3,7 @@ defmodule Pi.LLM.Broker do
 
   use GenServer
 
+  alias Pi.Protocol.Response
   alias Pi.Transport.Stdio
 
   @timeout 60_000
@@ -49,7 +50,7 @@ defmodule Pi.LLM.Broker do
 
   @impl true
   def handle_cast({:deliver, id, result}, state) do
-    {:noreply, reply(state, id, normalize_result(result))}
+    {:noreply, reply(state, id, Response.to_result(result))}
   end
 
   @impl true
@@ -68,14 +69,6 @@ defmodule Pi.LLM.Broker do
         %{state | pending: pending}
     end
   end
-
-  defp normalize_result(%Pi.Protocol.Response{ok: true, result: result}), do: {:ok, result}
-  defp normalize_result(%Pi.Protocol.Response{ok: false, error: error}), do: {:error, error}
-  defp normalize_result(%{"ok" => true, "result" => result}), do: {:ok, result}
-  defp normalize_result(%{"ok" => false, "error" => error}), do: {:error, error}
-  defp normalize_result(%{ok: true, result: result}), do: {:ok, result}
-  defp normalize_result(%{ok: false, error: error}), do: {:error, error}
-  defp normalize_result(result), do: {:ok, result}
 
   defp request_id(next_id), do: "llm_#{System.unique_integer([:positive])}_#{next_id}"
 end

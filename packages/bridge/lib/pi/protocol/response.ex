@@ -14,4 +14,7 @@ defmodule Pi.Protocol.Response do
         }
 
   codec(:type, atom: :existing)
+
+  def to_result(%__MODULE__{ok: true, result: result}), do: {:ok, result}
+  def to_result(%__MODULE__{ok: false, error: error}), do: {:error, error}
 end

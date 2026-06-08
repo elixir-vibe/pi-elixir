@@ -14,6 +14,8 @@ for file <- [
       "pi/integrations/ex_unit.ex",
       "pi/integrations.ex",
       "pi/plugin.ex",
+      "pi/protocol/api_function.ex",
+      "pi/protocol/api_module.ex",
       "pi/protocol/call.ex",
       "pi/protocol/result.ex",
       "pi/protocol/request.ex",

@@ -2,6 +2,7 @@ defmodule Pi.Plugin.UI do
   @moduledoc "Renderer-neutral UI events emitted from BEAM plugins to pi."
 
   alias Pi.Protocol.UIEvent
+  alias Pi.Transport.Stdio
 
   def set_status(key, text) when is_atom(key) or is_binary(key) do
     emit(%UIEvent{type: :ui, op: :status, key: key, text: text})
@@ -46,17 +47,5 @@ defmodule Pi.Plugin.UI do
     })
   end
 
-  def emit(payload) when is_map(payload) do
-    case :persistent_term.get({Pi.Transport.Stdio, :pid}, nil) do
-      nil -> :ok
-      pid -> send(pid, {:pi_transport_emit, normalize(payload)})
-    end
-  end
-
-  defp normalize(map) do
-    Map.new(map, fn {key, value} -> {key, normalize_value(value)} end)
-  end
-
-  defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
-  defp normalize_value(value), do: value
+  def emit(payload) when is_map(payload), do: Stdio.emit(payload)
 end

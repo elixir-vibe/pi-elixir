@@ -3,6 +3,7 @@ defmodule Pi.LLM.BrokerTest do
 
   alias Pi.LLM
   alias Pi.LLM.Broker
+  alias Pi.Protocol.Response
 
   setup do
     :persistent_term.put({Pi.Transport.Stdio, :pid}, self())
@@ -18,8 +19,8 @@ defmodule Pi.LLM.BrokerTest do
     first_request = Enum.find(requests, &requested?(&1, "first"))
     second_request = Enum.find(requests, &requested?(&1, "second"))
 
-    Broker.deliver(second_request.id, %{"ok" => true, "result" => "second result"})
-    Broker.deliver(first_request.id, %{"ok" => true, "result" => "first result"})
+    Broker.deliver(second_request.id, %Response{ok: true, result: "second result"})
+    Broker.deliver(first_request.id, %Response{ok: true, result: "first result"})
 
     assert Task.await(first) == {:ok, "first result"}
     assert Task.await(second) == {:ok, "second result"}
