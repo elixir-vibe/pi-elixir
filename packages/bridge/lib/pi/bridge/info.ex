@@ -3,12 +3,12 @@ defmodule Pi.Bridge.Info do
 
   alias Pi.Integrations
   alias Pi.Plugin.Manager
-  alias Pi.Protocol.APIFunction
-  alias Pi.Protocol.APIInventory
-  alias Pi.Protocol.APIModule
+  alias Pi.Protocol.API.Extension
+  alias Pi.Protocol.API.Function
+  alias Pi.Protocol.API.Inventory
+  alias Pi.Protocol.API.Module, as: APIModule
   alias Pi.Protocol.BridgeInfo
   alias Pi.Protocol.Endpoint
-  alias Pi.Protocol.ExtensionAPI
   alias Pi.Protocol.PluginInfo
   alias Pi.Protocol.SkillInfo
   alias Pi.Skill.Loader
@@ -30,7 +30,7 @@ defmodule Pi.Bridge.Info do
       skills: skills(),
       plugins: plugins(),
       endpoints: endpoints(),
-      apis: %APIInventory{
+      apis: %Inventory{
         runtime: runtime_apis(),
         extensions: extension_apis()
       }
@@ -47,7 +47,7 @@ defmodule Pi.Bridge.Info do
 
   def extension_apis do
     (Manager.apis() ++ skill_apis())
-    |> Enum.map(&ExtensionAPI.from_api/1)
+    |> Enum.map(&Extension.from_api/1)
     |> Enum.uniq_by(&{&1.alias, &1.module})
   end
 
@@ -60,7 +60,7 @@ defmodule Pi.Bridge.Info do
   defp runtime_functions(module) do
     module.__info__(:functions)
     |> Enum.reject(fn {name, _arity} -> name in [:module_info, :__info__] end)
-    |> Enum.map(fn {name, arity} -> %APIFunction{name: name, arity: arity} end)
+    |> Enum.map(fn {name, arity} -> %Function{name: name, arity: arity} end)
   end
 
   defp skills do

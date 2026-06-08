@@ -1,4 +1,4 @@
-defmodule Pi.Protocol.ExtensionAPI do
+defmodule Pi.Protocol.API.Extension do
   @moduledoc "Plugin or skill API exposed to pi as an extension API."
 
   use JSONCodec, fast_path: :json

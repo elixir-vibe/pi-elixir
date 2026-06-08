@@ -1,23 +1,23 @@
-defmodule Pi.APIInventoryTest do
+defmodule Pi.InventoryTest do
   use ExUnit.Case, async: false
 
   alias Pi.Bridge.Info
   alias Pi.Plugin.API
-  alias Pi.Protocol.APIInventory
+  alias Pi.Protocol.API.Extension
+  alias Pi.Protocol.API.Inventory
   alias Pi.Protocol.BridgeInfo
-  alias Pi.Protocol.ExtensionAPI
   alias Pi.Protocol.SkillInfo
   alias Pi.Transport.Stdio
 
   test "extension APIs use protocol structs" do
     api = API.new(name: :demo, module: __MODULE__, alias: :Demo, description: "demo")
 
-    assert %ExtensionAPI{name: :demo, module: __MODULE__, alias: :Demo, description: "demo"} =
-             ExtensionAPI.from_api(api)
+    assert %Extension{name: :demo, module: __MODULE__, alias: :Demo, description: "demo"} =
+             Extension.from_api(api)
   end
 
   test "bridge snapshot carries structured API inventory" do
-    assert %BridgeInfo{apis: %APIInventory{runtime: runtime, extensions: extensions}} =
+    assert %BridgeInfo{apis: %Inventory{runtime: runtime, extensions: extensions}} =
              Info.snapshot(:stdio)
 
     assert is_list(runtime)
@@ -31,7 +31,7 @@ defmodule Pi.APIInventoryTest do
       module: __MODULE__,
       metadata: %{"name" => "demo"},
       markdown: "# Demo",
-      apis: [%ExtensionAPI{name: :demo, module: __MODULE__, alias: :Demo}]
+      apis: [%Extension{name: :demo, module: __MODULE__, alias: :Demo}]
     }
 
     payload = Stdio.__test_payload__(skill)

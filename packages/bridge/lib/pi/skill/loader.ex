@@ -2,7 +2,7 @@ defmodule Pi.Skill.Loader do
   @moduledoc "Discovers trusted executable Elixir skills in the current Mix project."
 
   alias Pi.Plugin.API
-  alias Pi.Protocol.ExtensionAPI
+  alias Pi.Protocol.API.Extension
   alias Pi.Protocol.SkillInfo
   alias Pi.Skill.Executable
 
@@ -55,7 +55,7 @@ defmodule Pi.Skill.Loader do
         module: skill.module,
         metadata: atom_keys_to_strings(skill.metadata),
         markdown: skill.markdown,
-        apis: Enum.map(skill.apis, &ExtensionAPI.from_api/1)
+        apis: Enum.map(skill.apis, &Extension.from_api/1)
       }
     end)
   end

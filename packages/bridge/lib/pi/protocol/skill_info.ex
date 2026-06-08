@@ -3,7 +3,7 @@ defmodule Pi.Protocol.SkillInfo do
 
   use JSONCodec, fast_path: :json
 
-  alias Pi.Protocol.ExtensionAPI
+  alias Pi.Protocol.API.Extension
 
   defstruct [:name, :path, :module, metadata: %{}, markdown: "", apis: []]
 
@@ -13,7 +13,7 @@ defmodule Pi.Protocol.SkillInfo do
           module: module() | nil,
           metadata: map(),
           markdown: String.t(),
-          apis: [ExtensionAPI.t()]
+          apis: [Extension.t()]
         }
 
   codec(:module, atom: :unsafe)
