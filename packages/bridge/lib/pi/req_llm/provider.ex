@@ -5,13 +5,14 @@ case Code.ensure_compiled(ReqLLM.Provider) do
 
       @behaviour ReqLLM.Provider
 
+      alias Pi.Protocol.LLMMessage
       alias ReqLLM.Context
       alias ReqLLM.Response
 
       def provider_id, do: :pi
 
       def prepare_request(:chat, model, %Context{} = context, opts) do
-        case Pi.LLM.complete(context, opts) do
+        case Pi.LLM.complete(messages(context), opts) do
           {:ok, text} -> {:ok, request_for(response(model, context, text))}
           {:error, reason} -> {:error, RuntimeError.exception(message: inspect(reason))}
         end
@@ -31,6 +32,22 @@ case Code.ensure_compiled(ReqLLM.Provider) do
       def encode_body(request), do: request
       def build_body(_request), do: %{}
       def decode_response({request, response}), do: {request, response}
+
+      defp messages(%Context{} = context) do
+        Enum.map(context.messages, fn message ->
+          LLMMessage.from_map!(%{
+            role: message.role,
+            content: text_content(message.content)
+          })
+        end)
+      end
+
+      defp text_content(content) when is_list(content) do
+        Enum.map_join(content, fn
+          %{type: :text, text: text} when is_binary(text) -> text
+          part -> inspect(part)
+        end)
+      end
 
       defp request_for(response) do
         req_response = %Req.Response{status: 200, body: response}

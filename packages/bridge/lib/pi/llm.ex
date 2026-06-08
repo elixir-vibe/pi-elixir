@@ -2,6 +2,7 @@ defmodule Pi.LLM do
   @moduledoc "BEAM API for model calls backed by the active pi session."
 
   alias Pi.LLM.Broker
+  alias Pi.Protocol.LLMMessage
 
   def complete(messages, opts \\ []) do
     Broker.complete(normalize_messages(messages), opts)
@@ -20,38 +21,15 @@ defmodule Pi.LLM do
     end
   end
 
-  defp normalize_messages(%ReqLLM.Context{} = context) do
-    context.messages
-    |> Enum.map(&normalize_message/1)
-  end
-
   defp normalize_messages(messages) when is_binary(messages),
-    do: [%{role: :user, content: messages}]
+    do: [LLMMessage.from_map!(%{role: :user, content: messages})]
 
   defp normalize_messages(messages) when is_list(messages),
     do: Enum.map(messages, &normalize_message/1)
 
-  defp normalize_message(%ReqLLM.Message{role: role, content: content}) do
-    %{role: role, content: normalize_content(content)}
-  end
+  defp normalize_message(%LLMMessage{} = message), do: message
+  defp normalize_message(%{} = message), do: LLMMessage.from_map!(message)
 
-  defp normalize_message(%{role: role, content: content}),
-    do: %{role: role, content: normalize_content(content)}
-
-  defp normalize_message(%{"role" => role, "content" => content}),
-    do: %{role: role, content: normalize_content(content)}
-
-  defp normalize_message(message) when is_binary(message), do: %{role: :user, content: message}
-
-  defp normalize_content(content) when is_binary(content), do: content
-
-  defp normalize_content(content) when is_list(content) do
-    Enum.map_join(content, "", fn
-      %{type: :text, text: text} when is_binary(text) -> text
-      %{"type" => "text", "text" => text} when is_binary(text) -> text
-      part -> inspect(part)
-    end)
-  end
-
-  defp normalize_content(content), do: inspect(content)
+  defp normalize_message(message) when is_binary(message),
+    do: LLMMessage.from_map!(%{role: :user, content: message})
 end

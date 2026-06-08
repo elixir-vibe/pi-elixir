@@ -20,6 +20,7 @@ for file <- [
       "pi/protocol/result.ex",
       "pi/protocol/request.ex",
       "pi/protocol/response.ex",
+      "pi/protocol/llm_message.ex",
       "pi/protocol/llm_chunk.ex",
       "pi/protocol/llm_done.ex",
       "pi/protocol/llm_error.ex",
