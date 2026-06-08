@@ -82,6 +82,8 @@ Pi.Bridge.Info.snapshot()
 Pi.Bridge.Info.runtime_apis()
 
 Pi.LLM.complete("Summarize this module")
+Pi.LLM.stream("Stream this response")
+Pi.ReqLLM.generate_text("Use the active pi model")
 Pi.Agent.async("Review this change", name: :reviewer)
 Pi.Agent.parallel([
   [name: :reviewer, messages: [%{role: :user, content: "Review correctness"}]],
@@ -89,7 +91,7 @@ Pi.Agent.parallel([
 ])
 ```
 
-`Pi.LLM` already uses multiplexed request ids, so out-of-order concurrent responses route to the right caller. The current extension has a placeholder `llm_complete` handler until pi exposes a raw active-model completion hook or `pi_adapter` supplies it.
+`Pi.LLM` already uses multiplexed request ids, so out-of-order concurrent responses route to the right caller. Streaming and cancellation have protocol envelopes in place for future active-model streaming. `Pi.ReqLLM` is conditionally available when ReqLLM is loaded and provides the Pi-backed ReqLLM entry point inside `pi_bridge`.
 
 ## Executable Elixir skills
 
@@ -200,6 +202,10 @@ Internal stdio envelopes use `JSONCodec` structs for stricter contracts:
 - `Pi.Protocol.Request`
 - `Pi.Protocol.Response`
 - `Pi.Protocol.UIEvent`
+- `Pi.Protocol.LLMChunk`
+- `Pi.Protocol.LLMDone`
+- `Pi.Protocol.LLMError`
+- `Pi.Protocol.LLMCancel`
 - `Pi.Protocol.APIModule`
 - `Pi.Protocol.APIFunction`
 

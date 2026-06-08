@@ -7,6 +7,12 @@ defmodule Pi.LLM do
     Broker.complete(normalize_messages(messages), opts)
   end
 
+  def stream(messages, opts \\ []) do
+    messages
+    |> normalize_messages()
+    |> Broker.stream(opts)
+  end
+
   def complete!(messages, opts \\ []) do
     case complete(messages, opts) do
       {:ok, result} -> result

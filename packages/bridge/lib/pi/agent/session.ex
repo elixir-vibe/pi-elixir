@@ -4,6 +4,15 @@ defmodule Pi.Agent.Session do
   @enforce_keys [:id]
   defstruct [:id, :parent_id, :name, :system, messages: [], metadata: %{}]
 
+  @type t :: %__MODULE__{
+          id: String.t(),
+          parent_id: String.t() | nil,
+          name: atom() | String.t() | nil,
+          system: String.t() | nil,
+          messages: [map()],
+          metadata: map()
+        }
+
   def new(opts \\ []) do
     %__MODULE__{
       id: Keyword.get_lazy(opts, :id, &id/0),

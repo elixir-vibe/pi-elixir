@@ -2,23 +2,29 @@ defmodule Pi.Agent do
   @moduledoc "Unified BEAM abstraction for top-level agents and child agents."
 
   alias Pi.Agent.Registry
+  alias Pi.Agent.Result
   alias Pi.Agent.Session
+  alias Pi.Agent.Step
   alias Pi.LLM
 
   def run(prompt_or_opts, opts \\ []) do
     session = prompt_or_opts |> session(opts) |> Registry.put()
     messages = messages(session)
 
-    with {:ok, result} <- LLM.complete(messages, Keyword.put(opts, :agent, session.id)) do
-      Registry.append(session.id, %{role: :assistant, content: result})
-      {:ok, %{session: session, result: result}}
+    case LLM.complete(messages, Keyword.put(opts, :agent, session.id)) do
+      {:ok, result} ->
+        Registry.append(session.id, %{role: :assistant, content: result})
+        {:ok, Result.ok(session, result)}
+
+      {:error, reason} ->
+        {:error, Result.error(session, reason)}
     end
   end
 
   def run!(prompt_or_opts, opts \\ []) do
     case run(prompt_or_opts, opts) do
       {:ok, result} -> result
-      {:error, reason} -> raise RuntimeError, message: to_string(reason)
+      {:error, %Result{error: reason}} -> raise RuntimeError, message: inspect(reason)
     end
   end
 
@@ -43,7 +49,7 @@ defmodule Pi.Agent do
       input = chain_input(step, previous)
 
       case run(input, opts) do
-        {:ok, %{result: result}} = ok -> {:cont, ok_result(ok, result)}
+        {:ok, %Result{result: result}} = ok -> {:cont, ok_result(ok, result)}
         {:error, reason} -> {:halt, {:error, reason}}
       end
     end)
@@ -60,6 +66,8 @@ defmodule Pi.Agent do
   def history(agent), do: Registry.history(agent)
 
   def session(prompt_or_opts, opts \\ [])
+
+  def session(%Step{} = step, opts), do: Step.to_session(step, opts)
 
   def session(prompt, opts) when is_binary(prompt) do
     opts
@@ -91,6 +99,5 @@ defmodule Pi.Agent do
     end)
   end
 
-  defp ok_result({:ok, %{session: session}}, result),
-    do: {:ok, %{session: session, result: result}}
+  defp ok_result({:ok, %Result{session: session}}, result), do: {:ok, Result.ok(session, result)}
 end

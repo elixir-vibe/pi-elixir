@@ -9,6 +9,9 @@ defmodule Pi.Transport.Stdio do
   alias Pi.Plugin.Event
   alias Pi.Plugin.Manager
   alias Pi.Protocol.Call
+  alias Pi.Protocol.LLMChunk
+  alias Pi.Protocol.LLMDone
+  alias Pi.Protocol.LLMError
   alias Pi.Protocol.Request
   alias Pi.Protocol.Response
   alias Pi.Protocol.Result
@@ -65,6 +68,18 @@ defmodule Pi.Transport.Stdio do
       {:ok, %{"type" => "response"} = response} ->
         response = Response.from_map!(response)
         Broker.deliver(response.id, response)
+
+      {:ok, %{"type" => "llm_chunk"} = chunk} ->
+        chunk = LLMChunk.from_map!(chunk)
+        send(self(), {:pi_llm_chunk, chunk.id, chunk.delta})
+
+      {:ok, %{"type" => "llm_done"} = done} ->
+        done = LLMDone.from_map!(done)
+        send(self(), {:pi_llm_done, done.id, done.result})
+
+      {:ok, %{"type" => "llm_error"} = error} ->
+        error = LLMError.from_map!(error)
+        send(self(), {:pi_llm_error, error.id, error.error})
 
       _ ->
         :ok
