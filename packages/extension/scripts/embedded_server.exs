@@ -7,6 +7,8 @@ for file <- [
       "pi/project.ex",
       "pi/log_capture.ex",
       "pi/eval.ex",
+      "pi/integrations/phoenix.ex",
+      "pi/integrations.ex",
       "pi/plugin/api.ex",
       "pi/plugin/event.ex",
       "pi/plugin/ui.ex",
@@ -17,6 +19,7 @@ for file <- [
       "pi/mcp/jsonrpc.ex",
       "pi/mcp/router.ex",
       "pi/mcp/server.ex",
+      "pi/bridge/info.ex",
       "pi/transport/stdio.ex",
       "pi.ex"
     ] do

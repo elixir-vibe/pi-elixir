@@ -12,7 +12,8 @@ vi.mock('../src/connection/status.ts', () => ({
 
 vi.mock('../src/embedded/stdio-process.ts', () => ({
   stopEmbedded: vi.fn(),
-  onBridgeUIEvent: vi.fn((_listener) => vi.fn())
+  onBridgeUIEvent: vi.fn((_listener) => vi.fn()),
+  getBridgeInfo: vi.fn()
 }))
 
 import * as fs from 'node:fs'
@@ -56,7 +57,9 @@ function fakeCtx(cwd: string, sessionFile = `${cwd}/session.jsonl`) {
       theme: {
         fg: (_name: string, text: string) => text
       },
-      setStatus: vi.fn()
+      setStatus: vi.fn(),
+      notify: vi.fn(),
+      setWidget: vi.fn()
     }
   }
 }

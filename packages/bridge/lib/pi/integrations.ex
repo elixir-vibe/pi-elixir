@@ -1,0 +1,24 @@
+defmodule Pi.Integrations do
+  @moduledoc "Optional project integration discovery."
+
+  @integrations [
+    phoenix: Pi.Integrations.Phoenix
+  ]
+
+  def loaded do
+    @integrations
+    |> Enum.filter(fn {_name, module} -> Code.ensure_loaded?(module) end)
+    |> Enum.map(&elem(&1, 0))
+  end
+
+  def endpoints, do: optional(Pi.Integrations.Phoenix, :endpoints)
+  def statuses, do: optional(Pi.Integrations.Phoenix, :statuses)
+
+  defp optional(module, function) do
+    if Code.ensure_loaded?(module) do
+      apply(module, function, [])
+    else
+      []
+    end
+  end
+end

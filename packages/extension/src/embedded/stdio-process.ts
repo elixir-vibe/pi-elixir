@@ -18,6 +18,15 @@ interface EmbeddedProcess {
   pending: Map<number, PendingCall>
 }
 
+export interface BridgeInfo {
+  project?: string
+  transport?: string
+  integrations?: string[]
+  skills?: Array<{ name?: string; path?: string; module?: string }>
+  plugins?: Array<{ name?: string }>
+  endpoints?: Array<{ module?: string; url?: string | null; port?: number | null }>
+}
+
 export interface BridgeUIEvent {
   type: 'ui'
   op?: string
@@ -37,6 +46,7 @@ interface StdioMessage {
   id?: number
   text?: string
   isError?: boolean
+  info?: BridgeInfo
   op?: string
   key?: string
   title?: string
@@ -50,7 +60,12 @@ interface StdioMessage {
 
 type UIEventListener = (cwd: string, event: BridgeUIEvent) => void
 
+const bridgeInfo = new Map<string, BridgeInfo>()
 const uiEventListeners = new Set<UIEventListener>()
+
+export function getBridgeInfo(cwd: string): BridgeInfo | undefined {
+  return bridgeInfo.get(cwd)
+}
 
 export function onBridgeUIEvent(listener: UIEventListener): () => void {
   uiEventListeners.add(listener)
@@ -113,6 +128,7 @@ function markReady(cwd: string, entry: EmbeddedProcess, url?: string): void {
 
 function handleMessage(cwd: string, entry: EmbeddedProcess, message: StdioMessage): void {
   if (message.type === 'ready') {
+    if (message.info) bridgeInfo.set(cwd, message.info)
     markReady(cwd, entry)
     return
   }

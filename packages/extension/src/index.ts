@@ -2,6 +2,7 @@ import * as fs from 'node:fs'
 
 import type { ExtensionAPI, ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
 
+import { showStartupInfo } from './bridge/startup-info.ts'
 import {
   resolveUrl,
   getConnectionKind,
@@ -9,7 +10,12 @@ import {
   type ConnectionKind
 } from './connection/resolver.ts'
 import { onStatusChange } from './connection/status.ts'
-import { onBridgeUIEvent, stopEmbedded, type BridgeUIEvent } from './embedded/stdio-process.ts'
+import {
+  getBridgeInfo,
+  onBridgeUIEvent,
+  stopEmbedded,
+  type BridgeUIEvent
+} from './embedded/stdio-process.ts'
 import { discoverExecutableSkillPath } from './skills/executable-skills.ts'
 import { register as registerEval } from './tools/eval.ts'
 import { register as registerExAstReplace } from './tools/ex-ast-replace.ts'
@@ -117,6 +123,7 @@ export default function (pi: ExtensionAPI) {
 
     const conn = await resolveUrl(sessionCwd)
     updateStatus(ctx, conn?.kind ?? getConnectionKind(sessionCwd))
+    showStartupInfo(ctx, getBridgeInfo(sessionCwd))
     await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
   })
 

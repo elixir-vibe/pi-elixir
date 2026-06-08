@@ -1,6 +1,8 @@
 defmodule Pi.Transport.Stdio do
   @moduledoc "Line-delimited JSON transport for extension-owned BEAM sessions."
 
+  alias Pi.Bridge.Info
+  alias Pi.Integrations
   alias Pi.MCP.Tools
   alias Pi.Plugin.Event
   alias Pi.Skill.Loader
@@ -9,6 +11,7 @@ defmodule Pi.Transport.Stdio do
     :persistent_term.put({__MODULE__, :pid}, self())
     Event.install()
     ready()
+    emit_integration_statuses()
 
     parent = self()
 
@@ -60,7 +63,13 @@ defmodule Pi.Transport.Stdio do
     write(%{type: :result, id: id, text: message, isError: true})
   end
 
-  defp ready, do: write(%{type: :ready})
+  defp ready, do: write(%{type: :ready, info: Info.snapshot(:stdio)})
+
+  defp emit_integration_statuses do
+    Enum.each(Integrations.statuses(), fn %{key: key, text: text} ->
+      write(%{type: :ui, op: :status, key: key, text: text})
+    end)
+  end
 
   defp write(payload) do
     IO.write([Jason.encode!(payload), ?\n])
