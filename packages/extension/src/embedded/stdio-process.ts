@@ -139,6 +139,12 @@ async function handleBridgeRequest(
   if (typeof message.id !== 'string') return
 
   if (message.op === 'llm_complete') {
+    const fakeResponse = process.env.PI_TEST_LLM_COMPLETE_RESPONSE
+    if (fakeResponse) {
+      sendResponse(entry, message.id, { ok: true, result: fakeResponse })
+      return
+    }
+
     sendResponse(entry, message.id, {
       ok: false,
       error: 'Pi LLM completion is not available from this extension runtime yet.',

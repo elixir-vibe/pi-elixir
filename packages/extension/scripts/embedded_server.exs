@@ -37,7 +37,6 @@ for file <- [
       "pi/mcp/router.ex",
       "pi/mcp/server.ex",
       "pi/bridge/info.ex",
-      "pi/api.ex",
       "pi/transport/stdio.ex",
       "pi.ex"
     ] do

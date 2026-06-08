@@ -55,7 +55,7 @@ The model-facing surface stays intentionally small:
 | `elixir_ast_search` | Search Elixir code by AST pattern |
 | `elixir_ast_replace` | Rewrite Elixir code by AST pattern |
 
-Everything richer is exposed as BEAM APIs callable from eval, discoverable through `Pi.API.all/0` and the stdio `pi_apis` command.
+Everything richer is exposed as BEAM APIs callable from eval, discoverable through `Pi.Bridge.Info.runtime_apis/0` and the stdio `pi_apis` command.
 
 ## BEAM APIs
 
@@ -67,7 +67,7 @@ Pi.logs(tail: 50)
 Pi.clear_logs()
 
 Pi.Bridge.Info.snapshot()
-Pi.API.all()
+Pi.Bridge.Info.runtime_apis()
 
 Pi.LLM.complete("Summarize this module")
 Pi.Agent.async("Review this change", name: :reviewer)

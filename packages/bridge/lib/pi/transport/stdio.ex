@@ -1,7 +1,6 @@
 defmodule Pi.Transport.Stdio do
   @moduledoc "Line-delimited JSON transport for extension-owned BEAM sessions."
 
-  alias Pi.API
   alias Pi.Bridge.Info
   alias Pi.Integrations
   alias Pi.LLM.Broker
@@ -91,7 +90,7 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp dispatch("pi_apis", _args) do
-    {:ok, API.all_json()}
+    {:ok, encode_structs(Info.runtime_apis())}
   end
 
   defp dispatch(name, args), do: Tools.dispatch(name, args)
@@ -110,6 +109,12 @@ defmodule Pi.Transport.Stdio do
     Enum.each(Integrations.statuses(), fn %{key: key, text: text} ->
       write(%Pi.Protocol.UIEvent{type: :ui, op: :status, key: key, text: text})
     end)
+  end
+
+  defp encode_structs(values) do
+    values
+    |> Enum.map(&to_payload/1)
+    |> Jason.encode!()
   end
 
   defp api_to_map(api) do
