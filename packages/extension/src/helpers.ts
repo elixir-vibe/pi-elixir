@@ -20,6 +20,7 @@ import {
   getConnectionKind,
   type InstallPrompt
 } from './connection/resolver.ts'
+import type { ToolArgs, ToolResult } from './protocol/types.ts'
 
 export { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize }
 
@@ -37,7 +38,7 @@ export function truncated(text: string) {
 }
 
 type ToolParameters = ReturnType<typeof Type.Object>
-type RenderCall = (args: Record<string, unknown>, theme: Theme) => Component
+type RenderCall = (args: ToolArgs, theme: Theme) => Component
 
 export interface BridgeToolOpts {
   transformResult?: (text: string) => string
@@ -96,10 +97,10 @@ function installPromptMessage(prompt: InstallPrompt) {
 }
 
 type ExecuteToolCall = (
-  params: Record<string, unknown>,
+  params: ToolArgs,
   url: string,
   signal: AbortSignal | undefined
-) => Promise<{ text: string; isError: boolean }>
+) => Promise<ToolResult>
 
 interface BeamToolRegistration {
   name: string
@@ -171,7 +172,7 @@ export function loadScript(name: string): string {
   return content
 }
 
-export function wrapWithBindings(script: string, bindings: Record<string, unknown>): string {
+export function wrapWithBindings(script: string, bindings: ToolArgs): string {
   const assigns = Object.entries(bindings)
     .map(([key, value]) => `${key} = ${elixirLiteral(value)}`)
     .join('\n')
@@ -192,7 +193,7 @@ export function evalTool(
   label: string,
   description: string,
   parameters: ToolParameters,
-  buildCode: (params: Record<string, unknown>) => string,
+  buildCode: (params: ToolArgs) => string,
   renderCall: RenderCall,
   opts?: BridgeToolOpts
 ) {

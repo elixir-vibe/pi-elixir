@@ -1,21 +1,9 @@
 import { readAppName } from '../mix/project.ts'
+import type { JsonRpcResponse, McpConfig, ToolArgs, ToolResult } from '../protocol/types.ts'
 
 let requestId = 0
 
-interface JsonRpcResponse {
-  jsonrpc: '2.0'
-  id: number
-  result?: {
-    content?: Array<{ type: string; text: string }>
-    isError?: boolean
-  }
-  error?: { code: number; message: string }
-}
-
-interface McpConfig {
-  project_name: string
-  framework_type: string
-}
+type ExternalMCPProbe = { url: string; config: McpConfig }
 
 const PROBE_PORTS = [4000, 4001, 4002, 4003, 4004, 4005, 4006, 4007, 4008, 4009]
 
@@ -53,7 +41,7 @@ export async function discoverExternalMCP(cwd: string): Promise<string | null> {
   })
 
   const results = (await Promise.all(probes)).filter(
-    (result): result is { url: string; config: McpConfig } => result !== null
+    (result): result is ExternalMCPProbe => result !== null
   )
 
   if (results.length === 0) return null
@@ -65,9 +53,9 @@ export async function discoverExternalMCP(cwd: string): Promise<string | null> {
 export async function callHttpTool(
   url: string,
   name: string,
-  args: Record<string, unknown>,
+  args: ToolArgs,
   signal?: AbortSignal
-): Promise<{ text: string; isError: boolean }> {
+): Promise<ToolResult> {
   const id = ++requestId
 
   let resp: Response

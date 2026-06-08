@@ -28,6 +28,12 @@ interface StatusContext extends ExtensionContext {
   }
 }
 
+interface StatusSubscription {
+  cwd: string
+  unsubscribeStatus: () => void
+  unsubscribeUI: () => void
+}
+
 function isElixirProject(cwd: string): boolean {
   return fs.existsSync(`${cwd}/mix.exs`)
 }
@@ -90,10 +96,7 @@ function applyBridgeUIEvent(ctx: StatusContext, event: BridgeUIEvent) {
 }
 
 export default function (pi: ExtensionAPI) {
-  const statusSubscriptions = new Map<
-    string,
-    { cwd: string; unsubscribeStatus: () => void; unsubscribeUI: () => void }
-  >()
+  const statusSubscriptions = new Map<string, StatusSubscription>()
 
   function clearStatusSubscription(key: string) {
     const subscription = statusSubscriptions.get(key)

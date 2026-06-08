@@ -4,17 +4,9 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 
 import { callTool, resolveUrl } from '../connection/resolver.ts'
+import type { BridgeSkillInfo } from '../protocol/types.ts'
 
-interface BeamSkill {
-  name: string
-  path: string
-  module: string
-  metadata: Record<string, unknown>
-  markdown: string
-  apis: Array<Record<string, unknown>>
-}
-
-function isBeamSkill(value: unknown): value is BeamSkill {
+function isBeamSkill(value: unknown): value is Required<BridgeSkillInfo> {
   return (
     typeof value === 'object' &&
     value !== null &&
@@ -34,7 +26,7 @@ function isBeamSkill(value: unknown): value is BeamSkill {
   )
 }
 
-function parseSkills(text: string): BeamSkill[] {
+function parseSkills(text: string): Required<BridgeSkillInfo>[] {
   try {
     const parsed: unknown = JSON.parse(text)
     return Array.isArray(parsed) ? parsed.filter(isBeamSkill) : []
@@ -56,7 +48,7 @@ function yamlString(value: unknown): string {
   return JSON.stringify(typeof value === 'string' ? value : '')
 }
 
-function skillMarkdown(skill: BeamSkill): string {
+function skillMarkdown(skill: Required<BridgeSkillInfo>): string {
   const description = skill.metadata.description ?? ''
   const apiBlock =
     skill.apis.length === 0
@@ -70,7 +62,7 @@ function skillMarkdown(skill: BeamSkill): string {
   return `---\nname: ${yamlString(skill.name)}\ndescription: ${yamlString(description)}\n---\n\nExecutable Elixir skill loaded from \`${skill.path}\`.\n\n${skill.markdown}${apiBlock}\n`
 }
 
-function materialize(cwd: string, skills: BeamSkill[]): string | null {
+function materialize(cwd: string, skills: Required<BridgeSkillInfo>[]): string | null {
   if (skills.length === 0) return null
 
   const root = cacheDir(cwd)

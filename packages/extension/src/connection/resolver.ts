@@ -14,6 +14,7 @@ import {
   type InstallOptions,
   type InstallPrompt
 } from '../mix/installer.ts'
+import type { BridgeEvent, ToolArgs, ToolResult } from '../protocol/types.ts'
 import { callHttpTool, discoverExternalMCP } from '../transport/http-json-rpc.ts'
 import { connectionCache, hasMissingDependency, type ConnectionKind } from './status.ts'
 
@@ -21,14 +22,19 @@ export type { ConnectionKind, InstallPrompt }
 
 export interface ResolveUrlOptions extends InstallOptions {}
 
+export interface ConnectionResolution {
+  url: string
+  kind: ConnectionKind
+}
+
 const CACHE_TTL = 30_000
 
 export async function callTool(
   url: string,
   name: string,
-  args: Record<string, unknown>,
+  args: ToolArgs,
   signal?: AbortSignal
-): Promise<{ text: string; isError: boolean }> {
+): Promise<ToolResult> {
   if (url.startsWith('stdio:')) {
     return callEmbeddedTool(cwdFromEmbeddedUrl(url), name, args, signal)
   }
@@ -36,14 +42,14 @@ export async function callTool(
   return callHttpTool(url, name, args, signal)
 }
 
-export function sendBridgeEvent(cwd: string, event: Record<string, unknown>): Promise<void> {
+export function sendBridgeEvent(cwd: string, event: BridgeEvent): Promise<void> {
   return sendEmbeddedEvent(cwd, event)
 }
 
 export async function resolveUrl(
   cwd: string,
   options?: ResolveUrlOptions
-): Promise<{ url: string; kind: ConnectionKind } | null> {
+): Promise<ConnectionResolution | null> {
   if (process.env.PI_MCP_URL) {
     return { url: process.env.PI_MCP_URL, kind: 'external' }
   }

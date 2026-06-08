@@ -1,13 +1,17 @@
 import * as childProcess from 'node:child_process'
 
 import { connectionCache, emitStatusChange, invalidateCache } from '../connection/status.ts'
+import type {
+  BridgeEvent,
+  BridgeInfo,
+  BridgeUIEvent,
+  PendingToolCall,
+  StdioMessage,
+  ToolArgs,
+  ToolResult
+} from '../protocol/types.ts'
 
 const START_STDIO_EXPR = 'Pi.Transport.Stdio.start()'
-
-interface PendingCall {
-  resolve: (result: { text: string; isError: boolean }) => void
-  reject: (error: Error) => void
-}
 
 interface EmbeddedProcess {
   proc: childProcess.ChildProcess
@@ -15,94 +19,10 @@ interface EmbeddedProcess {
   url: string
   buffer: string
   nextId: number
-  pending: Map<number, PendingCall>
+  pending: Map<number, PendingToolCall>
 }
 
-export interface BridgeInfo {
-  project?: string
-  transport?: string
-  integrations?: string[]
-  skills?: BridgeSkillInfo[]
-  plugins?: BridgePluginInfo[]
-  endpoints?: BridgeEndpoint[]
-  apis?: BridgeAPIInventory
-}
-
-export interface BridgeSkillInfo {
-  name?: string
-  path?: string
-  module?: string
-  metadata?: Record<string, unknown>
-  markdown?: string
-  apis?: BridgeAPIExtension[]
-}
-
-export interface BridgePluginInfo {
-  name?: string
-  module?: string
-}
-
-export interface BridgeEndpoint {
-  module?: string
-  url?: string | null
-  port?: number | null
-}
-
-export interface BridgeAPIInventory {
-  runtime?: BridgeAPIModule[]
-  extensions?: BridgeAPIExtension[]
-}
-
-export interface BridgeAPIModule {
-  name?: string
-  module?: string
-  functions?: BridgeAPIFunction[]
-}
-
-export interface BridgeAPIFunction {
-  name?: string
-  arity?: number
-}
-
-export interface BridgeAPIExtension {
-  name?: string
-  module?: string
-  alias?: string | null
-  description?: string
-  examples?: string[]
-}
-
-export interface BridgeUIEvent {
-  type: 'ui'
-  op?: string
-  key?: string
-  text?: string
-  title?: string
-  current?: number
-  total?: number
-  lines?: string[]
-  placement?: 'aboveEditor' | 'belowEditor'
-  message?: string
-  level?: 'info' | 'warning' | 'error'
-}
-
-interface StdioMessage {
-  type?: string
-  id?: number | string
-  text?: string
-  isError?: boolean
-  info?: BridgeInfo
-  op?: string
-  key?: string
-  title?: string
-  current?: number
-  total?: number
-  lines?: string[]
-  placement?: 'aboveEditor' | 'belowEditor'
-  message?: string
-  level?: 'info' | 'warning' | 'error'
-  payload?: Record<string, unknown>
-}
+export type { BridgeInfo, BridgeUIEvent }
 
 type UIEventListener = (cwd: string, event: BridgeUIEvent) => void
 
@@ -172,11 +92,11 @@ function markReady(cwd: string, entry: EmbeddedProcess, url?: string): void {
   emitStatusChange(cwd, 'embedded')
 }
 
-function writeToBeam(entry: EmbeddedProcess, message: Record<string, unknown>): void {
+function writeToBeam(entry: EmbeddedProcess, message: ToolArgs): void {
   entry.proc.stdin?.write(JSON.stringify(message) + '\n')
 }
 
-function sendResponse(entry: EmbeddedProcess, id: string, response: Record<string, unknown>): void {
+function sendResponse(entry: EmbeddedProcess, id: string, response: ToolArgs): void {
   writeToBeam(entry, { type: 'response', id, ...response })
 }
 
@@ -350,7 +270,7 @@ export function getEmbeddedUrl(cwd: string): string {
   return embeddedProcesses.get(cwd)?.url ?? embeddedUrl(cwd)
 }
 
-export function sendEmbeddedEvent(cwd: string, event: Record<string, unknown>): Promise<void> {
+export function sendEmbeddedEvent(cwd: string, event: BridgeEvent): Promise<void> {
   if (!isEmbeddedReady(cwd)) return Promise.resolve()
   return callEmbeddedTool(cwd, 'pi_event', event).then(() => undefined)
 }
@@ -358,9 +278,9 @@ export function sendEmbeddedEvent(cwd: string, event: Record<string, unknown>): 
 export function callEmbeddedTool(
   cwd: string,
   name: string,
-  args: Record<string, unknown>,
+  args: ToolArgs,
   signal?: AbortSignal
-): Promise<{ text: string; isError: boolean }> {
+): Promise<ToolResult> {
   const entry = embeddedProcesses.get(cwd)
   if (!entry?.ready || !entry.proc.stdin) {
     return Promise.resolve({ text: 'Embedded BEAM is not ready.', isError: true })
