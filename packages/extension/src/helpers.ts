@@ -136,7 +136,7 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       return {
         content: [{ type: 'text' as const, text: truncated(text) }],
         isError,
-        details: {}
+        details: { args: params, mcpName: tool.name }
       }
     },
     renderCall: tool.renderCall,

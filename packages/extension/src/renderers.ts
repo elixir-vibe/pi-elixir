@@ -47,6 +47,15 @@ function resultIsError(result: AgentToolResult<unknown>): boolean {
   return (result as { isError?: unknown }).isError === true
 }
 
+function resultArg(result: AgentToolResult<unknown>, key: string): string | undefined {
+  const details = (result as { details?: unknown }).details
+  if (typeof details !== 'object' || details === null) return undefined
+  const args = (details as { args?: unknown }).args
+  if (typeof args !== 'object' || args === null) return undefined
+  const value = (args as Record<string, unknown>)[key]
+  return typeof value === 'string' && value ? value : undefined
+}
+
 function icon(ok: boolean, theme: Theme) {
   return theme.fg(ok ? 'success' : 'error', ok ? '✓' : '✗')
 }
@@ -189,11 +198,26 @@ function languageFromPath(path: string) {
   return 'text'
 }
 
-function summarizePaths(matches: AstMatch[], theme: Theme) {
-  const paths = Array.from(new Set(matches.map((match) => match.path)))
-  const shown = paths.slice(0, 3).join(', ')
-  const rest = paths.length - 3
-  return theme.fg('muted', rest > 0 ? `${shown}, +${rest}` : shown)
+function searchHeader(count: number, pattern: string | undefined, theme: Theme) {
+  const noun = count === 1 ? 'match' : 'matches'
+  const patternText = pattern ? `  ${theme.fg('muted', oneLine(pattern, 60))}` : ''
+  return `${icon(true, theme)} ${theme.fg('accent', `${count} ${noun}`)}${patternText}`
+}
+
+function matchLine(match: AstMatch, theme: Theme) {
+  const location = `${match.path}:${match.line}`
+  const snippet = match.snippet ? `  ${theme.fg('toolOutput', oneLine(match.snippet, 80))}` : ''
+  return `  ${theme.fg('muted', location)}${snippet}`
+}
+
+function groupedMatches(matches: AstMatch[]) {
+  const groups = new Map<string, AstMatch[]>()
+  for (const match of matches) {
+    const group = groups.get(match.path) ?? []
+    group.push(match)
+    groups.set(match.path, group)
+  }
+  return groups
 }
 
 function renderToolUnavailableOrError(
@@ -225,21 +249,34 @@ export function renderAstSearchResult(
   const matches = parseAstMatches(text)
   if (matches.length === 0) return renderFallback(text, theme)
 
+  const pattern = resultArg(result, 'pattern')
   if (!expanded) {
+    const shown = matches.slice(0, 4).map((match) => matchLine(match, theme))
+    const more = hiddenLine(matches.length - shown.length, theme)
     return renderLines([
-      `${icon(true, theme)} ${theme.fg('accent', `${matches.length} matches`)}  ${summarizePaths(matches, theme)}`,
+      searchHeader(matches.length, pattern, theme),
+      ...shown,
+      ...(more ? [more] : []),
       expandHint(theme)
     ])
   }
 
-  const lines = [`${icon(true, theme)} ${theme.fg('accent', `${matches.length} matches`)}`]
-  for (const match of matches.slice(0, 12)) {
+  const lines = [searchHeader(matches.length, pattern, theme)]
+  let shown = 0
+  for (const [path, group] of groupedMatches(matches)) {
+    if (shown >= 12) break
     lines.push('')
-    lines.push(`${theme.fg('muted', match.path + ':')}${theme.fg('accent', match.line)}`)
-    if (match.snippet)
-      lines.push(...codeLines(match.snippet, languageFromPath(match.path), theme, 2))
+    lines.push(theme.fg('muted', path))
+
+    for (const match of group) {
+      if (shown >= 12) break
+      lines.push(`  ${theme.fg('accent', match.line)}`)
+      if (match.snippet) lines.push(...codeLines(match.snippet, languageFromPath(path), theme, 3))
+      shown += 1
+    }
   }
-  const more = hiddenLine(matches.length - 12, theme)
+
+  const more = hiddenLine(matches.length - shown, theme)
   if (more) lines.push('', more)
   return renderLines(lines)
 }
