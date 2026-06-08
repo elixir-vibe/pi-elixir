@@ -4,7 +4,12 @@ defmodule Pi.Bridge.Info do
   alias Pi.Integrations
   alias Pi.Plugin.Manager
   alias Pi.Protocol.APIFunction
+  alias Pi.Protocol.APIInventory
   alias Pi.Protocol.APIModule
+  alias Pi.Protocol.BridgeInfo
+  alias Pi.Protocol.Endpoint
+  alias Pi.Protocol.PluginInfo
+  alias Pi.Protocol.SkillInfo
   alias Pi.Skill.Loader
 
   @runtime_api_modules [
@@ -17,14 +22,14 @@ defmodule Pi.Bridge.Info do
   ]
 
   def snapshot(transport \\ :stdio) do
-    %{
+    %BridgeInfo{
       project: Mix.Project.config()[:app],
       transport: transport,
       integrations: Integrations.loaded(),
       skills: skills(),
-      plugins: Manager.plugins(),
-      endpoints: Integrations.endpoints(),
-      apis: %{
+      plugins: plugins(),
+      endpoints: endpoints(),
+      apis: %APIInventory{
         runtime: runtime_apis(),
         extensions: extension_apis()
       }
@@ -58,7 +63,17 @@ defmodule Pi.Bridge.Info do
 
   defp skills do
     Loader.serializable()
-    |> Enum.map(&Map.take(&1, [:name, :path, :module]))
+    |> Enum.map(&SkillInfo.from_map!/1)
+  end
+
+  defp plugins do
+    Manager.plugins()
+    |> Enum.map(&PluginInfo.from_map!/1)
+  end
+
+  defp endpoints do
+    Integrations.endpoints()
+    |> Enum.map(&Endpoint.from_map!/1)
   end
 
   defp skill_apis do

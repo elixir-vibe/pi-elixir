@@ -12,6 +12,7 @@ defmodule Pi.Transport.Stdio do
   alias Pi.Protocol.LLMChunk
   alias Pi.Protocol.LLMDone
   alias Pi.Protocol.LLMError
+  alias Pi.Protocol.Ready
   alias Pi.Protocol.Request
   alias Pi.Protocol.Response
   alias Pi.Protocol.Result
@@ -27,6 +28,9 @@ defmodule Pi.Transport.Stdio do
       pid -> send(pid, {:pi_transport_emit, payload |> to_payload() |> normalize()})
     end
   end
+
+  @doc false
+  def __test_payload__(payload), do: payload |> to_payload() |> normalize()
 
   def start do
     :persistent_term.put({__MODULE__, :pid}, self())
@@ -120,7 +124,7 @@ defmodule Pi.Transport.Stdio do
     write(%Result{type: :result, id: id, text: message, is_error: true})
   end
 
-  defp ready, do: write(%{type: :ready, info: Info.snapshot(:stdio)})
+  defp ready, do: write(%Ready{type: :ready, info: Info.snapshot(:stdio)})
 
   defp emit_integration_statuses do
     Enum.each(Integrations.statuses(), fn %{key: key, text: text} ->
