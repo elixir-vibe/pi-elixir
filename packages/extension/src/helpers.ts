@@ -43,6 +43,7 @@ type RenderCall = (args: ToolArgs, theme: Theme) => Component
 
 export interface BridgeToolOpts {
   transformResult?: (text: string) => string
+  resultDetails?: (text: string, params: ToolArgs) => Record<string, unknown>
   renderResult?: (
     result: AgentToolResult<unknown>,
     options: ToolRenderResultOptions,
@@ -132,11 +133,12 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       if (!conn) return connectionError(beamCwd)
 
       let { text, isError } = await tool.executeToolCall(params, conn.url, signal)
+      const extraDetails = tool.opts?.resultDetails?.(text, params) ?? {}
       if (tool.opts?.transformResult) text = tool.opts.transformResult(text)
       return {
         content: [{ type: 'text' as const, text: truncated(text) }],
         isError,
-        details: { args: params, mcpName: tool.name }
+        details: { args: params, mcpName: tool.name, ...extraDetails }
       }
     },
     renderCall: tool.renderCall,

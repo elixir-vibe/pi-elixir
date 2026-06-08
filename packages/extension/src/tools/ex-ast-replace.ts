@@ -5,6 +5,41 @@ import { Type } from 'typebox'
 import { displayString, evalTool, loadScript, wrapWithBindings } from '../helpers.ts'
 import { renderAstReplaceResult } from '../renderers.ts'
 
+interface AstReplacePayload {
+  kind?: string
+  dry_run?: boolean
+  replacements?: Array<{ file?: string; count?: number }>
+  total?: number
+}
+
+function parseAstReplacePayload(text: string): AstReplacePayload | null {
+  try {
+    const parsed: unknown = JSON.parse(text)
+    return typeof parsed === 'object' && parsed !== null ? (parsed as AstReplacePayload) : null
+  } catch {
+    return null
+  }
+}
+
+function astReplaceDetails(text: string) {
+  const payload = parseAstReplacePayload(text)
+  return payload?.kind === 'ast_replace' ? { astReplace: payload } : {}
+}
+
+function astReplaceText(text: string) {
+  const payload = parseAstReplacePayload(text)
+  if (payload?.kind !== 'ast_replace') return text
+
+  const replacements = payload.replacements ?? []
+  if (replacements.length === 0) return 'No matches found.'
+
+  const verb = payload.dry_run ? 'Would update' : 'Updated'
+  const lines = replacements.map(
+    ({ file, count }) => `${verb} ${file ?? '(unknown)'} (${count ?? 0} replacement(s))`
+  )
+  return `${lines.join('\n')}\n\n${payload.total ?? 0} replacement(s) in ${replacements.length} file(s)`
+}
+
 export function register(pi: ExtensionAPI) {
   evalTool(
     pi,
@@ -47,6 +82,10 @@ Examples:
       if (args.dryRun) text += theme.fg('warning', ' (dry-run)')
       return new Text(text, 0, 0)
     },
-    { renderResult: renderAstReplaceResult }
+    {
+      transformResult: astReplaceText,
+      resultDetails: astReplaceDetails,
+      renderResult: renderAstReplaceResult
+    }
   )
 }

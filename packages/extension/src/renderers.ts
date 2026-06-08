@@ -266,17 +266,28 @@ export function renderAstSearchResult(
 }
 
 interface ReplacementLine {
-  verb: string
   path: string
   count: number
 }
 
-function parseReplacementLines(text: string): ReplacementLine[] {
-  return text
-    .split('\n')
-    .map((line) => line.match(/^(Would update|Updated) (.+) \((\d+) replacement\(s\)\)$/))
-    .filter((match): match is RegExpMatchArray => Boolean(match))
-    .map((match) => ({ verb: match[1], path: match[2], count: Number(match[3]) }))
+interface AstReplacePayload {
+  dry_run?: boolean
+  replacements?: Array<{ file?: string; count?: number }>
+  total?: number
+}
+
+function astReplacePayload(result: AgentToolResult<unknown>): AstReplacePayload | null {
+  const details = (result as { details?: unknown }).details
+  if (typeof details !== 'object' || details === null) return null
+  const payload = (details as { astReplace?: unknown }).astReplace
+  return typeof payload === 'object' && payload !== null ? (payload as AstReplacePayload) : null
+}
+
+function replacementLines(payload: AstReplacePayload): ReplacementLine[] {
+  return (payload.replacements ?? []).map(({ file, count }) => ({
+    path: file ?? '(unknown)',
+    count: count ?? 0
+  }))
 }
 
 export function renderAstReplaceResult(
@@ -288,12 +299,15 @@ export function renderAstReplaceResult(
   const unavailableOrError = renderToolUnavailableOrError(result, text, theme, '(no replacements)')
   if (unavailableOrError) return unavailableOrError
 
-  const replacements = parseReplacementLines(text)
+  const payload = astReplacePayload(result)
+  if (!payload) return renderFallback(text, theme)
+
+  const replacements = replacementLines(payload)
   if (replacements.length === 0) return renderFallback(text, theme)
 
-  const total = replacements.reduce((sum, replacement) => sum + replacement.count, 0)
-  const dryRun = replacements.some((replacement) => replacement.verb === 'Would update')
-  const action = dryRun ? 'dry-run' : 'updated'
+  const total =
+    payload.total ?? replacements.reduce((sum, replacement) => sum + replacement.count, 0)
+  const action = payload.dry_run ? 'dry-run' : 'updated'
 
   if (!expanded) {
     return renderLines([
