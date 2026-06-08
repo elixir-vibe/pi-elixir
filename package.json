@@ -1,10 +1,6 @@
 {
   "private": true,
   "workspaces": ["packages/extension"],
-  "pi": {
-    "extensions": ["./packages/extension/src/index.ts"],
-    "skills": ["./packages/extension/skills"]
-  },
   "scripts": {
     "lint": "bun run lint:js && bun run lint:beam",
     "lint:js": "cd packages/extension && bun run lint",
