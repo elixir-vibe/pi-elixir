@@ -1,4 +1,4 @@
-defmodule Pi.InventoryTest do
+defmodule Pi.Protocol.API.InventoryTest do
   use ExUnit.Case, async: false
 
   alias Pi.Bridge.Info

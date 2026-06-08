@@ -87,7 +87,8 @@ defmodule Pi.Plugin.Manager do
       state
     end
   rescue
-    _ -> state
+    _exception in [ArgumentError, FunctionClauseError, KeyError, MatchError, RuntimeError] ->
+      state
   end
 
   defp discover do
@@ -103,7 +104,7 @@ defmodule Pi.Plugin.Manager do
     |> Enum.map(&elem(&1, 0))
     |> Enum.filter(&plugin_module?/1)
   rescue
-    _ -> []
+    _exception in [ArgumentError, Code.LoadError, CompileError, File.Error, SyntaxError] -> []
   end
 
   defp plugin_module?(module) do

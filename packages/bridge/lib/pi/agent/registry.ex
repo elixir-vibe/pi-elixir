@@ -65,8 +65,8 @@ defmodule Pi.Agent.Registry do
   def handle_call({:children, parent_id}, _from, state) do
     children =
       state.sessions
-      |> Map.values()
-      |> Enum.filter(&(&1.parent_id == parent_id))
+      |> Enum.filter(fn {_id, session} -> session.parent_id == parent_id end)
+      |> Enum.map(fn {_id, session} -> session end)
 
     {:reply, children, state}
   end

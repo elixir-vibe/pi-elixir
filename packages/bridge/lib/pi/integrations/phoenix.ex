@@ -31,7 +31,7 @@ if Code.ensure_loaded?(Phoenix.Endpoint) do
         url -> url |> Keyword.put_new(:scheme, "http") |> URI.new!() |> URI.to_string()
       end
     rescue
-      _ -> nil
+      _exception in [ArgumentError, FunctionClauseError, KeyError, UndefinedFunctionError] -> nil
     end
 
     defp endpoint_port(endpoint) do
@@ -43,7 +43,7 @@ if Code.ensure_loaded?(Phoenix.Endpoint) do
       |> List.wrap()
       |> Keyword.get(:port)
     rescue
-      _ -> nil
+      _exception in [ArgumentError, FunctionClauseError, KeyError, UndefinedFunctionError] -> nil
     end
 
     defp url_port(endpoint) do
@@ -51,7 +51,7 @@ if Code.ensure_loaded?(Phoenix.Endpoint) do
       |> List.wrap()
       |> Keyword.get(:port)
     rescue
-      _ -> nil
+      _exception in [ArgumentError, FunctionClauseError, KeyError, UndefinedFunctionError] -> nil
     end
   end
 end

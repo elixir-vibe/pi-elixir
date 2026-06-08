@@ -15,8 +15,8 @@ if Code.ensure_loaded?(Oban) do
 
     defp names do
       for {name, _pid, _type, _modules} <- Supervisor.which_children(Oban.Registry), do: name
-    rescue
-      _ -> []
+    catch
+      :exit, _reason -> []
     end
   end
 end

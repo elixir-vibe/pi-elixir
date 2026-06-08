@@ -38,7 +38,7 @@ defmodule Pi.Eval do
         try do
           apply(reloader, :reload, [endpoint])
         rescue
-          _ -> :ok
+          _exception in [ArgumentError, RuntimeError, UndefinedFunctionError] -> :ok
         end
       end
     else
@@ -65,11 +65,11 @@ defmodule Pi.Eval do
         end
       end)
 
-    case result do
-      :"do not show this result in output" -> io
-      _ when not success? -> result
-      _ when io == "" -> inspect(result, @inspect_opts)
-      _ -> "IO:\n\n#{io}\n\nResult:\n\n#{inspect(result, @inspect_opts)}"
+    case {result, success?, io} do
+      {:"do not show this result in output", _success?, io} -> io
+      {result, false, _io} -> result
+      {result, _success?, ""} -> inspect(result, @inspect_opts)
+      {result, _success?, io} -> "IO:\n\n#{io}\n\nResult:\n\n#{inspect(result, @inspect_opts)}"
     end
   end
 

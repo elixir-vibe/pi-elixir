@@ -66,30 +66,33 @@ defmodule Pi.Transport.Stdio do
   defp handle_line(line) do
     case Jason.decode(line) do
       {:ok, %{"type" => "call"} = request} ->
-        call = Call.from_map!(request)
-        spawn(fn -> respond(call.id, dispatch(call.name, call.arguments)) end)
+        with {:ok, call} <- Call.from_map(request) do
+          spawn(fn -> respond(call.id, dispatch(call.name, call.arguments)) end)
+        end
 
       {:ok, %{"type" => "response"} = response} ->
-        response = Response.from_map!(response)
-        Broker.deliver(response.id, response)
+        with {:ok, response} <- Response.from_map(response) do
+          Broker.deliver(response.id, response)
+        end
 
       {:ok, %{"type" => "llm_chunk"} = chunk} ->
-        chunk = Chunk.from_map!(chunk)
-        send(self(), {:pi_llm_chunk, chunk.id, chunk.delta})
+        with {:ok, chunk} <- Chunk.from_map(chunk) do
+          send(self(), {:pi_llm_chunk, chunk.id, chunk.delta})
+        end
 
       {:ok, %{"type" => "llm_done"} = done} ->
-        done = Done.from_map!(done)
-        send(self(), {:pi_llm_done, done.id, done.result})
+        with {:ok, done} <- Done.from_map(done) do
+          send(self(), {:pi_llm_done, done.id, done.result})
+        end
 
       {:ok, %{"type" => "llm_error"} = error} ->
-        error = Error.from_map!(error)
-        send(self(), {:pi_llm_error, error.id, error.error})
+        with {:ok, error} <- Error.from_map(error) do
+          send(self(), {:pi_llm_error, error.id, error.error})
+        end
 
       _ ->
         :ok
     end
-  rescue
-    _ -> :ok
   end
 
   defp dispatch("pi_skills_list", _args) do

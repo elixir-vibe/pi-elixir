@@ -28,7 +28,8 @@ defmodule Pi.Skill.Loader do
         {:ok, skills}
     end
   rescue
-    exception -> {:error, Exception.format(:error, exception, __STACKTRACE__)}
+    exception in [ArgumentError, Code.LoadError, CompileError, File.Error, SyntaxError] ->
+      {:error, Exception.format(:error, exception, __STACKTRACE__)}
   end
 
   @spec discover(keyword()) :: [Executable.t()]

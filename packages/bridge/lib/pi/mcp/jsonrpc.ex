@@ -9,11 +9,10 @@ defmodule Pi.MCP.JSONRPC do
   alias Pi.Protocol.MCP.Result
 
   def handle(%{"jsonrpc" => "2.0"} = payload) do
-    payload
-    |> Request.from_map!()
-    |> handle_request()
-  rescue
-    _ -> invalid()
+    case Request.from_map(payload) do
+      {:ok, request} -> handle_request(request)
+      {:error, _reason} -> invalid()
+    end
   end
 
   def handle(_), do: invalid()

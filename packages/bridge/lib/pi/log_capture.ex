@@ -13,11 +13,13 @@ defmodule Pi.LogCapture do
       _pid -> :ok
     end
 
-    :logger.add_handler(__MODULE__, __MODULE__, %{
-      formatter: Logger.default_formatter(colors: [enabled: false])
-    })
-  rescue
-    _ -> :ok
+    case :logger.add_handler(__MODULE__, __MODULE__, %{
+           formatter: Logger.default_formatter(colors: [enabled: false])
+         }) do
+      :ok -> :ok
+      {:error, {:already_exists, _pid}} -> :ok
+      {:error, _reason} -> :ok
+    end
   end
 
   def get_logs(n, opts \\ []) do

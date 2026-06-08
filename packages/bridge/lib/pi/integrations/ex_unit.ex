@@ -10,8 +10,6 @@ if Code.ensure_loaded?(ExUnit) do
 
     def statuses do
       if Mix.env() == :test, do: [%Status{key: :ex_unit, text: "test env"}], else: []
-    rescue
-      _ -> []
     end
   end
 end
