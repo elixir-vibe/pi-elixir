@@ -170,6 +170,26 @@ interface AstMatch {
   snippet?: string
 }
 
+interface AstSearchPayload {
+  matches?: Array<{ file?: string; line?: number; source?: string }>
+  total?: number
+}
+
+function astSearchPayload(result: AgentToolResult<unknown>): AstSearchPayload | null {
+  const details = (result as { details?: unknown }).details
+  if (typeof details !== 'object' || details === null) return null
+  const payload = (details as { astSearch?: unknown }).astSearch
+  return typeof payload === 'object' && payload !== null ? (payload as AstSearchPayload) : null
+}
+
+function structuredAstMatches(payload: AstSearchPayload): AstMatch[] {
+  return (payload.matches ?? []).map(({ file, line, source }) => ({
+    path: file ?? '(unknown)',
+    line: String(line ?? 0),
+    snippet: source
+  }))
+}
+
 function parseAstMatches(text: string): AstMatch[] {
   const lines = text.split('\n')
   const matches: AstMatch[] = []
@@ -237,7 +257,8 @@ export function renderAstSearchResult(
   const unavailableOrError = renderToolUnavailableOrError(result, text, theme, '(no matches)')
   if (unavailableOrError) return unavailableOrError
 
-  const matches = parseAstMatches(text)
+  const payload = astSearchPayload(result)
+  const matches = payload ? structuredAstMatches(payload) : parseAstMatches(text)
   if (matches.length === 0) return renderFallback(text, theme)
 
   const pattern = resultArg(result, 'pattern')

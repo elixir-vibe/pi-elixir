@@ -4,7 +4,6 @@ import path from 'node:path'
 
 import { describe, it, expect, beforeAll, afterAll } from 'vitest'
 
-const TOOLS_DIR = path.resolve(__dirname, '../../scripts/tools')
 const PROJECT_DIR =
   process.env.PI_ELIXIR_INTEGRATION_PROJECT ??
   path.resolve(__dirname, '../../../fixtures/demo_project')
@@ -51,26 +50,6 @@ async function mcpCall(
   expect(body.id).toBe(id)
   const content = body.result.content[0]
   return { isError: body.result.isError, text: content.text }
-}
-
-function elixirLiteral(value: unknown): string {
-  if (value === null || value === undefined) return 'nil'
-  if (typeof value === 'string') return `"${value.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`
-  if (typeof value === 'number') return String(value)
-  if (typeof value === 'boolean') return String(value)
-  return 'nil'
-}
-
-function evalScript(
-  baseUrl: string,
-  name: string,
-  bindings: Record<string, unknown>
-): Promise<{ isError?: boolean; text: string }> {
-  const script = fs.readFileSync(path.join(TOOLS_DIR, `${name}.exs`), 'utf-8')
-  const assigns = Object.entries(bindings)
-    .map(([key, value]) => `${key} = ${elixirLiteral(value)}`)
-    .join('\n')
-  return mcpCall(baseUrl, 'project_eval', { code: `${assigns}\n\n${script}` })
 }
 
 describe.skipIf(!elixirAvailable || !projectAvailable)('embedded MCP server', () => {
@@ -178,14 +157,20 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded MCP server', ()
     expect(result.text).toBe('true')
   })
 
-  describe('ex_ast_search.exs', () => {
+  describe('ex_ast_search', () => {
     it('finds Elixir syntax structurally', async () => {
-      const result = await evalScript(baseUrl, 'ex_ast_search', {
+      const result = await mcpCall(baseUrl, 'ex_ast_search', {
         pattern: 'defmodule _ do _ end',
-        path: 'lib'
+        path: 'lib/pi/eval.ex'
       })
-      expect(result.isError).toBeFalsy()
-      expect(result.text).toMatch(/defmodule Pi|ex_ast is not installed/)
+      if (result.isError) {
+        expect(result.text).toContain('ex_ast is not installed')
+        return
+      }
+
+      const payload = JSON.parse(result.text)
+      expect(payload.kind).toBe('ast_search')
+      expect(payload.matches[0].source).toContain('defmodule Pi.Eval do')
     })
   })
 })
