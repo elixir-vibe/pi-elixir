@@ -26,12 +26,12 @@ defmodule Pi.MCP.Router do
       {:ok, body} ->
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(200, Jason.encode!(body))
+        |> send_resp(200, Jason.encode!(JSONRPC.to_map(body)))
 
       {:error, body} ->
         conn
         |> put_resp_content_type("application/json")
-        |> send_resp(400, Jason.encode!(body))
+        |> send_resp(400, Jason.encode!(JSONRPC.to_map(body)))
     end
   end
 
