@@ -1,6 +1,6 @@
 ---
 name: elixir-dev
-description: Develop Elixir/Phoenix applications through a minimal BEAM tool surface. Use eval for runtime introspection and helper APIs, AST tools for structural code work, LSP for editor semantics, and Mix only for build/test/format gates.
+description: Develop existing Elixir/Phoenix applications through a minimal BEAM tool surface. Use eval for runtime introspection and helper APIs, AST tools for structural code work, LSP for editor semantics, and Mix only for build/test/format gates. For starting a new Elixir project/package with Igniter or VibeKit, use the elixir-new-project skill instead.
 ---
 
 # Elixir Development with BEAM Runtime Access
@@ -21,3 +21,5 @@ Read the focused guidance files as needed:
 - `tool-discipline.md` — eval/AST/LSP/shell choice rules.
 - `runtime-snippets.md` — useful runtime introspection snippets.
 - `workflow-verification.md` — edit and verification loop.
+
+For phrases like “start a new package”, “see my vibe_kit package”, “use igniter”, `mix igniter.new`, or `mix igniter.install`, load `elixir-new-project` instead of treating the task as ordinary existing-project development.
