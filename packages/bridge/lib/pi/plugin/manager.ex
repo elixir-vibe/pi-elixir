@@ -4,6 +4,7 @@ defmodule Pi.Plugin.Manager do
   use GenServer
 
   alias Pi.Plugin.API
+  alias Pi.Protocol.PluginInfo
 
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
 
@@ -51,7 +52,7 @@ defmodule Pi.Plugin.Manager do
 
   @impl true
   def handle_call(:plugins, _from, state) do
-    plugins = Enum.map(state.plugins, &%{module: inspect(&1), name: module_name(&1)})
+    plugins = Enum.map(state.plugins, &%PluginInfo{module: &1, name: module_name(&1)})
     {:reply, plugins, state}
   end
 

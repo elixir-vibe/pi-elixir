@@ -2,6 +2,8 @@ defmodule Pi.Skill.Loader do
   @moduledoc "Discovers trusted executable Elixir skills in the current Mix project."
 
   alias Pi.Plugin.API
+  alias Pi.Protocol.ExtensionAPI
+  alias Pi.Protocol.SkillInfo
   alias Pi.Skill.Executable
 
   @spec load_file(String.t()) :: {:ok, [Executable.t()]} | {:error, term()}
@@ -42,18 +44,18 @@ defmodule Pi.Skill.Loader do
     |> Enum.uniq_by(&{&1.name, &1.module})
   end
 
-  @spec serializable(keyword()) :: [map()]
+  @spec serializable(keyword()) :: [SkillInfo.t()]
   def serializable(opts \\ []) do
     opts
     |> discover()
     |> Enum.map(fn skill ->
-      %{
+      %SkillInfo{
         name: skill.name,
         path: skill.path,
-        module: inspect(skill.module),
+        module: skill.module,
         metadata: atom_keys_to_strings(skill.metadata),
         markdown: skill.markdown,
-        apis: Enum.map(skill.apis, &api_to_map/1)
+        apis: Enum.map(skill.apis, &ExtensionAPI.from_api/1)
       }
     end)
   end
@@ -109,16 +111,6 @@ defmodule Pi.Skill.Loader do
       metadata: metadata,
       markdown: module.markdown(),
       apis: Enum.map(module.apis(), &API.new/1)
-    }
-  end
-
-  defp api_to_map(%API{} = api) do
-    %{
-      name: api.name,
-      module: inspect(api.module),
-      alias: api.alias,
-      description: api.description,
-      examples: api.examples
     }
   end
 

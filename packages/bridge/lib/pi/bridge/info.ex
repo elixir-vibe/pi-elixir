@@ -8,6 +8,7 @@ defmodule Pi.Bridge.Info do
   alias Pi.Protocol.APIModule
   alias Pi.Protocol.BridgeInfo
   alias Pi.Protocol.Endpoint
+  alias Pi.Protocol.ExtensionAPI
   alias Pi.Protocol.PluginInfo
   alias Pi.Protocol.SkillInfo
   alias Pi.Skill.Loader
@@ -46,6 +47,7 @@ defmodule Pi.Bridge.Info do
 
   def extension_apis do
     (Manager.apis() ++ skill_apis())
+    |> Enum.map(&ExtensionAPI.from_api/1)
     |> Enum.uniq_by(&{&1.alias, &1.module})
   end
 
@@ -63,18 +65,24 @@ defmodule Pi.Bridge.Info do
 
   defp skills do
     Loader.serializable()
-    |> Enum.map(&SkillInfo.from_map!/1)
+    |> Enum.map(&normalize_skill/1)
   end
 
   defp plugins do
     Manager.plugins()
-    |> Enum.map(&PluginInfo.from_map!/1)
+    |> Enum.map(&normalize_plugin/1)
   end
 
   defp endpoints do
     Integrations.endpoints()
     |> Enum.map(&Endpoint.from_map!/1)
   end
+
+  defp normalize_skill(%SkillInfo{} = skill), do: skill
+  defp normalize_skill(%{} = skill), do: SkillInfo.from_map!(skill)
+
+  defp normalize_plugin(%PluginInfo{} = plugin), do: plugin
+  defp normalize_plugin(%{} = plugin), do: PluginInfo.from_map!(plugin)
 
   defp skill_apis do
     Loader.discover()

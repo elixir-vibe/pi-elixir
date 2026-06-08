@@ -5,5 +5,7 @@ defmodule Pi.Protocol.PluginInfo do
 
   defstruct [:name, :module]
 
-  @type t :: %__MODULE__{name: String.t() | nil, module: String.t() | nil}
+  @type t :: %__MODULE__{name: String.t() | nil, module: module() | nil}
+
+  codec(:module, atom: :unsafe)
 end

@@ -93,7 +93,7 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp dispatch("pi_skills_list", _args) do
-    {:ok, Jason.encode!(Loader.serializable())}
+    {:ok, encode_structs(Loader.serializable())}
   end
 
   defp dispatch("pi_event", args) do
@@ -107,7 +107,7 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp dispatch("pi_bridge_apis", _args) do
-    {:ok, Jason.encode!(Enum.map(Info.apis(), &api_to_map/1))}
+    {:ok, encode_structs(Info.apis())}
   end
 
   defp dispatch("pi_apis", _args) do
@@ -136,16 +136,6 @@ defmodule Pi.Transport.Stdio do
     values
     |> Enum.map(&to_payload/1)
     |> Jason.encode!()
-  end
-
-  defp api_to_map(api) do
-    %{
-      name: api.name,
-      alias: api.alias,
-      module: inspect(api.module),
-      description: api.description,
-      examples: api.examples
-    }
   end
 
   defp write(payload) do

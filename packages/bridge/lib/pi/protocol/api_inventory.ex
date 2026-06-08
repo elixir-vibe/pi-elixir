@@ -4,8 +4,9 @@ defmodule Pi.Protocol.APIInventory do
   use JSONCodec, fast_path: :json
 
   alias Pi.Protocol.APIModule
+  alias Pi.Protocol.ExtensionAPI
 
   defstruct runtime: [], extensions: []
 
-  @type t :: %__MODULE__{runtime: [APIModule.t()], extensions: [term()]}
+  @type t :: %__MODULE__{runtime: [APIModule.t()], extensions: [ExtensionAPI.t()]}
 end
