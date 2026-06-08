@@ -7,6 +7,10 @@ defmodule PiBridge.MixProject do
       version: "0.1.0",
       elixir: "~> 1.20",
       start_permanent: Mix.env() == :prod,
+      description: "BEAM runtime bridge for pi development agents",
+      package: package(),
+      source_url: "https://github.com/dannote/pi-elixir",
+      docs: [main: "readme", extras: ["README.md"]],
       aliases: aliases(),
       dialyzer: [
         plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
@@ -35,6 +39,14 @@ defmodule PiBridge.MixProject do
         "ex_dna --max-clones 0",
         "reach.check --arch --smells"
       ]
+    ]
+  end
+
+  defp package do
+    [
+      licenses: ["MIT"],
+      links: %{"GitHub" => "https://github.com/dannote/pi-elixir"},
+      files: ~w[lib mix.exs README.md]
     ]
   end
 
