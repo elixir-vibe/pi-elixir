@@ -5,11 +5,13 @@ defmodule Pi.Transport.Stdio do
   alias Pi.Integrations
   alias Pi.MCP.Tools
   alias Pi.Plugin.Event
+  alias Pi.Plugin.Manager
   alias Pi.Skill.Loader
 
   def start do
     :persistent_term.put({__MODULE__, :pid}, self())
     Event.install()
+    Manager.install()
     ready()
     emit_integration_statuses()
 
@@ -50,7 +52,16 @@ defmodule Pi.Transport.Stdio do
 
   defp dispatch("pi_event", args) do
     Event.push(args)
+    Manager.dispatch_event(args)
     {:ok, "ok"}
+  end
+
+  defp dispatch("pi_bridge_info", _args) do
+    {:ok, Jason.encode!(Info.snapshot(:stdio))}
+  end
+
+  defp dispatch("pi_bridge_apis", _args) do
+    {:ok, Jason.encode!(Enum.map(Info.apis(), &api_to_map/1))}
   end
 
   defp dispatch(name, args), do: Tools.dispatch(name, args)
@@ -69,6 +80,16 @@ defmodule Pi.Transport.Stdio do
     Enum.each(Integrations.statuses(), fn %{key: key, text: text} ->
       write(%{type: :ui, op: :status, key: key, text: text})
     end)
+  end
+
+  defp api_to_map(api) do
+    %{
+      name: api.name,
+      alias: api.alias,
+      module: inspect(api.module),
+      description: api.description,
+      examples: api.examples
+    }
   end
 
   defp write(payload) do

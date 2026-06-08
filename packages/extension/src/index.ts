@@ -127,6 +127,39 @@ export default function (pi: ExtensionAPI) {
     await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
   })
 
+  pi.on('before_agent_start', async (event, ctx) => {
+    await sendBridgeEvent(ctx.cwd, {
+      type: 'before_agent_start',
+      cwd: ctx.cwd,
+      prompt: event.prompt
+    })
+  })
+
+  pi.on('turn_start', async (event, ctx) => {
+    await sendBridgeEvent(ctx.cwd, { type: 'turn_start', cwd: ctx.cwd, turnIndex: event.turnIndex })
+  })
+
+  pi.on('turn_end', async (event, ctx) => {
+    await sendBridgeEvent(ctx.cwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
+  })
+
+  pi.on('tool_call', async (event, ctx) => {
+    await sendBridgeEvent(ctx.cwd, {
+      type: 'tool_call',
+      cwd: ctx.cwd,
+      name: event.toolName
+    })
+  })
+
+  pi.on('tool_result', async (event, ctx) => {
+    await sendBridgeEvent(ctx.cwd, {
+      type: 'tool_result',
+      cwd: ctx.cwd,
+      name: event.toolName,
+      isError: event.isError
+    })
+  })
+
   pi.on('resources_discover', async (_event, ctx) => {
     if (!isElixirProject(ctx.cwd)) return {}
 

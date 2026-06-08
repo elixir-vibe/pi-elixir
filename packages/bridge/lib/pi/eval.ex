@@ -1,6 +1,8 @@
 defmodule Pi.Eval do
   @moduledoc "Runs bounded Elixir evals inside the project BEAM."
 
+  alias Pi.Bridge.Info
+
   @inspect_opts [charlists: :as_lists, limit: 50, pretty: true]
 
   def run(code, opts \\ []) when is_binary(code) do
@@ -8,6 +10,7 @@ defmodule Pi.Eval do
     parent = self()
 
     reload_project()
+    code = prepend_aliases(code)
 
     {pid, ref} =
       spawn_monitor(fn -> send(parent, {:result, eval_with_captured_io(code)}) end)
@@ -41,6 +44,13 @@ defmodule Pi.Eval do
     else
       Mix.Task.reenable("compile.elixir")
       Mix.Task.run("compile.elixir")
+    end
+  end
+
+  defp prepend_aliases(code) do
+    case Info.aliases_code() do
+      "" -> code
+      aliases -> aliases <> "\n" <> code
     end
   end
 

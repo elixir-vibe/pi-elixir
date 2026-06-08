@@ -5,6 +5,10 @@ defmodule Pi.Plugin.UI do
     emit(%{type: :ui, op: :status, key: key, text: text})
   end
 
+  def clear_status(key) when is_atom(key) or is_binary(key) do
+    emit(%{type: :ui, op: :status, key: key, text: nil})
+  end
+
   def set_progress(key, opts) when is_atom(key) or is_binary(key) do
     emit(%{
       type: :ui,
@@ -25,6 +29,10 @@ defmodule Pi.Plugin.UI do
       lines: lines,
       placement: Keyword.get(opts, :placement, :belowEditor)
     })
+  end
+
+  def clear_widget(key) when is_atom(key) or is_binary(key) do
+    emit(%{type: :ui, op: :widget, key: key, lines: nil})
   end
 
   def notify(message, opts \\ []) do

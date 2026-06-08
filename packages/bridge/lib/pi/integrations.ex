@@ -2,7 +2,10 @@ defmodule Pi.Integrations do
   @moduledoc "Optional project integration discovery."
 
   @integrations [
-    phoenix: Pi.Integrations.Phoenix
+    phoenix: Pi.Integrations.Phoenix,
+    ecto: Pi.Integrations.Ecto,
+    oban: Pi.Integrations.Oban,
+    ex_unit: Pi.Integrations.ExUnit
   ]
 
   def loaded do
@@ -12,10 +15,15 @@ defmodule Pi.Integrations do
   end
 
   def endpoints, do: optional(Pi.Integrations.Phoenix, :endpoints)
-  def statuses, do: optional(Pi.Integrations.Phoenix, :statuses)
+
+  def statuses do
+    @integrations
+    |> Enum.flat_map(fn {_name, module} -> optional(module, :statuses) end)
+    |> Enum.uniq_by(& &1.key)
+  end
 
   defp optional(module, function) do
-    if Code.ensure_loaded?(module) do
+    if Code.ensure_loaded?(module) and function_exported?(module, function, 0) do
       apply(module, function, [])
     else
       []
