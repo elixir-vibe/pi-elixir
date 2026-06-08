@@ -9,6 +9,7 @@ defmodule Pi.Bridge.Info do
   alias Pi.Protocol.API.Module, as: APIModule
   alias Pi.Protocol.BridgeInfo
   alias Pi.Protocol.Endpoint
+  alias Pi.Protocol.PluginCommand
   alias Pi.Protocol.PluginInfo
   alias Pi.Protocol.SkillInfo
   alias Pi.Skill.Loader
@@ -19,6 +20,8 @@ defmodule Pi.Bridge.Info do
     bridge_info: __MODULE__,
     plugin_ui: Pi.Plugin.UI,
     plugin_events: Pi.Plugin.Event,
+    session: Pi.Session,
+    eval_sandbox: Pi.Eval.Sandbox,
     integrations: Pi.Integrations
   ]
 
@@ -29,6 +32,7 @@ defmodule Pi.Bridge.Info do
       integrations: Integrations.loaded(),
       skills: skills(),
       plugins: plugins(),
+      commands: commands(),
       endpoints: endpoints(),
       apis: %Inventory{
         runtime: runtime_apis(),
@@ -71,6 +75,11 @@ defmodule Pi.Bridge.Info do
   defp plugins do
     Manager.plugins()
     |> Enum.map(&normalize_plugin/1)
+  end
+
+  defp commands do
+    Manager.commands()
+    |> Enum.map(&PluginCommand.from_command/1)
   end
 
   defp endpoints do

@@ -1,6 +1,7 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('../src/connection/resolver.ts', () => ({
+  callTool: vi.fn(),
   resolveUrl: vi.fn(),
   getConnectionKind: vi.fn(),
   sendBridgeEvent: vi.fn()
@@ -12,6 +13,8 @@ vi.mock('../src/connection/status.ts', () => ({
 
 vi.mock('../src/embedded/stdio-process.ts', () => ({
   stopEmbedded: vi.fn(),
+  onBridgeBusEvent: vi.fn((_listener) => vi.fn()),
+  onBridgeRequest: vi.fn((_listener) => vi.fn()),
   onBridgeUIEvent: vi.fn((_listener) => vi.fn()),
   getBridgeInfo: vi.fn()
 }))
@@ -41,7 +44,12 @@ function fakePi() {
       on: vi.fn((event: string, handler: Function) => {
         handlers.set(event, handler)
       }),
-      registerTool: vi.fn()
+      registerTool: vi.fn(),
+      registerCommand: vi.fn(),
+      events: { emit: vi.fn() },
+      getSessionName: vi.fn(() => undefined),
+      getActiveTools: vi.fn(() => []),
+      appendEntry: vi.fn()
     },
     handlers
   }
@@ -81,9 +89,10 @@ describe('extension registration', () => {
     const { pi } = fakePi()
     extension(pi as any)
 
-    expect(pi.registerTool).toHaveBeenCalledTimes(3)
+    expect(pi.registerTool).toHaveBeenCalledTimes(4)
     expect(pi.registerTool.mock.calls.map(([tool]) => tool.name)).toEqual([
       'elixir_eval',
+      'elixir_sandbox_eval',
       'elixir_ast_search',
       'elixir_ast_replace'
     ])

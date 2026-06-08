@@ -2,6 +2,7 @@ import * as childProcess from 'node:child_process'
 
 import { connectionCache, emitStatusChange, invalidateCache } from '../connection/status.ts'
 import type {
+  BridgeBusEvent,
   BridgeEvent,
   BridgeInfo,
   BridgeUIEvent,
@@ -25,9 +26,16 @@ interface EmbeddedProcess {
 export type { BridgeInfo, BridgeUIEvent }
 
 type UIEventListener = (cwd: string, event: BridgeUIEvent) => void
+type BusEventListener = (cwd: string, event: BridgeBusEvent) => void
+type BridgeRequestHandler = (
+  cwd: string,
+  message: StdioMessage
+) => Promise<Record<string, unknown> | undefined>
 
 const bridgeInfo = new Map<string, BridgeInfo>()
 const uiEventListeners = new Set<UIEventListener>()
+const busEventListeners = new Set<BusEventListener>()
+const requestHandlers = new Set<BridgeRequestHandler>()
 
 export function getBridgeInfo(cwd: string): BridgeInfo | undefined {
   return bridgeInfo.get(cwd)
@@ -40,12 +48,36 @@ export function onBridgeUIEvent(listener: UIEventListener): () => void {
   }
 }
 
+export function onBridgeBusEvent(listener: BusEventListener): () => void {
+  busEventListeners.add(listener)
+  return () => {
+    busEventListeners.delete(listener)
+  }
+}
+
+export function onBridgeRequest(handler: BridgeRequestHandler): () => void {
+  requestHandlers.add(handler)
+  return () => {
+    requestHandlers.delete(handler)
+  }
+}
+
 function emitUIEvent(cwd: string, event: BridgeUIEvent): void {
   for (const listener of uiEventListeners) {
     try {
       listener(cwd, event)
     } catch {
       // UI event listeners are best-effort.
+    }
+  }
+}
+
+function emitBusEvent(cwd: string, event: BridgeBusEvent): void {
+  for (const listener of busEventListeners) {
+    try {
+      listener(cwd, event)
+    } catch {
+      // Bus event listeners are best-effort.
     }
   }
 }
@@ -107,6 +139,15 @@ async function handleBridgeRequest(
 ): Promise<void> {
   if (typeof message.id !== 'string') return
 
+  const responses = await Promise.all(
+    Array.from(requestHandlers, (handler) => handler(cwd, message))
+  )
+  const response = responses.find((candidate) => candidate !== undefined)
+  if (response) {
+    sendResponse(entry, message.id, response)
+    return
+  }
+
   if (message.op === 'llm_complete') {
     const fakeResponse = process.env.PI_TEST_LLM_COMPLETE_RESPONSE
     if (fakeResponse) {
@@ -155,6 +196,11 @@ function handleMessage(cwd: string, entry: EmbeddedProcess, message: StdioMessag
 
   if (message.type === 'ui') {
     emitUIEvent(cwd, message as BridgeUIEvent)
+    return
+  }
+
+  if (message.type === 'event') {
+    emitBusEvent(cwd, message as BridgeBusEvent)
     return
   }
 

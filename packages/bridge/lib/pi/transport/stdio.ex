@@ -109,6 +109,30 @@ defmodule Pi.Transport.Stdio do
     {:ok, "ok"}
   end
 
+  defp dispatch("pi_plugin_command", %{"name" => name, "args" => args}) when is_binary(name) do
+    case existing_atom(name) do
+      {:ok, name} ->
+        name
+        |> Manager.run_command(to_string(args || ""))
+        |> encode_reply()
+
+      :error ->
+        encode_reply({:error, "Unknown plugin command: #{name}"})
+    end
+  end
+
+  defp dispatch("pi_plugin_tool_call", args) do
+    args
+    |> Manager.tool_call(%{})
+    |> encode_reply()
+  end
+
+  defp dispatch("pi_plugin_tool_result", args) do
+    args
+    |> Manager.tool_result(%{})
+    |> encode_reply()
+  end
+
   defp dispatch("pi_bridge_info", _args) do
     {:ok, Jason.encode!(Info.snapshot(:stdio))}
   end
@@ -122,6 +146,22 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp dispatch(name, args), do: Tools.dispatch(name, args)
+
+  defp existing_atom(value) do
+    {:ok, String.to_existing_atom(value)}
+  rescue
+    ArgumentError -> :error
+  end
+
+  defp encode_reply(reply), do: {:ok, Jason.encode!(reply |> reply_payload() |> normalize())}
+
+  defp reply_payload({:ok, value}) when is_map(value), do: %{ok: value}
+  defp reply_payload({:ok, value}) when is_binary(value), do: %{ok: value}
+  defp reply_payload({:error, value}), do: %{error: value}
+  defp reply_payload({:block, value}), do: %{block: value}
+  defp reply_payload(:ok), do: %{ok: %{}}
+  defp reply_payload(value) when is_binary(value), do: %{ok: value}
+  defp reply_payload(value) when is_map(value), do: value
 
   defp respond(id, {:ok, text}) do
     write(%Result{type: :result, id: id, text: text, is_error: false})

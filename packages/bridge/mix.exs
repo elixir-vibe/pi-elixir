@@ -55,6 +55,7 @@ defmodule PiBridge.MixProject do
       {:jason, "~> 1.4"},
       {:json_codec, "~> 0.1.1"},
       {:req_llm, "~> 1.6", optional: true},
+      {:dune, "~> 0.3", optional: true},
       {:bandit, "~> 1.8"},
       {:plug, "~> 1.18"},
       {:credo, "~> 1.7", only: [:dev, :test], runtime: false},

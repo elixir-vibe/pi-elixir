@@ -5,6 +5,7 @@ defmodule Pi.Protocol.BridgeInfo do
 
   alias Pi.Protocol.API.Inventory
   alias Pi.Protocol.Endpoint
+  alias Pi.Protocol.PluginCommand
   alias Pi.Protocol.PluginInfo
   alias Pi.Protocol.SkillInfo
 
@@ -14,6 +15,7 @@ defmodule Pi.Protocol.BridgeInfo do
     integrations: [],
     skills: [],
     plugins: [],
+    commands: [],
     endpoints: [],
     apis: %Inventory{}
   ]
@@ -24,6 +26,7 @@ defmodule Pi.Protocol.BridgeInfo do
           integrations: [atom()],
           skills: [SkillInfo.t()],
           plugins: [PluginInfo.t()],
+          commands: [PluginCommand.t()],
           endpoints: [Endpoint.t()],
           apis: Inventory.t()
         }

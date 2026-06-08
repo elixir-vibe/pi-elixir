@@ -11,9 +11,15 @@
 - `Pi.Agent.Run` for structured chain/parallel/fanout orchestration results.
 - `Pi.Agent.Messages` normalization using `Pi.Protocol.LLM.Message`.
 - Supervised plugin lifecycle with `Pi.Plugin.Supervisor`, `Pi.Plugin.Manager`, and isolated `Pi.Plugin.Worker` processes.
+- Vibe-inspired plugin API macro, default API aliases, dynamic load/unload, shutdown callback, and `Pi.Plugin.Waiters`.
+- Dune-backed `Pi.Eval.Sandbox`, `Pi.Eval.sandbox/2`, and `elixir_sandbox_eval` for restricted untrusted Elixir snippets.
+- BEAM-to-pi event bus publishing with `Pi.Plugin.Event.emit/2`.
+- BEAM plugin slash commands exposed as `/elixir:<name>` commands.
+- BEAM session APIs for info, active tools, and append-entry persistence.
+- Plugin `tool_call/3` and `tool_result/3` hooks for blocking or patching tool execution.
 - Executable skill and plugin examples plus a demo fixture Mix project.
 - Extension-owned stdio smoke tests covering ready info, LLM completion, and streaming.
-- Protocol JSON examples in `packages/bridge/docs/protocol.md`.
+- Protocol JSON examples in `packages/bridge/docs/protocol.md` with tests covering the documented shapes.
 
 ### Changed
 

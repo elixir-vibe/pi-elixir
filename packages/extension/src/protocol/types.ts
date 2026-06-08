@@ -24,6 +24,7 @@ export interface BridgeInfo {
   integrations?: string[]
   skills?: BridgeSkillInfo[]
   plugins?: BridgePluginInfo[]
+  commands?: BridgePluginCommand[]
   endpoints?: BridgeEndpoint[]
   apis?: BridgeAPIInventory
 }
@@ -40,6 +41,12 @@ export interface BridgeSkillInfo {
 export interface BridgePluginInfo {
   name?: string
   module?: string
+}
+
+export interface BridgePluginCommand {
+  name?: string
+  description?: string
+  plugin?: string
 }
 
 export interface BridgeEndpoint {
@@ -86,6 +93,12 @@ export interface BridgeUIEvent {
   level?: 'info' | 'warning' | 'error'
 }
 
+export interface BridgeBusEvent {
+  type: 'event'
+  name?: string
+  data?: JSONValue
+}
+
 export interface BridgeEvent extends ToolArgs {
   type: string
   cwd?: string
@@ -99,6 +112,8 @@ export interface LLMMessagePayload {
 
 export interface BridgeRequestPayload extends ToolArgs {
   messages?: LLMMessagePayload[]
+  customType?: string
+  data?: JSONObject
 }
 
 export interface StdioMessage {
@@ -116,6 +131,8 @@ export interface StdioMessage {
   placement?: 'aboveEditor' | 'belowEditor'
   message?: string
   level?: 'info' | 'warning' | 'error'
+  name?: string
+  data?: JSONValue
   payload?: BridgeRequestPayload
 }
 

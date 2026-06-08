@@ -2,8 +2,11 @@ defmodule Pi.Eval do
   @moduledoc "Runs bounded Elixir evals inside the project BEAM."
 
   alias Pi.Bridge.Info
+  alias Pi.Eval.Sandbox
 
   @inspect_opts [charlists: :as_lists, limit: 50, pretty: true]
+
+  def sandbox(code, opts \\ []) when is_binary(code), do: Sandbox.eval(code, opts)
 
   def run(code, opts \\ []) when is_binary(code) do
     timeout = Keyword.get(opts, :timeout, 30_000)

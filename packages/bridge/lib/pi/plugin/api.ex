@@ -18,7 +18,21 @@ defmodule Pi.Plugin.API do
     attrs |> Map.new() |> new()
   end
 
-  def new(attrs) when is_map(attrs) do
-    struct!(__MODULE__, attrs)
+  def new(%{name: name, module: module} = attrs) when is_atom(name) and is_atom(module) do
+    %__MODULE__{
+      name: name,
+      module: module,
+      alias: Map.get(attrs, :alias) || default_alias(module),
+      description: Map.get(attrs, :description, ""),
+      examples: Map.get(attrs, :examples, [])
+    }
+  end
+
+  defp default_alias(module) do
+    module
+    |> Module.split()
+    |> Enum.reject(&(&1 in ["Pi", "Plugin", "Plugins", "API"]))
+    |> List.last()
+    |> :erlang.binary_to_atom()
   end
 end

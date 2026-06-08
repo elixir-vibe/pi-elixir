@@ -21,6 +21,10 @@ defmodule Pi.Plugin.Supervisor do
     DynamicSupervisor.start_child(__MODULE__, Worker.child_spec(module))
   end
 
+  def stop_plugin(pid) when is_pid(pid) do
+    DynamicSupervisor.terminate_child(__MODULE__, pid)
+  end
+
   @impl true
   def init(_opts) do
     DynamicSupervisor.init(strategy: :one_for_one)
