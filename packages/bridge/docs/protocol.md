@@ -88,6 +88,30 @@ Cancellation from BEAM to pi:
 { "type": "ui", "op": "status", "key": "ecto", "text": "ecto 1/1" }
 ```
 
+## BEAM-to-pi extension event bus
+
+```json
+{ "type": "event", "name": "pi-elixir:demo", "data": { "events": 1 } }
+```
+
+## Plugin command and tool hooks
+
+Plugin commands are called by the TypeScript extension after it registers `/elixir:<name>` commands from the ready inventory:
+
+```json
+{ "type": "call", "id": 2, "name": "pi_plugin_command", "arguments": { "name": "demo_plugin_status", "args": "smoke" } }
+```
+
+Tool hooks use strict hook payload shapes before dispatching to plugin callbacks:
+
+```json
+{ "type": "call", "id": 3, "name": "pi_plugin_tool_call", "arguments": { "toolName": "bash", "toolCallId": "tool_1", "input": { "command": "pwd" } } }
+```
+
+```json
+{ "type": "result", "id": 3, "text": "{\"block\":\"blocked by plugin\"}", "isError": false }
+```
+
 ## MCP JSON-RPC
 
 ```json

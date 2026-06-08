@@ -12,6 +12,8 @@ defmodule Pi.Transport.Stdio do
   alias Pi.Protocol.LLM.Chunk
   alias Pi.Protocol.LLM.Done
   alias Pi.Protocol.LLM.Error
+  alias Pi.Protocol.PluginHook
+  alias Pi.Protocol.PluginHookResponse
   alias Pi.Protocol.Ready
   alias Pi.Protocol.Request
   alias Pi.Protocol.Response
@@ -122,15 +124,29 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp dispatch("pi_plugin_tool_call", args) do
-    args
-    |> Manager.tool_call(%{})
-    |> encode_reply()
+    case PluginHook.from_wire(args) do
+      {:ok, hook} ->
+        hook
+        |> plugin_hook_payload()
+        |> Manager.tool_call(%{})
+        |> encode_hook_reply()
+
+      {:error, _reason} ->
+        encode_hook_reply({:error, "Invalid plugin hook payload"})
+    end
   end
 
   defp dispatch("pi_plugin_tool_result", args) do
-    args
-    |> Manager.tool_result(%{})
-    |> encode_reply()
+    case PluginHook.from_wire(args) do
+      {:ok, hook} ->
+        hook
+        |> plugin_hook_payload()
+        |> Manager.tool_result(%{})
+        |> encode_hook_reply()
+
+      {:error, _reason} ->
+        encode_hook_reply({:error, "Invalid plugin hook payload"})
+    end
   end
 
   defp dispatch("pi_bridge_info", _args) do
@@ -147,14 +163,34 @@ defmodule Pi.Transport.Stdio do
 
   defp dispatch(name, args), do: Tools.dispatch(name, args)
 
+  defp plugin_hook_payload(%PluginHook{} = hook) do
+    %{
+      "toolName" => hook.tool_name,
+      "toolCallId" => hook.tool_call_id,
+      "input" => hook.input,
+      "content" => hook.content,
+      "isError" => hook.is_error
+    }
+  end
+
   defp existing_atom(value) do
     {:ok, String.to_existing_atom(value)}
   rescue
     ArgumentError -> :error
   end
 
+  defp encode_hook_reply({:ok, value}) when is_map(value) do
+    encode_reply(PluginHookResponse.ok(value))
+  end
+
+  defp encode_hook_reply({:block, reason}), do: encode_reply(PluginHookResponse.block(reason))
+  defp encode_hook_reply({:error, reason}), do: encode_reply(PluginHookResponse.error(reason))
+  defp encode_hook_reply(:ok), do: encode_reply(PluginHookResponse.ok())
+  defp encode_hook_reply(value), do: encode_reply(value)
+
   defp encode_reply(reply), do: {:ok, Jason.encode!(reply |> reply_payload() |> normalize())}
 
+  defp reply_payload(%_module{} = value), do: to_payload(value)
   defp reply_payload({:ok, value}) when is_map(value), do: %{ok: value}
   defp reply_payload({:ok, value}) when is_binary(value), do: %{ok: value}
   defp reply_payload({:error, value}), do: %{error: value}

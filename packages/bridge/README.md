@@ -78,6 +78,16 @@ ReqLLM may warn that `pi:current` is not in its public model catalog. That is ex
 
 `Pi.Agent.run/2` keeps the single-run shape `{:ok, %Pi.Agent.Result{}} | {:error, %Pi.Agent.Result{}}`. `chain/2`, `parallel/2`, and `fanout/2` return `{:ok, %Pi.Agent.Run{}} | {:error, %Pi.Agent.Run{}}` so orchestration metadata and partial results are explicit.
 
+## Session bridge APIs
+
+BEAM code can ask the pi extension for small session-state snapshots and persist branch-aware custom entries:
+
+```elixir
+{:ok, info} = Pi.Session.info()
+{:ok, %{tools: tools}} = Pi.Session.active_tools()
+{:ok, "ok"} = Pi.Session.append_entry("demo-state", %{count: 1})
+```
+
 ## Plugins
 
 Project-local plugins live in `priv/pi_plugins`, `.pi/plugins`, or `pi_plugins`. Each plugin is isolated behind a `Pi.Plugin.Worker` process.
@@ -94,8 +104,17 @@ defmodule DemoPiPlugin do
 
   def handle_command(:demo, args, state), do: {{:ok, "demo #{args}"}, state}
 
+  # Return {:block, reason} to prevent a tool call, or {:ok, patch} to merge into the tool input.
   def tool_call(%{"toolName" => "bash"}, _context, state), do: {{:block, "bash blocked"}, state}
   def tool_call(_call, _context, state), do: {:ok, state}
+
+  # Return {:ok, patch} to patch a tool result. Supported TypeScript-side patches include
+  # string `content` and boolean `isError`.
+  def tool_result(%{"toolName" => "demo"}, _context, state) do
+    {{:ok, %{"content" => "patched by plugin"}}, state}
+  end
+
+  def tool_result(_result, _context, state), do: {:ok, state}
 
   def apis do
     [name: :demo_plugin, module: __MODULE__, alias: :DemoPlugin]

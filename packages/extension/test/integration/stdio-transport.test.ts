@@ -17,6 +17,7 @@ type StdioMessage = {
   text?: string
   isError?: boolean
   op?: string
+  data?: Record<string, unknown>
   payload?: {
     messages?: Array<{ content?: string }>
   }
@@ -132,6 +133,40 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded stdio transport
   function respond(id: string, result: string): void {
     proc.stdin?.write(JSON.stringify({ type: 'response', id, ok: true, result }) + '\n')
   }
+
+  it('runs fixture plugin command and forwards BEAM event-bus events', async () => {
+    const result = await call('pi_plugin_command', {
+      name: 'demo_plugin_status',
+      args: 'smoke'
+    })
+    const event = await queue.next((message) => message.type === 'event')
+
+    expect(result.isError).toBe(false)
+    expect(result.text).toContain('demo plugin events=')
+    expect(result.text).toContain('args=smoke')
+    expect(event.name).toBe('pi-elixir:demo')
+    expect(event.data?.args).toBe('smoke')
+  })
+
+  it('runs fixture plugin tool hook request/response payloads', async () => {
+    const blocked = await call('pi_plugin_tool_call', {
+      toolName: 'demo_blocked',
+      toolCallId: 'tool-1',
+      input: {}
+    })
+    expect(blocked.isError).toBe(false)
+    expect(JSON.parse(blocked.text).block).toBe('blocked by demo plugin')
+
+    const patched = await call('pi_plugin_tool_result', {
+      toolName: 'demo_patch_result',
+      toolCallId: 'tool-2',
+      input: {},
+      content: 'original',
+      isError: false
+    })
+    expect(patched.isError).toBe(false)
+    expect(JSON.parse(patched.text).ok.content).toBe('patched by demo plugin')
+  })
 
   it('routes a BEAM-initiated LLM request back to the waiting eval call', async () => {
     const resultPromise = call('project_eval', { code: 'Pi.LLM.complete("hello")' })

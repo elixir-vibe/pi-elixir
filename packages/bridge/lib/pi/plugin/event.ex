@@ -3,6 +3,7 @@ defmodule Pi.Plugin.Event do
 
   use GenServer
 
+  alias Pi.Protocol.PluginEvent
   alias Pi.Transport.Stdio
 
   def start_link(opts \\ []), do: GenServer.start_link(__MODULE__, opts, name: __MODULE__)
@@ -20,7 +21,7 @@ defmodule Pi.Plugin.Event do
   end
 
   def emit(name, data \\ %{}) when is_binary(name) and is_map(data) do
-    Stdio.emit(%{type: :event, name: name, data: data})
+    Stdio.emit(%PluginEvent{type: :event, name: name, data: data})
   end
 
   def recent(n \\ 50), do: GenServer.call(__MODULE__, {:recent, n})

@@ -7,6 +7,9 @@ defmodule Pi.Docs.ProtocolExamplesTest do
   alias Pi.Protocol.LLM.Done
   alias Pi.Protocol.LLM.Message
   alias Pi.Protocol.MCP.Request, as: MCPRequest
+  alias Pi.Protocol.PluginEvent
+  alias Pi.Protocol.PluginHook
+  alias Pi.Protocol.PluginHookResponse
   alias Pi.Protocol.Ready
   alias Pi.Protocol.Request
   alias Pi.Protocol.Response
@@ -67,6 +70,23 @@ defmodule Pi.Docs.ProtocolExamplesTest do
                key: :ecto,
                text: "ecto 1/1"
              })
+
+    assert %{"type" => "event", "name" => "pi-elixir:demo", "data" => %{"events" => 1}} =
+             Stdio.__test_payload__(%PluginEvent{
+               type: :event,
+               name: "pi-elixir:demo",
+               data: %{"events" => 1}
+             })
+
+    assert {:ok, %PluginHook{tool_name: "bash", tool_call_id: "tool_1"}} =
+             PluginHook.from_wire(%{
+               "toolName" => "bash",
+               "toolCallId" => "tool_1",
+               "input" => %{"command" => "pwd"}
+             })
+
+    assert %{"block" => "blocked by plugin"} =
+             Stdio.__test_payload__(PluginHookResponse.block("blocked by plugin"))
 
     assert %MCPRequest{jsonrpc: "2.0", id: 1, method: "tools/call"} =
              MCPRequest.from_map!(%{
