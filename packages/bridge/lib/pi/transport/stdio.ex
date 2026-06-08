@@ -1,6 +1,7 @@
 defmodule Pi.Transport.Stdio do
   @moduledoc "Line-delimited JSON transport for extension-owned BEAM sessions."
 
+  alias Pi.Agent.Registry, as: AgentRegistry
   alias Pi.Bridge.Info
   alias Pi.Integrations
   alias Pi.LLM.Broker
@@ -29,6 +30,7 @@ defmodule Pi.Transport.Stdio do
     Event.install()
     Manager.install()
     Broker.install()
+    AgentRegistry.install()
     ready()
     emit_integration_statuses()
 

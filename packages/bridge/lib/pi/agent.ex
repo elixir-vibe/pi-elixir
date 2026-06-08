@@ -1,14 +1,16 @@
 defmodule Pi.Agent do
   @moduledoc "Unified BEAM abstraction for top-level agents and child agents."
 
+  alias Pi.Agent.Registry
   alias Pi.Agent.Session
   alias Pi.LLM
 
   def run(prompt_or_opts, opts \\ []) do
-    session = session(prompt_or_opts, opts)
+    session = prompt_or_opts |> session(opts) |> Registry.put()
     messages = messages(session)
 
     with {:ok, result} <- LLM.complete(messages, Keyword.put(opts, :agent, session.id)) do
+      Registry.append(session.id, %{role: :assistant, content: result})
       {:ok, %{session: session, result: result}}
     end
   end
@@ -48,8 +50,14 @@ defmodule Pi.Agent do
   end
 
   def child(%Session{} = parent, opts \\ []) do
-    Session.child(parent, opts)
+    parent
+    |> Session.child(opts)
+    |> Registry.put()
   end
+
+  def sessions, do: Registry.sessions()
+  def children(parent), do: Registry.children(parent)
+  def history(agent), do: Registry.history(agent)
 
   def session(prompt_or_opts, opts \\ [])
 

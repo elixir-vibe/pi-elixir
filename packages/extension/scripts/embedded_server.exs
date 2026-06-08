@@ -28,6 +28,7 @@ for file <- [
       "pi/llm/broker.ex",
       "pi/llm.ex",
       "pi/agent/session.ex",
+      "pi/agent/registry.ex",
       "pi/agent.ex",
       "pi/skill/executable.ex",
       "pi/skill/script.ex",
