@@ -18,7 +18,7 @@ The npm package is still the user-facing install target. The `pi_bridge` Mix pac
 pi install npm:pi-elixir
 ```
 
-Works with Phoenix apps, libraries, and other Mix projects. When a pi tool needs the embedded server and the project does not have Pi BEAM tools installed, pi asks for confirmation, adds a dev-only `:pi` dependency to `mix.exs`, runs `mix deps.get`, then starts the server.
+Works with Phoenix apps, libraries, and other Mix projects. When a pi tool needs the embedded server and the project does not have Pi BEAM tools installed, pi asks for confirmation, adds a dev-only `:pi_bridge` dependency to `mix.exs`, runs `mix deps.get`, then starts the server.
 
 ## How it connects
 
@@ -32,11 +32,11 @@ Status bar states:
 
 | Status | Meaning |
 |---|---|
-| `⬡ BEAM` | Connected to an external/discovered BEAM MCP endpoint |
-| `⬡ BEAM (embedded)` | Running the bundled embedded MCP server |
-| `⬡ BEAM starting…` | Embedded transport is compiling/starting |
-| `⬡ BEAM tools missing` | Project needs Pi BEAM setup before the embedded server can run |
-| `⬡ BEAM offline` | No connection |
+| `⬡ BEAM` | Connected to an external or discovered BEAM MCP endpoint, such as a Phoenix/Tidewave server whose `project_name` matches `mix.exs` `app:`. |
+| `⬡ BEAM (embedded)` | Connected to the extension-owned stdio BEAM running `Pi.Transport.Stdio` inside this Mix project. |
+| `⬡ BEAM starting…` | The embedded stdio process has been launched and is compiling/booting; retry the tool after it reaches ready. |
+| `⬡ BEAM tools missing` | This Mix project does not yet depend on `:pi_bridge`; the first BEAM tool call can prompt to add the dev-only dependency and run `mix deps.get`. |
+| `⬡ BEAM offline` | No BEAM connection is available: no matching external endpoint, embedded fallback disabled, not a Mix project, or embedded startup failed after tools were installed. |
 
 ### Configuration
 

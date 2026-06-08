@@ -32,6 +32,9 @@
 
 ### Fixed
 
+- Mix projects without `:pi_bridge` are now shown as `BEAM tools missing` instead of starting a doomed embedded BEAM and getting stuck offline.
+- `elixir_eval` exceptions now return tool errors instead of successful text payloads.
+- AST tool scripts now report missing `ex_ast` as normal tool output instead of eval exceptions.
 - LLM stream completion now halts immediately on `llm_done` instead of timing out.
 - Stdio stream events are routed through `Pi.LLM.Broker` to the stream owner process.
 - Malformed stdio protocol payloads are ignored without crashing the transport loop.
