@@ -1,5 +1,6 @@
 import {
   highlightCode,
+  keyHint,
   type AgentToolResult,
   type ToolRenderResultOptions,
   type Theme
@@ -65,7 +66,9 @@ function hiddenLine(count: number, theme: Theme) {
 }
 
 function expandHint(theme: Theme) {
-  return theme.fg('muted', '  (Ctrl+O to expand)')
+  return (
+    theme.fg('muted', '  (') + keyHint('app.tools.expand', 'to expand') + theme.fg('muted', ')')
+  )
 }
 
 function codeLines(text: string, language: string, theme: Theme, maxLines?: number): string[] {
