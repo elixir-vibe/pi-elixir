@@ -17,6 +17,7 @@
 - BEAM plugin slash commands exposed as `/elixir:<name>` commands.
 - BEAM session APIs for info, active tools, and append-entry persistence.
 - Plugin `tool_call/3` and `tool_result/3` hooks for blocking or patching tool execution.
+- Dedicated `elixir-new-project` skill for Igniter/VibeKit project bootstrapping.
 - Executable skill and plugin examples plus a demo fixture Mix project.
 - Extension-owned stdio smoke tests covering ready info, LLM completion, and streaming.
 - Protocol JSON examples in `packages/bridge/docs/protocol.md` with tests covering the documented shapes.
@@ -27,6 +28,7 @@
 - Tests now mirror source tree structure more closely.
 - Extension TypeScript protocol shapes now live in `src/protocol/types.ts`.
 - Integration tests default to `packages/fixtures/demo_project` instead of the bridge package itself.
+- Elixir skills are organized under `skills/elixir/*` while keeping stable skill names.
 
 ### Fixed
 
