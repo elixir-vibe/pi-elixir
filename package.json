@@ -1,36 +1,20 @@
 {
-  "name": "pi-elixir",
-  "version": "0.4.0",
-  "description": "BEAM runtime tools for pi — connects to the running Elixir app for live introspection",
-  "keywords": ["pi-package"],
-  "license": "MIT",
-  "repository": {
-    "type": "git",
-    "url": "https://github.com/dannote/pi-elixir"
-  },
-  "files": ["extensions", "scripts", "skills", "README.md"],
+  "private": true,
+  "workspaces": ["packages/extension"],
   "scripts": {
-    "lint": "oxlint extensions/",
-    "fmt": "oxfmt --write extensions/ test/",
-    "fmt:check": "oxfmt --check extensions/ test/",
-    "test": "vitest run",
-    "test:watch": "vitest",
-    "test:integration": "vitest run test/integration/",
-    "test:elixir": "elixir -r test/elixir/test_helper.exs -r test/elixir/tools_test.exs",
-    "check": "oxlint extensions/ && oxfmt --check extensions/ test/"
-  },
-  "pi": {
-    "extensions": ["./extensions/index.ts"],
-    "skills": ["./skills"]
-  },
-  "peerDependencies": {
-    "@mariozechner/pi-coding-agent": "*",
-    "@mariozechner/pi-tui": "*",
-    "@sinclair/typebox": "*"
-  },
-  "devDependencies": {
-    "oxfmt": "^0.35.0",
-    "oxlint": "^1.50.0",
-    "vitest": "^4.0.18"
+    "lint": "bun run lint:js && bun run lint:beam",
+    "lint:js": "cd packages/extension && bun run lint",
+    "lint:beam": "cd packages/bridge && mix format --check-formatted && mix credo --strict",
+    "fmt": "cd packages/extension && bun run fmt && cd ../bridge && mix format",
+    "fmt:check": "cd packages/extension && bun run fmt:check && cd ../bridge && mix format --check-formatted",
+    "test": "bun run test:js && bun run test:beam",
+    "test:js": "cd packages/extension && bun run test",
+    "test:beam": "cd packages/bridge && mix test",
+    "test:integration": "cd packages/extension && bun run test:integration",
+    "test:dupes": "cd packages/extension && bun run test:dupes",
+    "check": "bun run check:js && bun run check:beam",
+    "check:js": "cd packages/extension && bun run check",
+    "check:beam": "cd packages/bridge && mix ci",
+    "ci": "bun run check"
   }
 }

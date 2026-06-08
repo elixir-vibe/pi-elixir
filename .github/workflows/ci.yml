@@ -35,7 +35,7 @@ jobs:
       - name: Unit tests
         run: bun run test
 
-  elixir:
+  beam:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -45,5 +45,10 @@ jobs:
           elixir-version: "1.18"
           otp-version: "27"
 
-      - name: Elixir script tests
-        run: elixir -r test/elixir/test_helper.exs -r test/elixir/tools_test.exs
+      - name: Install Elixir deps
+        run: mix deps.get
+        working-directory: packages/pi-beam
+
+      - name: Elixir CI
+        run: mix ci
+        working-directory: packages/pi-beam

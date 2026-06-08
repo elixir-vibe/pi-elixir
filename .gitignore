@@ -1,3 +1,6 @@
 node_modules/
+_build/
+deps/
+
 # Git worktrees for parallel agent work
 .worktrees/
