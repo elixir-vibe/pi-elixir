@@ -3,15 +3,28 @@ defmodule Pi.Transport.Stdio do
 
   alias Pi.Bridge.Info
   alias Pi.Integrations
+  alias Pi.LLM.Broker
   alias Pi.MCP.Tools
   alias Pi.Plugin.Event
   alias Pi.Plugin.Manager
   alias Pi.Skill.Loader
 
+  def emit_request(id, op, payload) when is_binary(id) and is_atom(op) and is_map(payload) do
+    emit(%{type: :request, id: id, op: op, payload: payload})
+  end
+
+  def emit(payload) when is_map(payload) do
+    case :persistent_term.get({__MODULE__, :pid}, nil) do
+      nil -> :ok
+      pid -> send(pid, {:pi_transport_emit, normalize(payload)})
+    end
+  end
+
   def start do
     :persistent_term.put({__MODULE__, :pid}, self())
     Event.install()
     Manager.install()
+    Broker.install()
     ready()
     emit_integration_statuses()
 
@@ -38,9 +51,16 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp handle_line(line) do
-    with {:ok, %{"type" => "call", "id" => id, "name" => name} = request} <- Jason.decode(line) do
-      args = Map.get(request, "arguments", %{})
-      respond(id, dispatch(name, args))
+    case Jason.decode(line) do
+      {:ok, %{"type" => "call", "id" => id, "name" => name} = request} ->
+        args = Map.get(request, "arguments", %{})
+        respond(id, dispatch(name, args))
+
+      {:ok, %{"type" => "response", "id" => id} = response} ->
+        Broker.deliver(id, Map.drop(response, ["type", "id"]))
+
+      _ ->
+        :ok
     end
   rescue
     _ -> :ok
@@ -95,4 +115,13 @@ defmodule Pi.Transport.Stdio do
   defp write(payload) do
     IO.write([Jason.encode!(payload), ?\n])
   end
+
+  defp normalize(map) when is_map(map) do
+    Map.new(map, fn {key, value} -> {key, normalize_value(value)} end)
+  end
+
+  defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
+  defp normalize_value(value) when is_map(value), do: normalize(value)
+  defp normalize_value(value) when is_list(value), do: Enum.map(value, &normalize_value/1)
+  defp normalize_value(value), do: value
 end

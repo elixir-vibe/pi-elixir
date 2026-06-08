@@ -43,7 +43,7 @@ export interface BridgeUIEvent {
 
 interface StdioMessage {
   type?: string
-  id?: number
+  id?: number | string
   text?: string
   isError?: boolean
   info?: BridgeInfo
@@ -56,6 +56,7 @@ interface StdioMessage {
   placement?: 'aboveEditor' | 'belowEditor'
   message?: string
   level?: 'info' | 'warning' | 'error'
+  payload?: Record<string, unknown>
 }
 
 type UIEventListener = (cwd: string, event: BridgeUIEvent) => void
@@ -126,6 +127,32 @@ function markReady(cwd: string, entry: EmbeddedProcess, url?: string): void {
   emitStatusChange(cwd, 'embedded')
 }
 
+function sendResponse(entry: EmbeddedProcess, id: string, response: Record<string, unknown>): void {
+  entry.proc.stdin?.write(JSON.stringify({ type: 'response', id, ...response }) + '\n')
+}
+
+async function handleBridgeRequest(
+  cwd: string,
+  entry: EmbeddedProcess,
+  message: StdioMessage
+): Promise<void> {
+  if (typeof message.id !== 'string') return
+
+  if (message.op === 'llm_complete') {
+    sendResponse(entry, message.id, {
+      ok: false,
+      error: 'Pi LLM completion is not available from this extension runtime yet.',
+      cwd
+    })
+    return
+  }
+
+  sendResponse(entry, message.id, {
+    ok: false,
+    error: `Unknown bridge request: ${message.op ?? 'unknown'}`
+  })
+}
+
 function handleMessage(cwd: string, entry: EmbeddedProcess, message: StdioMessage): void {
   if (message.type === 'ready') {
     if (message.info) bridgeInfo.set(cwd, message.info)
@@ -135,6 +162,11 @@ function handleMessage(cwd: string, entry: EmbeddedProcess, message: StdioMessag
 
   if (message.type === 'ui') {
     emitUIEvent(cwd, message as BridgeUIEvent)
+    return
+  }
+
+  if (message.type === 'request') {
+    void handleBridgeRequest(cwd, entry, message)
     return
   }
 
