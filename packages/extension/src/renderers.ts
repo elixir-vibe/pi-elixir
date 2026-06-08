@@ -55,6 +55,10 @@ function hiddenLine(count: number, theme: Theme) {
   return count > 0 ? theme.fg('muted', `  … ${count} more`) : undefined
 }
 
+function expandHint(theme: Theme) {
+  return theme.fg('muted', '  (Ctrl+O to expand)')
+}
+
 function codeLines(text: string, language: string, theme: Theme, maxLines?: number): string[] {
   const highlighted = highlightCode(text, language)
   const shown = typeof maxLines === 'number' ? highlighted.slice(0, maxLines) : highlighted
@@ -107,7 +111,10 @@ export function renderEvalResult(
   if (resultIsError(result)) {
     const title = errorTitle(text)
     if (!expanded)
-      return renderLines([`${icon(false, theme)} ${theme.fg('error', oneLine(title))}`])
+      return renderLines([
+        `${icon(false, theme)} ${theme.fg('error', oneLine(title))}`,
+        expandHint(theme)
+      ])
 
     const frames = stackFrames(text)
     return renderLines([
@@ -122,7 +129,8 @@ export function renderEvalResult(
     if (!expanded) {
       const suffix = ioResult.result ? theme.fg('muted', `  ↳ ${oneLine(ioResult.result, 60)}`) : ''
       return renderLines([
-        `${icon(true, theme)} ${theme.fg('toolOutput', oneLine(ioPreview))}${suffix}`
+        `${icon(true, theme)} ${theme.fg('toolOutput', oneLine(ioPreview))}${suffix}`,
+        expandHint(theme)
       ])
     }
 
@@ -219,7 +227,8 @@ export function renderAstSearchResult(
 
   if (!expanded) {
     return renderLines([
-      `${icon(true, theme)} ${theme.fg('accent', `${matches.length} matches`)}  ${summarizePaths(matches, theme)}`
+      `${icon(true, theme)} ${theme.fg('accent', `${matches.length} matches`)}  ${summarizePaths(matches, theme)}`,
+      expandHint(theme)
     ])
   }
 
@@ -267,7 +276,8 @@ export function renderAstReplaceResult(
 
   if (!expanded) {
     return renderLines([
-      `${icon(true, theme)} ${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements in ${replacements.length} files`)}`
+      `${icon(true, theme)} ${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements in ${replacements.length} files`)}`,
+      expandHint(theme)
     ])
   }
 
