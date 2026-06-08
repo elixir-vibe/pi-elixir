@@ -58,7 +58,7 @@ defmodule Pi.Transport.Stdio do
     case Jason.decode(line) do
       {:ok, %{"type" => "call"} = request} ->
         call = Call.from_map!(request)
-        respond(call.id, dispatch(call.name, call.arguments))
+        spawn(fn -> respond(call.id, dispatch(call.name, call.arguments)) end)
 
       {:ok, %{"type" => "response"} = response} ->
         response = Response.from_map!(response)
@@ -128,7 +128,7 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp write(payload) do
-    IO.write([Jason.encode!(to_payload(payload)), ?\n])
+    IO.write([Jason.encode!(payload |> to_payload() |> normalize()), ?\n])
   end
 
   defp to_payload(%Result{} = result) do
@@ -152,6 +152,9 @@ defmodule Pi.Transport.Stdio do
     Map.new(map, fn {key, value} -> {key, normalize_value(value)} end)
   end
 
+  defp normalize_value(%_module{} = value), do: value |> to_payload() |> normalize()
+  defp normalize_value(value) when is_boolean(value), do: value
+  defp normalize_value(nil), do: nil
   defp normalize_value(value) when is_atom(value), do: Atom.to_string(value)
   defp normalize_value(value) when is_map(value), do: normalize(value)
   defp normalize_value(value) when is_list(value), do: Enum.map(value, &normalize_value/1)
