@@ -69,6 +69,8 @@ defmodule Pi.LLM.Broker do
     end
   end
 
+  defp normalize_result(%Pi.Protocol.Response{ok: true, result: result}), do: {:ok, result}
+  defp normalize_result(%Pi.Protocol.Response{ok: false, error: error}), do: {:error, error}
   defp normalize_result(%{"ok" => true, "result" => result}), do: {:ok, result}
   defp normalize_result(%{"ok" => false, "error" => error}), do: {:error, error}
   defp normalize_result(%{ok: true, result: result}), do: {:ok, result}

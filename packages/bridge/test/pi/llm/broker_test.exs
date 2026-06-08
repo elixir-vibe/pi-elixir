@@ -26,15 +26,16 @@ defmodule Pi.LLM.BrokerTest do
   end
 
   defp requested?(request, content) do
-    request.payload.messages
+    request.payload["messages"]
     |> List.first()
-    |> Map.get(:content)
+    |> Map.get("content")
     |> Kernel.==(content)
   end
 
   defp receive_request do
     receive do
-      {:pi_transport_emit, %{type: "request", id: id, op: "llm_complete", payload: payload}} ->
+      {:pi_transport_emit,
+       %{"type" => "request", "id" => id, "op" => "llm_complete", "payload" => payload}} ->
         %{id: id, payload: payload}
     after
       500 -> flunk("expected LLM bridge request")

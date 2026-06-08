@@ -14,6 +14,11 @@ for file <- [
       "pi/integrations/ex_unit.ex",
       "pi/integrations.ex",
       "pi/plugin.ex",
+      "pi/protocol/call.ex",
+      "pi/protocol/result.ex",
+      "pi/protocol/request.ex",
+      "pi/protocol/response.ex",
+      "pi/protocol/ui_event.ex",
       "pi/plugin/api.ex",
       "pi/plugin/event.ex",
       "pi/plugin/ui.ex",
@@ -30,6 +35,7 @@ for file <- [
       "pi/mcp/router.ex",
       "pi/mcp/server.ex",
       "pi/bridge/info.ex",
+      "pi/api.ex",
       "pi/transport/stdio.ex",
       "pi.ex"
     ] do

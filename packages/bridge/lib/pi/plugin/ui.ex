@@ -1,16 +1,18 @@
 defmodule Pi.Plugin.UI do
   @moduledoc "Renderer-neutral UI events emitted from BEAM plugins to pi."
 
+  alias Pi.Protocol.UIEvent
+
   def set_status(key, text) when is_atom(key) or is_binary(key) do
-    emit(%{type: :ui, op: :status, key: key, text: text})
+    emit(%UIEvent{type: :ui, op: :status, key: key, text: text})
   end
 
   def clear_status(key) when is_atom(key) or is_binary(key) do
-    emit(%{type: :ui, op: :status, key: key, text: nil})
+    emit(%UIEvent{type: :ui, op: :status, key: key, text: nil})
   end
 
   def set_progress(key, opts) when is_atom(key) or is_binary(key) do
-    emit(%{
+    emit(%UIEvent{
       type: :ui,
       op: :progress,
       key: key,
@@ -22,7 +24,7 @@ defmodule Pi.Plugin.UI do
 
   def set_widget(key, lines, opts \\ [])
       when (is_atom(key) or is_binary(key)) and is_list(lines) do
-    emit(%{
+    emit(%UIEvent{
       type: :ui,
       op: :widget,
       key: key,
@@ -32,11 +34,16 @@ defmodule Pi.Plugin.UI do
   end
 
   def clear_widget(key) when is_atom(key) or is_binary(key) do
-    emit(%{type: :ui, op: :widget, key: key, lines: nil})
+    emit(%UIEvent{type: :ui, op: :widget, key: key, lines: nil})
   end
 
   def notify(message, opts \\ []) do
-    emit(%{type: :ui, op: :notify, message: message, level: Keyword.get(opts, :type, :info)})
+    emit(%UIEvent{
+      type: :ui,
+      op: :notify,
+      message: message,
+      level: Keyword.get(opts, :type, :info)
+    })
   end
 
   def emit(payload) when is_map(payload) do

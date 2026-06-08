@@ -1,22 +1,27 @@
 defmodule Pi.Transport.Stdio do
   @moduledoc "Line-delimited JSON transport for extension-owned BEAM sessions."
 
+  alias Pi.API
   alias Pi.Bridge.Info
   alias Pi.Integrations
   alias Pi.LLM.Broker
   alias Pi.MCP.Tools
   alias Pi.Plugin.Event
   alias Pi.Plugin.Manager
+  alias Pi.Protocol.Call
+  alias Pi.Protocol.Request
+  alias Pi.Protocol.Response
+  alias Pi.Protocol.Result
   alias Pi.Skill.Loader
 
   def emit_request(id, op, payload) when is_binary(id) and is_atom(op) and is_map(payload) do
-    emit(%{type: :request, id: id, op: op, payload: payload})
+    emit(%Request{type: :request, id: id, op: op, payload: payload})
   end
 
   def emit(payload) when is_map(payload) do
     case :persistent_term.get({__MODULE__, :pid}, nil) do
       nil -> :ok
-      pid -> send(pid, {:pi_transport_emit, normalize(payload)})
+      pid -> send(pid, {:pi_transport_emit, payload |> to_payload() |> normalize()})
     end
   end
 
@@ -52,12 +57,13 @@ defmodule Pi.Transport.Stdio do
 
   defp handle_line(line) do
     case Jason.decode(line) do
-      {:ok, %{"type" => "call", "id" => id, "name" => name} = request} ->
-        args = Map.get(request, "arguments", %{})
-        respond(id, dispatch(name, args))
+      {:ok, %{"type" => "call"} = request} ->
+        call = Call.from_map!(request)
+        respond(call.id, dispatch(call.name, call.arguments))
 
-      {:ok, %{"type" => "response", "id" => id} = response} ->
-        Broker.deliver(id, Map.drop(response, ["type", "id"]))
+      {:ok, %{"type" => "response"} = response} ->
+        response = Response.from_map!(response)
+        Broker.deliver(response.id, response)
 
       _ ->
         :ok
@@ -84,14 +90,18 @@ defmodule Pi.Transport.Stdio do
     {:ok, Jason.encode!(Enum.map(Info.apis(), &api_to_map/1))}
   end
 
+  defp dispatch("pi_apis", _args) do
+    {:ok, API.all_json()}
+  end
+
   defp dispatch(name, args), do: Tools.dispatch(name, args)
 
   defp respond(id, {:ok, text}) do
-    write(%{type: :result, id: id, text: text, isError: false})
+    write(%Result{type: :result, id: id, text: text, is_error: false})
   end
 
   defp respond(id, {:error, message}) do
-    write(%{type: :result, id: id, text: message, isError: true})
+    write(%Result{type: :result, id: id, text: message, is_error: true})
   end
 
   defp ready, do: write(%{type: :ready, info: Info.snapshot(:stdio)})
@@ -113,8 +123,25 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp write(payload) do
-    IO.write([Jason.encode!(payload), ?\n])
+    IO.write([Jason.encode!(to_payload(payload)), ?\n])
   end
+
+  defp to_payload(%Result{} = result) do
+    %{
+      type: result.type,
+      id: result.id,
+      text: result.text,
+      isError: result.is_error
+    }
+  end
+
+  defp to_payload(%module{} = struct) do
+    if function_exported?(module, :to_map, 1),
+      do: module.to_map(struct),
+      else: Map.from_struct(struct)
+  end
+
+  defp to_payload(map) when is_map(map), do: map
 
   defp normalize(map) when is_map(map) do
     Map.new(map, fn {key, value} -> {key, normalize_value(value)} end)
