@@ -2,6 +2,10 @@ if Code.ensure_loaded?(Phoenix.Endpoint) do
   defmodule Pi.Integrations.Phoenix do
     @moduledoc "Phoenix-specific project status discovery."
 
+    @behaviour Pi.Integration
+
+    def name, do: :phoenix
+
     def endpoints do
       for {app, _, _} <- Application.started_applications(),
           endpoint <- Application.get_env(app, :phoenix_endpoint, []) |> List.wrap() do

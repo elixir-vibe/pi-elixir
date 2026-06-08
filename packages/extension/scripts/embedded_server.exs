@@ -7,6 +7,7 @@ for file <- [
       "pi/project.ex",
       "pi/log_capture.ex",
       "pi/eval.ex",
+      "pi/integration.ex",
       "pi/integrations/phoenix.ex",
       "pi/integrations/ecto.ex",
       "pi/integrations/oban.ex",

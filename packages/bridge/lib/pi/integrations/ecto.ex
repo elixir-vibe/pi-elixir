@@ -2,6 +2,10 @@ if Code.ensure_loaded?(Ecto.Repo) do
   defmodule Pi.Integrations.Ecto do
     @moduledoc "Ecto-specific project status discovery."
 
+    @behaviour Pi.Integration
+
+    def name, do: :ecto
+
     def repos do
       for {app, _, _} <- Application.started_applications(),
           repo <- Application.get_env(app, :ecto_repos, []) do
