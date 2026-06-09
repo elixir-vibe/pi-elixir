@@ -2,7 +2,7 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
-import { bridgeTool, displayString } from '../helpers.ts'
+import { astOptionSuffix, bridgeTool, displayString } from '../helpers.ts'
 import { renderAstReplaceResult } from '../renderers.ts'
 
 interface AstReplacePayload {
@@ -78,10 +78,7 @@ Examples:
       text += theme.fg('accent', displayString(args.pattern))
       text += theme.fg('muted', ' → ')
       text += theme.fg('accent', displayString(args.replacement))
-      const path = displayString(args.path)
-      if (path) text += theme.fg('muted', ` ${path}`)
-      if (args.dryRun) text += theme.fg('warning', ' (dry-run)')
-      return new Text(text, 0, 0)
+      return new Text(text + astOptionSuffix(args, theme), 0, 0)
     },
     {
       transformResult: astReplaceText,

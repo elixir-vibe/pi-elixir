@@ -29,6 +29,20 @@ export function displayString(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
 
+export function astOptionSuffix(args: Record<string, unknown>, theme: Theme) {
+  const parts: string[] = []
+  const pathText = displayString(args.path)
+  if (pathText) parts.push(pathText)
+  const inside = displayString(args.inside)
+  if (inside) parts.push(`inside ${inside}`)
+  const notInside = displayString(args.notInside)
+  if (notInside) parts.push(`not inside ${notInside}`)
+  if (typeof args.limit === 'number') parts.push(`limit ${args.limit}`)
+  if (args.allowBroad === true) parts.push('allow broad')
+  if (args.dryRun === true) parts.push('dry-run')
+  return parts.length > 0 ? theme.fg('muted', ` ${parts.join(' · ')}`) : ''
+}
+
 export function truncated(text: string) {
   const t = truncateHead(text, { maxLines: DEFAULT_MAX_LINES, maxBytes: DEFAULT_MAX_BYTES })
   if (!t.truncated) return t.content

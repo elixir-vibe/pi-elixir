@@ -1,8 +1,8 @@
-import type { ExtensionAPI, Theme } from '@earendil-works/pi-coding-agent'
+import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
-import { bridgeTool, displayString } from '../helpers.ts'
+import { astOptionSuffix, bridgeTool, displayString } from '../helpers.ts'
 import { renderAstSearchResult } from '../renderers.ts'
 
 interface AstSearchPayload {
@@ -51,11 +51,6 @@ function astSearchText(text: string) {
   return `${lines.join('\n\n')}\n\n${payload.total ?? matches.length} match(es)`
 }
 
-function appendPath(text: string, path: unknown, theme: Theme) {
-  const pathText = displayString(path)
-  return pathText ? text + theme.fg('muted', ` ${pathText}`) : text
-}
-
 function patternSummary(args: Record<string, unknown>) {
   const pattern = displayString(args.pattern)
   if (pattern) return pattern
@@ -95,7 +90,7 @@ Examples:
     (args, theme) => {
       let text = theme.fg('toolTitle', theme.bold('elixir_ast_search '))
       text += theme.fg('accent', patternSummary(args))
-      return new Text(appendPath(text, args.path, theme), 0, 0)
+      return new Text(text + astOptionSuffix(args, theme), 0, 0)
     },
     {
       transformResult: astSearchText,

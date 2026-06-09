@@ -39,12 +39,23 @@ function evalText(text: string) {
   return payload?.kind === 'eval' && typeof payload.text === 'string' ? payload.text : text
 }
 
+function optionSuffix(args: ToolArgs, theme: Theme) {
+  const parts: string[] = []
+  if (args.mode === 'sandbox') parts.push(theme.fg('warning', 'sandbox'))
+  if (typeof args.timeout === 'number') parts.push(theme.fg('muted', `${args.timeout}ms`))
+  return parts.length > 0
+    ? theme.fg('muted', ' (') + parts.join(theme.fg('muted', ', ')) + theme.fg('muted', ')')
+    : ''
+}
+
 function renderEvalCall(toolName: string) {
   return (args: ToolArgs, theme: Theme) => {
     const code = displayString(args.code)
     const preview = code.length > 120 ? code.slice(0, 117) + '…' : code
     return new Text(
-      theme.fg('toolTitle', theme.bold(`${toolName} `)) + theme.fg('accent', preview),
+      theme.fg('toolTitle', theme.bold(`${toolName} `)) +
+        theme.fg('accent', preview) +
+        optionSuffix(args, theme),
       0,
       0
     )
@@ -60,32 +71,24 @@ export function register(pi: ExtensionAPI) {
     `Evaluate Elixir code in the running application.
 
 Runs inside the BEAM with full access to project modules, deps, Ecto repos, and IEx helpers.
+Use mode: "sandbox" for untrusted snippets through Dune.
 Use this instead of bash for anything Elixir — test functions, introspect modules, manipulate ASTs,
 query process state, read docs with h(), list exports with exports(), inspect values with i().
 
 Output truncated to ${DEFAULT_MAX_LINES} lines / ${formatSize(DEFAULT_MAX_BYTES)}.`,
     Type.Object({
       code: Type.String({ description: 'Elixir code to evaluate' }),
-      timeout: Type.Optional(Type.Integer({ description: 'Timeout in ms (default: 30000)' }))
+      mode: Type.Optional(
+        Type.Union([Type.Literal('trusted'), Type.Literal('sandbox')], {
+          description:
+            'Eval mode: trusted project introspection (default) or sandbox for untrusted code'
+        })
+      ),
+      timeout: Type.Optional(
+        Type.Integer({ description: 'Timeout in ms (default: 30000 trusted, 5000 sandbox)' })
+      )
     }),
     renderEvalCall('elixir_eval'),
     { transformResult: evalText, resultDetails: evalDetails, renderResult: renderElixirResult }
-  )
-
-  bridgeTool(
-    pi,
-    'elixir_sandbox_eval',
-    'project_eval_sandbox',
-    'Elixir Sandbox Eval',
-    `Evaluate untrusted Elixir code through the Dune sandbox.
-
-This blocks restricted modules such as File and System and applies timeout, reduction, and heap limits.
-Use elixir_eval instead when you need trusted project introspection with full BEAM access.`,
-    Type.Object({
-      code: Type.String({ description: 'Elixir code to evaluate in the sandbox' }),
-      timeout: Type.Optional(Type.Integer({ description: 'Timeout in ms (default: 5000)' }))
-    }),
-    renderEvalCall('elixir_sandbox_eval'),
-    { renderResult: renderElixirResult }
   )
 }
