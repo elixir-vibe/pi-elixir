@@ -47,7 +47,7 @@ defmodule Pi.MCP.ToolsTest do
 
   describe "dispatch/2 ex_ast_search" do
     test "requires pattern" do
-      assert {:error, "Missing required parameter: pattern"} =
+      assert {:error, "Missing required parameter: pattern or patterns"} =
                Tools.dispatch("ex_ast_search", %{})
     end
 
@@ -71,7 +71,7 @@ defmodule Pi.MCP.ToolsTest do
 
     test "supports search options and search_many" do
       assert {:ok, json} =
-               Tools.dispatch("ex_ast_search_many", %{
+               Tools.dispatch("ex_ast_search", %{
                  "patterns" => %{
                    "module" => "defmodule _ do _ end",
                    "run" => "def run(_, _) do _ end"

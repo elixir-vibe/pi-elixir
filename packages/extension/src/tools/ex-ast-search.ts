@@ -51,15 +51,20 @@ function astSearchText(text: string) {
   return `${lines.join('\n\n')}\n\n${payload.total ?? matches.length} match(es)`
 }
 
-const astSearchRenderResult = {
-  transformResult: astSearchText,
-  resultDetails: astSearchDetails,
-  renderResult: renderAstSearchResult
-}
-
 function appendPath(text: string, path: unknown, theme: Theme) {
   const pathText = displayString(path)
   return pathText ? text + theme.fg('muted', ` ${pathText}`) : text
+}
+
+function patternSummary(args: Record<string, unknown>) {
+  const pattern = displayString(args.pattern)
+  if (pattern) return pattern
+
+  if (typeof args.patterns === 'object' && args.patterns !== null) {
+    return `${Object.keys(args.patterns).length} patterns`
+  }
+
+  return '(missing pattern)'
 }
 
 export function register(pi: ExtensionAPI) {
@@ -70,6 +75,7 @@ export function register(pi: ExtensionAPI) {
     'AST Search',
     `Search Elixir code by AST pattern using ExAST. Patterns are valid Elixir syntax.
 Variables capture matched nodes, _ is a wildcard, structs/maps match partially.
+Use either pattern for one search or patterns for multiple named searches in one traversal.
 Requires ex_ast as a project dependency.
 
 Examples:
@@ -78,38 +84,23 @@ Examples:
 - 'def handle_call(_, _, _) do _ end' — find GenServer callbacks
 - '{:error, reason}' — find error tuples and capture the reason`,
     Type.Object({
-      pattern: Type.String({ description: 'Elixir AST pattern to match' }),
+      pattern: Type.Optional(Type.String({ description: 'Elixir AST pattern to match' })),
+      patterns: Type.Optional(
+        Type.Record(Type.String(), Type.String(), {
+          description: 'Named Elixir AST patterns to match in one traversal'
+        })
+      ),
       ...astSearchOptions
     }),
     (args, theme) => {
       let text = theme.fg('toolTitle', theme.bold('elixir_ast_search '))
-      text += theme.fg('accent', displayString(args.pattern))
+      text += theme.fg('accent', patternSummary(args))
       return new Text(appendPath(text, args.path, theme), 0, 0)
     },
-    astSearchRenderResult
-  )
-
-  bridgeTool(
-    pi,
-    'elixir_ast_search_many',
-    'ex_ast_search_many',
-    'AST Search Many',
-    `Search Elixir code with multiple named ExAST patterns in one traversal.`,
-    Type.Object({
-      patterns: Type.Record(Type.String(), Type.String(), {
-        description: 'Named Elixir AST patterns to match'
-      }),
-      ...astSearchOptions
-    }),
-    (args, theme) => {
-      const count =
-        typeof args.patterns === 'object' && args.patterns !== null
-          ? Object.keys(args.patterns).length
-          : 0
-      let text = theme.fg('toolTitle', theme.bold('elixir_ast_search_many '))
-      text += theme.fg('accent', `${count} patterns`)
-      return new Text(appendPath(text, args.path, theme), 0, 0)
-    },
-    astSearchRenderResult
+    {
+      transformResult: astSearchText,
+      resultDetails: astSearchDetails,
+      renderResult: renderAstSearchResult
+    }
   )
 }

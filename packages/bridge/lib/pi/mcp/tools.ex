@@ -26,15 +26,15 @@ defmodule Pi.MCP.Tools do
     code |> Pi.Eval.sandbox(timeout: timeout) |> sandbox_result()
   end
 
-  def dispatch("ex_ast_search", %{"pattern" => pattern} = args) do
-    case Pi.AST.search(pattern, ast_opts(args)) do
+  def dispatch("ex_ast_search", %{"patterns" => patterns} = args) do
+    case Pi.AST.search_many(patterns, ast_opts(args)) do
       {:ok, payload} -> {:ok, encode_payload(payload)}
       {:error, message} -> {:error, message}
     end
   end
 
-  def dispatch("ex_ast_search_many", %{"patterns" => patterns} = args) do
-    case Pi.AST.search_many(patterns, ast_opts(args)) do
+  def dispatch("ex_ast_search", %{"pattern" => pattern} = args) do
+    case Pi.AST.search(pattern, ast_opts(args)) do
       {:ok, payload} -> {:ok, encode_payload(payload)}
       {:error, message} -> {:error, message}
     end
@@ -51,8 +51,9 @@ defmodule Pi.MCP.Tools do
 
   def dispatch("project_eval", _args), do: {:error, "Missing required parameter: code"}
   def dispatch("project_eval_structured", _args), do: {:error, "Missing required parameter: code"}
-  def dispatch("ex_ast_search", _args), do: {:error, "Missing required parameter: pattern"}
-  def dispatch("ex_ast_search_many", _args), do: {:error, "Missing required parameter: patterns"}
+
+  def dispatch("ex_ast_search", _args),
+    do: {:error, "Missing required parameter: pattern or patterns"}
 
   def dispatch("ex_ast_replace", _args),
     do: {:error, "Missing required parameters: pattern and replacement"}
