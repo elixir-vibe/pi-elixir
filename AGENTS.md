@@ -25,7 +25,21 @@ Use the local checkout instead of the last published npm package when developing
 pnpm run dogfood:install
 ```
 
-Then run `/reload` in the current pi TUI, or restart pi. If BEAM status shows offline, call `elixir_eval` once and check for a version mismatch. A mismatch like “extension expects 0.5.x” means the current TUI is still running an old installed extension instance.
+Then run `/reload` in the current pi TUI, or restart pi.
+
+For a discovery-free dogfood session that always loads the checkout directly:
+
+```bash
+pnpm run dogfood:pi
+```
+
+Quick explicit smoke:
+
+```bash
+pnpm run dogfood:smoke
+```
+
+If BEAM status shows offline, call `elixir_eval` once and check for a version mismatch. A mismatch like “extension expects 0.5.x” means the current TUI is still running an old installed extension instance. If `dogfood:smoke` returns the current version but the TUI still says offline, investigate the status widget/startup path rather than the bridge itself.
 
 From the repo root, the extension should resolve the nested Mix project at `packages/bridge/mix.exs` and start embedded stdio there. Manual bridge smoke:
 
