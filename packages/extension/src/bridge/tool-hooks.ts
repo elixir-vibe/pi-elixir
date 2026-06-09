@@ -1,7 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
 import { callTool, resolveUrl, sendBridgeEvent } from '../connection/resolver.ts'
-import { recordDiagnostic } from '../diagnostics.ts'
+import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
 import type { ToolArgs } from '../protocol/types.ts'
 import { refreshSessionSnapshots } from '../sessions/state.ts'
 
@@ -50,17 +50,22 @@ export function registerBridgeToolHooks(
 
     if (!hasBridgePlugins(beamCwd)) return undefined
 
-    recordDiagnostic('plugin_tool_call_start', beamCwd, { toolName: event.toolName })
-    const conn = await resolveUrl(beamCwd)
-    if (!conn) return undefined
+    const payload = await withDiagnosticSpan(
+      'plugin_tool_call',
+      beamCwd,
+      { toolName: event.toolName },
+      async () => {
+        const conn = await resolveUrl(beamCwd)
+        if (!conn) return {}
 
-    const result = await callTool(conn.url, 'pi_plugin_tool_call', {
-      toolName: event.toolName,
-      toolCallId: event.toolCallId,
-      input: event.input
-    })
-    const payload = parsePluginHookResponse(result.text)
-    recordDiagnostic('plugin_tool_call_done', beamCwd, { toolName: event.toolName })
+        const result = await callTool(conn.url, 'pi_plugin_tool_call', {
+          toolName: event.toolName,
+          toolCallId: event.toolCallId,
+          input: event.input
+        })
+        return parsePluginHookResponse(result.text)
+      }
+    )
 
     if (payload.block) return { block: true, reason: payload.block }
     if (payload.ok && typeof payload.ok === 'object') Object.assign(event.input, payload.ok)
@@ -84,19 +89,24 @@ export function registerBridgeToolHooks(
 
     if (!hasBridgePlugins(beamCwd)) return undefined
 
-    recordDiagnostic('plugin_tool_result_start', beamCwd, { toolName: event.toolName })
-    const conn = await resolveUrl(beamCwd)
-    if (!conn) return undefined
+    const payload = await withDiagnosticSpan(
+      'plugin_tool_result',
+      beamCwd,
+      { toolName: event.toolName },
+      async () => {
+        const conn = await resolveUrl(beamCwd)
+        if (!conn) return {}
 
-    const result = await callTool(conn.url, 'pi_plugin_tool_result', {
-      toolName: event.toolName,
-      toolCallId: event.toolCallId,
-      input: event.input,
-      content: textFromContent(event.content),
-      isError: event.isError
-    })
-    const payload = parsePluginHookResponse(result.text)
-    recordDiagnostic('plugin_tool_result_done', beamCwd, { toolName: event.toolName })
+        const result = await callTool(conn.url, 'pi_plugin_tool_result', {
+          toolName: event.toolName,
+          toolCallId: event.toolCallId,
+          input: event.input,
+          content: textFromContent(event.content),
+          isError: event.isError
+        })
+        return parsePluginHookResponse(result.text)
+      }
+    )
 
     if (payload.ok && typeof payload.ok === 'object') {
       const patch = payload.ok

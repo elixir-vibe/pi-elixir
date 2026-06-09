@@ -1,6 +1,7 @@
 import * as childProcess from 'node:child_process'
 
 import { connectionCache, emitStatusChange, invalidateCache } from '../connection/status.ts'
+import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
 import type {
   BridgeBusEvent,
   BridgeEvent,
@@ -21,6 +22,9 @@ interface EmbeddedProcess {
   buffer: string
   nextId: number
   pending: Map<number, PendingToolCall>
+  startedAt: number
+  stderrBytes: number
+  stderrPreview: string[]
 }
 
 export type { BridgeInfo, BridgeUIEvent }
@@ -120,6 +124,12 @@ function parseMessage(line: string): StdioMessage | null {
 function markReady(cwd: string, entry: EmbeddedProcess, url?: string): void {
   if (url) entry.url = url
   entry.ready = true
+  recordDiagnostic('embedded_ready', cwd, {
+    durationMs: Date.now() - entry.startedAt,
+    url: entry.url,
+    stderrBytes: entry.stderrBytes,
+    stderrPreview: entry.stderrPreview.join('\n')
+  })
   invalidateCache(cwd)
   emitStatusChange(cwd, 'embedded')
 }
@@ -139,8 +149,11 @@ async function handleBridgeRequest(
 ): Promise<void> {
   if (typeof message.id !== 'string') return
 
-  const responses = await Promise.all(
-    Array.from(requestHandlers, (handler) => handler(cwd, message))
+  const responses = await withDiagnosticSpan(
+    'bridge_request_handlers',
+    cwd,
+    { op: message.op },
+    async () => Promise.all(Array.from(requestHandlers, (handler) => handler(cwd, message)))
   )
   const response = responses.find((candidate) => candidate !== undefined)
   if (response) {
@@ -248,8 +261,15 @@ function handleStdout(cwd: string, entry: EmbeddedProcess, chunk: Buffer): void 
 }
 
 export function startEmbeddedInBackground(cwd: string): void {
-  if (embeddedProcesses.has(cwd)) return
+  if (embeddedProcesses.has(cwd)) {
+    recordDiagnostic('embedded_start_skipped', cwd, { reason: 'already_started' })
+    return
+  }
 
+  recordDiagnostic('embedded_start', cwd, {
+    command: 'mix run --no-halt -e <stdio-start>',
+    mixEnv: 'dev'
+  })
   const proc = childProcess.spawn('mix', ['run', '--no-halt', '-e', START_STDIO_EXPR], {
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
@@ -262,7 +282,10 @@ export function startEmbeddedInBackground(cwd: string): void {
     url: embeddedUrl(cwd),
     buffer: '',
     nextId: 0,
-    pending: new Map()
+    pending: new Map(),
+    startedAt: Date.now(),
+    stderrBytes: 0,
+    stderrPreview: []
   }
   embeddedProcesses.set(cwd, entry)
 
@@ -270,20 +293,38 @@ export function startEmbeddedInBackground(cwd: string): void {
     if (embeddedProcesses.get(cwd) === entry) handleStdout(cwd, entry, chunk)
   })
 
-  proc.stderr?.on('data', () => {
+  proc.stderr?.on('data', (chunk: Buffer) => {
+    entry.stderrBytes += chunk.length
+    if (entry.stderrPreview.join('\n').length < 2_000) {
+      entry.stderrPreview.push(chunk.toString().slice(0, 500))
+    }
     // Drain stderr so verbose Mix/BEAM output cannot block the child process.
   })
 
   proc.on('error', (error) => {
     if (embeddedProcesses.get(cwd) !== entry) return
+    recordDiagnostic('embedded_error', cwd, {
+      durationMs: Date.now() - entry.startedAt,
+      error: error.message,
+      stderrBytes: entry.stderrBytes,
+      stderrPreview: entry.stderrPreview.join('\n')
+    })
     embeddedProcesses.delete(cwd)
     embeddedFailed.add(cwd)
     failPending(entry, error)
     emitStatusChange(cwd, null)
   })
 
-  proc.on('exit', () => {
+  proc.on('exit', (code, signal) => {
     if (embeddedProcesses.get(cwd) !== entry) return
+    recordDiagnostic('embedded_exit', cwd, {
+      durationMs: Date.now() - entry.startedAt,
+      code,
+      signal,
+      ready: entry.ready,
+      stderrBytes: entry.stderrBytes,
+      stderrPreview: entry.stderrPreview.join('\n')
+    })
     embeddedProcesses.delete(cwd)
     connectionCache.delete(cwd)
     failPending(entry, new Error('Embedded BEAM process exited'))
@@ -295,6 +336,7 @@ export function startEmbeddedInBackground(cwd: string): void {
 export function stopEmbedded(cwd: string): void {
   const entry = embeddedProcesses.get(cwd)
   if (!entry) return
+  recordDiagnostic('embedded_stop', cwd, { ready: entry.ready })
   entry.proc.kill()
   embeddedProcesses.delete(cwd)
   connectionCache.delete(cwd)
@@ -343,20 +385,26 @@ export function callEmbeddedTool(
   const id = ++entry.nextId
   const payload = JSON.stringify({ type: 'call', id, name, arguments: args }) + '\n'
 
-  return new Promise((resolve, reject) => {
-    const abort = () => {
-      entry.pending.delete(id)
-      resolve({ text: 'Tool call aborted.', isError: true })
-    }
+  return withDiagnosticSpan(
+    'embedded_tool_call',
+    cwd,
+    { name, id },
+    async () =>
+      new Promise((resolve, reject) => {
+        const abort = () => {
+          entry.pending.delete(id)
+          resolve({ text: 'Tool call aborted.', isError: true })
+        }
 
-    if (signal?.aborted) return abort()
+        if (signal?.aborted) return abort()
 
-    entry.pending.set(id, { resolve, reject })
-    signal?.addEventListener('abort', abort, { once: true })
-    entry.proc.stdin!.write(payload, (error) => {
-      if (!error) return
-      entry.pending.delete(id)
-      reject(error)
-    })
-  })
+        entry.pending.set(id, { resolve, reject })
+        signal?.addEventListener('abort', abort, { once: true })
+        entry.proc.stdin!.write(payload, (error) => {
+          if (!error) return
+          entry.pending.delete(id)
+          reject(error)
+        })
+      })
+  )
 }

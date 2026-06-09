@@ -52,6 +52,39 @@ Disable the embedded fallback:
 export PI_DISABLE_EMBEDDED=1
 ```
 
+### Debugging
+
+`pi-elixir` follows pi core's snapshot-first debugging style. Run this hidden slash command from pi to write the current in-memory extension diagnostics:
+
+```text
+/elixir:debug
+```
+
+The snapshot is written to:
+
+```text
+~/.pi/agent/pi-elixir-debug.log
+```
+
+For responsiveness investigations, enable automatic snapshots when the extension detects event-loop lag during an active turn:
+
+```sh
+export PI_ELIXIR_DEBUG=1
+# or: export PI_ELIXIR_DEBUG=debug
+```
+
+Use verbose mode only when you need fuller diagnostic values:
+
+```sh
+export PI_ELIXIR_DEBUG=verbose
+```
+
+Override the snapshot path with:
+
+```sh
+export PI_ELIXIR_DEBUG_LOG=/tmp/pi-elixir-debug.json
+```
+
 ## Executable Elixir skills
 
 Projects can add trusted executable skills under `priv/skills`, `.pi/skills`, or `skills` using `*.skill.exs` or `skill.exs`. The BEAM loader compiles those files in the project runtime and the JS extension materializes them as temporary pi `SKILL.md` resources via `resources_discover`.

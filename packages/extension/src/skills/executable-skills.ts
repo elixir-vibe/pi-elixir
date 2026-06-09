@@ -4,6 +4,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 
 import { callTool, resolveUrl } from '../connection/resolver.ts'
+import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
 import type { BridgeSkillInfo } from '../protocol/types.ts'
 
 function isBeamSkill(value: unknown): value is Required<BridgeSkillInfo> {
@@ -64,29 +65,43 @@ async function materialize(
   cwd: string,
   skills: Required<BridgeSkillInfo>[]
 ): Promise<string | null> {
-  if (skills.length === 0) return null
+  return withDiagnosticSpan(
+    'executable_skills_materialize',
+    cwd,
+    { count: skills.length },
+    async () => {
+      if (skills.length === 0) return null
 
-  const root = cacheDir(cwd)
-  await fs.rm(root, { recursive: true, force: true })
-  await fs.mkdir(root, { recursive: true })
+      const root = cacheDir(cwd)
+      await fs.rm(root, { recursive: true, force: true })
+      await fs.mkdir(root, { recursive: true })
 
-  await Promise.all(
-    skills.map(async (skill) => {
-      const dir = path.join(root, safeName(skill.name))
-      await fs.mkdir(dir, { recursive: true })
-      await fs.writeFile(path.join(dir, 'SKILL.md'), skillMarkdown(skill))
-    })
+      await Promise.all(
+        skills.map(async (skill) => {
+          const dir = path.join(root, safeName(skill.name))
+          await fs.mkdir(dir, { recursive: true })
+          await fs.writeFile(path.join(dir, 'SKILL.md'), skillMarkdown(skill))
+        })
+      )
+
+      return root
+    }
   )
-
-  return root
 }
 
 export async function discoverExecutableSkillPath(cwd: string): Promise<string | null> {
-  const conn = await resolveUrl(cwd)
-  if (!conn) return null
+  return withDiagnosticSpan('executable_skills_discover', cwd, undefined, async () => {
+    const conn = await resolveUrl(cwd)
+    if (!conn) return null
 
-  const result = await callTool(conn.url, 'pi_skills_list', {}, undefined)
-  if (result.isError) return null
+    const result = await callTool(conn.url, 'pi_skills_list', {}, undefined)
+    if (result.isError) {
+      recordDiagnostic('executable_skills_list_error', cwd)
+      return null
+    }
 
-  return await materialize(cwd, parseSkills(result.text))
+    const skills = parseSkills(result.text)
+    recordDiagnostic('executable_skills_list_done', cwd, { count: skills.length })
+    return await materialize(cwd, skills)
+  })
 }

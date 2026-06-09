@@ -12,6 +12,7 @@ import {
   markTurnStart,
   recordDiagnostic,
   startEventLoopLagMonitor,
+  withDiagnosticSpan,
   writeDiagnosticDump
 } from './diagnostics.ts'
 import {
@@ -63,6 +64,18 @@ export default function (pi: ExtensionAPI) {
   registerSessionCommands(pi, registeredCommands, resolveElixirCwd)
   registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
 
+  if (!registeredCommands.has('elixir:debug')) {
+    registeredCommands.add('elixir:debug')
+    pi.registerCommand('elixir:debug', {
+      description: 'Write a pi-elixir diagnostic snapshot',
+      handler: async (_args, ctx) => {
+        const beamCwd = resolveElixirCwd(ctx.cwd)
+        const file = await writeDiagnosticDump('manual_debug', { cwd: beamCwd ?? ctx.cwd })
+        ctx.ui.notify(`pi-elixir debug snapshot written:\n${file}`, 'info')
+      }
+    })
+  }
+
   function clearStatusSubscription(key: string) {
     const subscription = statusSubscriptions.get(key)
     subscription?.unsubscribeStatus()
@@ -77,113 +90,132 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on('session_start', async (_event, ctx) => {
-    recordDiagnostic('session_start', ctx.cwd)
-    const key = subscriptionKey(ctx)
-    clearStatusSubscription(key)
+    await withDiagnosticSpan('hook_session_start', ctx.cwd, undefined, async () => {
+      recordDiagnostic('session_start', ctx.cwd)
+      const key = subscriptionKey(ctx)
+      clearStatusSubscription(key)
 
-    const sessionCwd = resolveElixirCwd(ctx.cwd)
-    if (!sessionCwd) return
-    const unsubscribeStatus = onStatusChange((cwd, kind) => {
-      if (cwd === sessionCwd) updateStatus(ctx, kind)
-    })
-    const unsubscribeUI = onBridgeUIEvent((cwd, event) => {
-      if (cwd === sessionCwd) applyBridgeUIEvent(ctx, event)
-    })
-    const unsubscribeBus = onBridgeBusEvent((cwd, event) => {
-      if (cwd !== sessionCwd) return
-      if (event.name === 'pi_session') handleSessionEvent(pi, ctx, cwd, event)
-      if (event.name) pi.events.emit(event.name, event.data)
-    })
-    const unsubscribeRequests = onBridgeRequest(async (cwd, message) => {
-      if (cwd !== sessionCwd) return undefined
-      return handleBridgeRequest(message, ctx, pi)
-    })
-    statusSubscriptions.set(key, {
-      cwd: sessionCwd,
-      unsubscribeStatus,
-      unsubscribeUI,
-      unsubscribeBus,
-      unsubscribeRequests
-    })
+      const sessionCwd = resolveElixirCwd(ctx.cwd)
+      if (!sessionCwd) return
+      const unsubscribeStatus = onStatusChange((cwd, kind) => {
+        if (cwd === sessionCwd) updateStatus(ctx, kind)
+      })
+      const unsubscribeUI = onBridgeUIEvent((cwd, event) => {
+        if (cwd === sessionCwd) applyBridgeUIEvent(ctx, event)
+      })
+      const unsubscribeBus = onBridgeBusEvent((cwd, event) => {
+        if (cwd !== sessionCwd) return
+        if (event.name === 'pi_session') handleSessionEvent(pi, ctx, cwd, event)
+        if (event.name) pi.events.emit(event.name, event.data)
+      })
+      const unsubscribeRequests = onBridgeRequest(async (cwd, message) => {
+        if (cwd !== sessionCwd) return undefined
+        return handleBridgeRequest(message, ctx, pi)
+      })
+      statusSubscriptions.set(key, {
+        cwd: sessionCwd,
+        unsubscribeStatus,
+        unsubscribeUI,
+        unsubscribeBus,
+        unsubscribeRequests
+      })
 
-    updateStatus(ctx, getConnectionKind(sessionCwd))
+      updateStatus(ctx, getConnectionKind(sessionCwd))
 
-    void (async () => {
-      recordDiagnostic('bridge_resolve_start', sessionCwd)
-      const conn = await resolveUrl(sessionCwd)
-      updateStatus(ctx, conn?.kind ?? getConnectionKind(sessionCwd))
-      if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
-      const info = getBridgeInfo(sessionCwd)
-      showStartupInfo(ctx, info)
-      registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
-      await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
-      recordDiagnostic('bridge_resolve_done', sessionCwd, { kind: conn?.kind ?? null })
-    })().catch((error) => {
-      recordDiagnostic('bridge_resolve_error', sessionCwd, {
-        error: error instanceof Error ? error.message : String(error)
+      void (async () => {
+        recordDiagnostic('bridge_resolve_start', sessionCwd)
+        const conn = await resolveUrl(sessionCwd)
+        updateStatus(ctx, conn?.kind ?? getConnectionKind(sessionCwd))
+        if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
+        const info = getBridgeInfo(sessionCwd)
+        showStartupInfo(ctx, info)
+        registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
+        await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
+        recordDiagnostic('bridge_resolve_done', sessionCwd, { kind: conn?.kind ?? null })
+      })().catch((error) => {
+        recordDiagnostic('bridge_resolve_error', sessionCwd, {
+          error: error instanceof Error ? error.message : String(error)
+        })
       })
     })
   })
 
   pi.on('before_agent_start', async (event, ctx) => {
-    const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (!beamCwd) return
+    await withDiagnosticSpan('hook_before_agent_start', ctx.cwd, undefined, async () => {
+      const beamCwd = resolveElixirCwd(ctx.cwd)
+      if (!beamCwd) return
 
-    recordDiagnostic('before_agent_start', beamCwd, { promptBytes: event.prompt?.length ?? 0 })
-    await sendBridgeEvent(beamCwd, {
-      type: 'before_agent_start',
-      cwd: ctx.cwd,
-      prompt: event.prompt
+      recordDiagnostic('before_agent_start', beamCwd, { promptBytes: event.prompt?.length ?? 0 })
+      await sendBridgeEvent(beamCwd, {
+        type: 'before_agent_start',
+        cwd: ctx.cwd,
+        prompt: event.prompt
+      })
     })
   })
 
   pi.on('turn_start', async (event, ctx) => {
-    const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (!beamCwd) return
+    await withDiagnosticSpan(
+      'hook_turn_start',
+      ctx.cwd,
+      { turnIndex: event.turnIndex },
+      async () => {
+        const beamCwd = resolveElixirCwd(ctx.cwd)
+        if (!beamCwd) return
 
-    markTurnStart(beamCwd, ctx.sessionManager?.getSessionFile?.(), { turnIndex: event.turnIndex })
-    await sendBridgeEvent(beamCwd, { type: 'turn_start', cwd: ctx.cwd, turnIndex: event.turnIndex })
+        markTurnStart(beamCwd, ctx.sessionManager?.getSessionFile?.(), {
+          turnIndex: event.turnIndex
+        })
+        await sendBridgeEvent(beamCwd, {
+          type: 'turn_start',
+          cwd: ctx.cwd,
+          turnIndex: event.turnIndex
+        })
+      }
+    )
   })
 
   pi.on('turn_end', async (event, ctx) => {
-    const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (!beamCwd) return
+    await withDiagnosticSpan('hook_turn_end', ctx.cwd, { turnIndex: event.turnIndex }, async () => {
+      const beamCwd = resolveElixirCwd(ctx.cwd)
+      if (!beamCwd) return
 
-    markTurnEnd(beamCwd, ctx.sessionManager?.getSessionFile?.(), { turnIndex: event.turnIndex })
-    await sendBridgeEvent(beamCwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
+      markTurnEnd(beamCwd, ctx.sessionManager?.getSessionFile?.(), { turnIndex: event.turnIndex })
+      await sendBridgeEvent(beamCwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
+    })
   })
 
   pi.on('resources_discover', async (_event, ctx) => {
-    const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (!beamCwd) return {}
+    return await withDiagnosticSpan('hook_resources_discover', ctx.cwd, undefined, async () => {
+      const beamCwd = resolveElixirCwd(ctx.cwd)
+      if (!beamCwd) return {}
 
-    recordDiagnostic('resources_discover', beamCwd)
-    const kind = getConnectionKind(beamCwd)
-    if (kind !== 'embedded' && kind !== 'external') return {}
+      recordDiagnostic('resources_discover', beamCwd)
+      const kind = getConnectionKind(beamCwd)
+      if (kind !== 'embedded' && kind !== 'external') return {}
 
-    const skillPath = await discoverExecutableSkillPath(beamCwd)
-    return skillPath ? { skillPaths: [skillPath] } : {}
+      const skillPath = await discoverExecutableSkillPath(beamCwd)
+      return skillPath ? { skillPaths: [skillPath] } : {}
+    })
   })
 
   pi.on('session_shutdown', async (_event, ctx) => {
-    recordDiagnostic('session_shutdown', ctx.cwd)
-    const key = subscriptionKey(ctx)
-    clearStatusSubscription(key)
+    await withDiagnosticSpan('hook_session_shutdown', ctx.cwd, undefined, async () => {
+      recordDiagnostic('session_shutdown', ctx.cwd)
+      const key = subscriptionKey(ctx)
+      clearStatusSubscription(key)
 
-    const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (beamCwd) {
-      await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
-      clearSessionSnapshots(beamCwd)
-      ctx.ui.setWidget('elixir-sessions', undefined)
-    }
+      const beamCwd = resolveElixirCwd(ctx.cwd)
+      if (beamCwd) {
+        await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
+        clearSessionSnapshots(beamCwd)
+        ctx.ui.setWidget('elixir-sessions', undefined)
+      }
 
-    if (beamCwd && !hasStatusSubscriptionForCwd(beamCwd)) {
-      stopEmbedded(beamCwd)
-    }
-
-    await writeDiagnosticDump('session_shutdown', { cwd: beamCwd ?? ctx.cwd }).catch(
-      () => undefined
-    )
+      if (beamCwd && !hasStatusSubscriptionForCwd(beamCwd)) {
+        stopEmbedded(beamCwd)
+      }
+    })
   })
 
   registerEval(pi)

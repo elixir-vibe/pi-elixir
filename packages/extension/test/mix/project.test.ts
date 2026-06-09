@@ -37,13 +37,13 @@ describe('resolveMixProjectCwd', () => {
     expect(resolveMixProjectCwd(tempRoot)).toBe(bridge)
   })
 
-  it('uses the only nested Mix project when unambiguous', () => {
-    const app = writeMix('examples/app')
+  it('does not recursively scan arbitrary nested Mix projects', () => {
+    writeMix('examples/app')
 
-    expect(resolveMixProjectCwd(tempRoot)).toBe(app)
+    expect(resolveMixProjectCwd(tempRoot)).toBeNull()
   })
 
-  it('returns null for ambiguous nested Mix projects', () => {
+  it('returns null for arbitrary monorepo roots with nested Mix projects', () => {
     writeMix('apps/a')
     writeMix('apps/b')
 
