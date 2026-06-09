@@ -17,6 +17,36 @@ When releasing a new tagged version:
 
 The current publish workflow publishes npm and Hex packages, but it does not create GitHub Releases automatically.
 
+## Checks and integration tests
+
+`pnpm run check` is the normal release gate. JS unit tests intentionally exclude `packages/extension/test/integration/**` for speed; run the integration suite explicitly when touching embedded stdio, MCP HTTP routing, resolver behavior, or fixture-project startup:
+
+```bash
+pnpm --dir packages/extension run test:integration
+```
+
+## Feature flags
+
+Feature flags are defaults-on escape hatches for noisy, sensitive, or experimental environments:
+
+- `PI_ELIXIR_STATEFUL_EVAL=0` — make `elixir_eval` stateless.
+- `PI_ELIXIR_EVAL_SIDECAR=0` — keep eval state in memory only; do not write sidecar snapshots.
+- `PI_ELIXIR_LLM=0` — disable BEAM-initiated `Pi.LLM` / `Pi.ReqLLM` requests.
+- `PI_ELIXIR_SESSIONS=0` — disable BEAM session widgets/control affordances.
+- `PI_ELIXIR_PLUGINS=0` — disable project-local plugins, hooks, UI events, and commands.
+- `PI_ELIXIR_SKILLS=0` — disable executable Elixir skill discovery.
+- `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` — force extra-short one-line eval previews.
+
+When adding BEAM-side feature checks, prefer the call-site DSL:
+
+```elixir
+require Pi.Features
+
+Pi.Features.gate :llm do
+  # feature body
+end
+```
+
 ## Debugging TUI/session issues
 
 When investigating interactive TUI artifacts, do not run `pi` as a long unattended foreground command. Use a monitored playground:

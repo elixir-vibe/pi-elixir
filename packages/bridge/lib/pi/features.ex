@@ -1,7 +1,7 @@
 defmodule Pi.Features do
   @moduledoc false
 
-  @false_values ~w[0 false off no]
+  @disabled_values ~w[0 false off no]
 
   @features %{
     llm: %{
@@ -64,7 +64,7 @@ defmodule Pi.Features do
   defp env_enabled?(env) do
     case System.get_env(env) do
       nil -> true
-      value -> String.downcase(String.trim(value)) not in @false_values
+      value -> String.downcase(String.trim(value)) not in @disabled_values
     end
   end
 end
