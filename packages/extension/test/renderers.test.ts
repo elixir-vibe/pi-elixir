@@ -14,8 +14,12 @@ const theme = {
   fg: (_name: string, text: string) => text
 } as Theme
 
+function linesOf(component: Component, width = 120) {
+  return component.render(width)
+}
+
 function textOf(component: Component, width = 120) {
-  return component.render(width).join('\n')
+  return linesOf(component, width).join('\n')
 }
 
 function evalResult(evalPayload: unknown): AgentToolResult<unknown> {
@@ -41,7 +45,7 @@ describe('elixir result rendering', () => {
 
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
-    expect(compact).toBe('%{bridge: "0.6.0", app: :pi_bridge}')
+    expect(compact).toBe('\n%{bridge: "0.6.0", app: :pi_bridge}')
     expect(compact).not.toContain('to expand')
     expect(compact).not.toContain('✓')
   })
@@ -68,7 +72,8 @@ describe('elixir result rendering', () => {
 
     expect(wide).toContain('transport: :stdio}')
     expect(wide).not.toContain('to expand')
-    expect(narrow.split('\n')).toHaveLength(1)
+    expect(narrow.split('\n')).toHaveLength(2)
+    expect(linesOf(component, 88)[0]).toBe('')
     expect(narrow).toContain('%{bridge: "0.6.0"')
     expect(narrow).toContain('to expand')
     expect(narrow).not.toContain('✓')

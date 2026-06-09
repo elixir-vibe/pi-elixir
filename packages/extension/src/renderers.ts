@@ -56,7 +56,7 @@ function firstContentLine(text: string): string {
 }
 
 function renderLines(lines: string[]) {
-  return new Text(lines.join('\n'), 0, 0)
+  return new Text(['', ...lines].join('\n'), 0, 0)
 }
 
 function resultIsError(result: AgentToolResult<unknown>): boolean {
@@ -95,16 +95,16 @@ function renderCompactLine(
   return {
     render: (width) => {
       const line = prefix + preview
-      if (!semanticHidden && visibleWidth(line) <= width) return [line]
+      if (!semanticHidden && visibleWidth(line) <= width) return ['', line]
 
       const hint = inlineExpandHint(theme)
       const lineWithHint = line + hint
-      if (semanticHidden && visibleWidth(lineWithHint) <= width) return [lineWithHint]
+      if (semanticHidden && visibleWidth(lineWithHint) <= width) return ['', lineWithHint]
 
       const reserve = visibleWidth(prefix) + visibleWidth(hint)
-      if (width > reserve + 4) return [prefix + truncateLine(preview, width - reserve) + hint]
+      if (width > reserve + 4) return ['', prefix + truncateLine(preview, width - reserve) + hint]
 
-      return [truncateLine(line, width)]
+      return ['', truncateLine(line, width)]
     },
     invalidate: () => undefined
   }
