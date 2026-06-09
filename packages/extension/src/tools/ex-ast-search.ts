@@ -1,10 +1,4 @@
-import {
-  astOptionSuffix,
-  bridgeTool,
-  displayString,
-  pendingArgsSuffix,
-  renderSingleLine
-} from '#src/helpers.ts'
+import { astOptionSuffix, bridgeTool, displayString, renderSingleLine } from '#src/helpers.ts'
 import { renderAstSearchResult } from '#src/renderers.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
@@ -91,12 +85,10 @@ Examples:
       ),
       ...astSearchOptions
     }),
-    (args, theme, context) => {
+    (args, theme) => {
       let text = theme.fg('toolTitle', theme.bold('ast grep '))
       text += theme.fg('accent', patternSummary(args))
-      return renderSingleLine(
-        text + astOptionSuffix(args, theme) + pendingArgsSuffix(context, theme)
-      )
+      return renderSingleLine(text + astOptionSuffix(args, theme))
     },
     {
       transformResult: astSearchText,

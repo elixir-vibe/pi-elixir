@@ -76,10 +76,6 @@ export function renderSingleLine(text: string): Component {
   }
 }
 
-export function pendingArgsSuffix(context: ToolCallRenderContext, theme: Theme) {
-  return context.argsComplete ? '' : theme.fg('muted', ' …')
-}
-
 export function astOptionSuffix(args: Record<string, unknown>, theme: Theme) {
   const parts: string[] = []
   const pathText = displayString(args.path)
@@ -104,11 +100,7 @@ export function truncated(text: string) {
 }
 
 type ToolParameters = ReturnType<typeof Type.Object>
-export interface ToolCallRenderContext {
-  argsComplete?: boolean
-}
-
-type RenderCall = (args: ToolArgs, theme: Theme, context: ToolCallRenderContext) => Component
+type RenderCall = (args: ToolArgs, theme: Theme) => Component
 
 export interface BridgeToolOpts {
   transformResult?: (text: string) => string

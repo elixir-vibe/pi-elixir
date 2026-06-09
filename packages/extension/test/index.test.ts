@@ -102,23 +102,6 @@ describe('extension registration', () => {
       'elixir_ast_replace'
     ])
   })
-
-  it('marks Elixir tool calls while arguments are still streaming', () => {
-    const { pi } = fakePi()
-    extension(pi as any)
-    const theme = { fg: (_name: string, text: string) => text, bold: (text: string) => text }
-    const evalTool = pi.registerTool.mock.calls.find(([tool]) => tool.name === 'elixir_eval')?.[0]
-
-    const streaming = evalTool.renderCall({ code: 'Mix.Project.config()' }, theme, {
-      argsComplete: false
-    } as any)
-    const complete = evalTool.renderCall({ code: 'Mix.Project.config()' }, theme, {
-      argsComplete: true
-    } as any)
-
-    expect(streaming.render(80).join('\n')).toBe('iex Mix.Project.config() …')
-    expect(complete.render(80).join('\n')).toBe('iex Mix.Project.config()')
-  })
 })
 
 describe('extension status lifecycle', () => {
