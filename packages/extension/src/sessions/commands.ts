@@ -1,6 +1,5 @@
+import { callTool, resolveUrl } from '#src/connection/resolver.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-
-import { callTool, resolveUrl } from '../connection/resolver.ts'
 
 function sessionId(args: unknown) {
   if (typeof args === 'string') {

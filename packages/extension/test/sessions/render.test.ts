@@ -1,9 +1,8 @@
+import { renderSessionWidget } from '#src/sessions/render.ts'
+import type { SessionSnapshot } from '#src/sessions/types.ts'
 import type { Theme } from '@earendil-works/pi-coding-agent'
 import { visibleWidth, type Component } from '@earendil-works/pi-tui'
 import { describe, expect, it } from 'vitest'
-
-import { renderSessionWidget } from '../../src/sessions/render.ts'
-import type { SessionSnapshot } from '../../src/sessions/types.ts'
 
 const theme = {
   fg: (_name: string, text: string) => text

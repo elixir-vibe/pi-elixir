@@ -62,5 +62,8 @@
     "skills": [
       "./packages/extension/skills"
     ]
+  },
+  "imports": {
+    "#src/*": "./packages/extension/src/*"
   }
 }

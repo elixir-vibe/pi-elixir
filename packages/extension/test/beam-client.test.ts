@@ -13,7 +13,7 @@ import {
   getConnectionKind,
   onStatusChange,
   stopAllEmbedded
-} from '../src/beam-client.js'
+} from '#src/beam-client.js'
 
 function jsonResponse(body: unknown, status = 200): Response {
   return new Response(JSON.stringify(body), {

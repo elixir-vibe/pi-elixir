@@ -1,6 +1,6 @@
-import type { ConnectionKind } from '../connection/resolver.ts'
-import type { BridgeUIEvent } from '../embedded/stdio-process.ts'
-import type { StatusContext } from '../sessions/types.ts'
+import type { ConnectionKind } from '#src/connection/resolver.ts'
+import type { BridgeUIEvent } from '#src/embedded/stdio-process.ts'
+import type { StatusContext } from '#src/sessions/types.ts'
 
 export function updateStatus(ctx: StatusContext, kind: ConnectionKind) {
   try {

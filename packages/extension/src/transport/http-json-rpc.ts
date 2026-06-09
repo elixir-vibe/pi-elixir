@@ -1,5 +1,5 @@
-import { readAppName } from '../mix/project.ts'
-import type { JsonRpcResponse, McpConfig, ToolArgs, ToolResult } from '../protocol/types.ts'
+import { readAppName } from '#src/mix/project.ts'
+import type { JsonRpcResponse, McpConfig, ToolArgs, ToolResult } from '#src/protocol/types.ts'
 
 let requestId = 0
 

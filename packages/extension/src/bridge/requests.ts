@@ -1,7 +1,7 @@
+import type { BridgeRequestResponder } from '#src/embedded/stdio-process.ts'
+import type { StdioMessage } from '#src/protocol/types.ts'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
-import type { BridgeRequestResponder } from '../embedded/stdio-process.ts'
-import type { StdioMessage } from '../protocol/types.ts'
 import { handleLLMComplete, handleLLMStream } from './llm.ts'
 
 export async function handleBridgeRequest(

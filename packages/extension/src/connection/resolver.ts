@@ -1,4 +1,4 @@
-import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
+import { recordDiagnostic, withDiagnosticSpan } from '#src/diagnostics.ts'
 import {
   callEmbeddedTool,
   clearEmbeddedFailed,
@@ -9,14 +9,15 @@ import {
   isEmbeddedReady,
   sendEmbeddedEvent,
   startEmbeddedInBackground
-} from '../embedded/stdio-process.ts'
+} from '#src/embedded/stdio-process.ts'
 import {
   ensurePiBeamDependency,
   type InstallOptions,
   type InstallPrompt
-} from '../mix/installer.ts'
-import type { BridgeEvent, ToolArgs, ToolResult } from '../protocol/types.ts'
-import { callHttpTool, discoverExternalMCP } from '../transport/http-json-rpc.ts'
+} from '#src/mix/installer.ts'
+import type { BridgeEvent, ToolArgs, ToolResult } from '#src/protocol/types.ts'
+import { callHttpTool, discoverExternalMCP } from '#src/transport/http-json-rpc.ts'
+
 import {
   connectionCache,
   getIncompatibleDependency,

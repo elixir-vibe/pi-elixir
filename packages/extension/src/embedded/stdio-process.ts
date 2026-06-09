@@ -6,8 +6,8 @@ import {
   emitStatusChange,
   invalidateCache,
   markIncompatibleDependency
-} from '../connection/status.ts'
-import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
+} from '#src/connection/status.ts'
+import { recordDiagnostic, withDiagnosticSpan } from '#src/diagnostics.ts'
 import type {
   BridgeBusEvent,
   BridgeEvent,
@@ -17,8 +17,8 @@ import type {
   StdioMessage,
   ToolArgs,
   ToolResult
-} from '../protocol/types.ts'
-import { isPiBridgeVersionCompatible, piBridgeVersionMismatchMessage } from '../version.ts'
+} from '#src/protocol/types.ts'
+import { isPiBridgeVersionCompatible, piBridgeVersionMismatchMessage } from '#src/version.ts'
 
 const START_STDIO_EXPR = 'Pi.Transport.Stdio.start()'
 

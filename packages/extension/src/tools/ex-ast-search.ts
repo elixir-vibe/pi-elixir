@@ -1,8 +1,7 @@
+import { astOptionSuffix, bridgeTool, displayString, renderSingleLine } from '#src/helpers.ts'
+import { renderAstSearchResult } from '#src/renderers.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
-
-import { astOptionSuffix, bridgeTool, displayString, renderSingleLine } from '../helpers.ts'
-import { renderAstSearchResult } from '../renderers.ts'
 
 interface AstSearchPayload {
   kind?: string

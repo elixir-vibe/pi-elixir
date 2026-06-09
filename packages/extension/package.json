@@ -1,9 +1,12 @@
 {
   "name": "@pi-elixir/extension-internal",
-  "version": "0.5.1",
+  "version": "0.5.2",
   "private": true,
   "description": "Internal TypeScript extension workspace for pi-elixir",
   "license": "MIT",
+  "imports": {
+    "#src/*": "./src/*"
+  },
   "scripts": {
     "lint": "pnpm run lint:guard && pnpm run lint:structure && oxlint -c .oxlintrc.json --type-aware --type-check src/",
     "lint:guard": "node scripts/check-oxlint-rules.mjs",

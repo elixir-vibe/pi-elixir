@@ -3,9 +3,9 @@ import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { callTool, resolveUrl } from '../connection/resolver.ts'
-import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
-import type { BridgeSkillInfo } from '../protocol/types.ts'
+import { callTool, resolveUrl } from '#src/connection/resolver.ts'
+import { recordDiagnostic, withDiagnosticSpan } from '#src/diagnostics.ts'
+import type { BridgeSkillInfo } from '#src/protocol/types.ts'
 
 function isBeamSkill(value: unknown): value is Required<BridgeSkillInfo> {
   return (

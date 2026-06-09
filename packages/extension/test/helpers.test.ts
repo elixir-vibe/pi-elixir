@@ -12,9 +12,8 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 vi.mock('../src/beam-client.ts', () => ({}))
 
+import { truncated } from '#src/helpers.ts'
 import { truncateHead } from '@earendil-works/pi-coding-agent'
-
-import { truncated } from '../src/helpers.ts'
 
 const mockTruncateHead = vi.mocked(truncateHead)
 

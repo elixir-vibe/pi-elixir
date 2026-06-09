@@ -1,7 +1,7 @@
+import { truncateLine } from '#src/helpers.ts'
 import { keyHint, type Theme } from '@earendil-works/pi-coding-agent'
 import type { Component } from '@earendil-works/pi-tui'
 
-import { truncateLine } from '../helpers.ts'
 import type { SessionSnapshot } from './types.ts'
 
 function compact(text: string | null | undefined, limit = 72) {

@@ -1,7 +1,6 @@
+import { callTool, resolveUrl } from '#src/connection/resolver.ts'
+import type { BridgeInfo, BridgePluginCommand } from '#src/protocol/types.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-
-import { callTool, resolveUrl } from '../connection/resolver.ts'
-import type { BridgeInfo, BridgePluginCommand } from '../protocol/types.ts'
 
 interface PluginCommandResult {
   0?: string

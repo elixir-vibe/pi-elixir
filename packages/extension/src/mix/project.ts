@@ -1,7 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-import { recordDiagnostic } from '../diagnostics.ts'
+import { recordDiagnostic } from '#src/diagnostics.ts'
 
 const PREFERRED_NESTED_MIX_PATHS = ['packages/bridge/mix.exs']
 const RESOLVE_CACHE_TTL_MS = 2_000

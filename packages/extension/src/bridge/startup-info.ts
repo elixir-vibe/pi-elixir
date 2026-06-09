@@ -1,7 +1,6 @@
+import type { BridgeInfo } from '#src/embedded/stdio-process.ts'
+import { EXTENSION_VERSION } from '#src/version.ts'
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent'
-
-import type { BridgeInfo } from '../embedded/stdio-process.ts'
-import { EXTENSION_VERSION } from '../version.ts'
 
 function list<T>(value: T[] | undefined, render: (value: T) => string | undefined) {
   if (!value || value.length === 0) return 'none'

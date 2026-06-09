@@ -1,3 +1,6 @@
+import { recordDiagnostic, withDiagnosticSpan } from '#src/diagnostics.ts'
+import type { BridgeRequestResponder } from '#src/embedded/stdio-process.ts'
+import type { StdioMessage } from '#src/protocol/types.ts'
 import {
   complete,
   stream,
@@ -8,10 +11,6 @@ import {
   type Model
 } from '@earendil-works/pi-ai'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
-
-import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
-import type { BridgeRequestResponder } from '../embedded/stdio-process.ts'
-import type { StdioMessage } from '../protocol/types.ts'
 
 interface BridgeLLMMessage {
   role?: unknown

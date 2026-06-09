@@ -2,15 +2,14 @@ import { execSync } from 'node:child_process'
 import * as fs from 'node:fs'
 import path from 'node:path'
 
-import { afterAll, beforeAll, describe, expect, it } from 'vitest'
-
 import {
   callEmbeddedTool,
   getBridgeInfo,
   isEmbeddedReady,
   startEmbeddedInBackground,
   stopEmbedded
-} from '../../src/embedded/stdio-process.ts'
+} from '#src/embedded/stdio-process.ts'
+import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 
 const PROJECT_DIR =
   process.env.PI_ELIXIR_INTEGRATION_PROJECT ??

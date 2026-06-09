@@ -1,8 +1,8 @@
+import { callTool, resolveUrl } from '#src/connection/resolver.ts'
+import { recordDiagnostic } from '#src/diagnostics.ts'
+import type { BridgeBusEvent } from '#src/protocol/types.ts'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
-import { callTool, resolveUrl } from '../connection/resolver.ts'
-import { recordDiagnostic } from '../diagnostics.ts'
-import type { BridgeBusEvent } from '../protocol/types.ts'
 import {
   activeSessionTree,
   completedRootTrees,

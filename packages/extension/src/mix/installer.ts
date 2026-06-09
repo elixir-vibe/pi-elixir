@@ -6,8 +6,9 @@ import {
   clearIncompatibleDependency,
   clearMissingDependency,
   markMissingDependency
-} from '../connection/status.ts'
-import { expectedPiBridgeDependency } from '../version.ts'
+} from '#src/connection/status.ts'
+import { expectedPiBridgeDependency } from '#src/version.ts'
+
 import { addPiDependency, hasPiDependency, readAppName, readMixExs } from './project.ts'
 
 const PI_BEAM_PATH = path.resolve(__dirname, '../../../bridge')

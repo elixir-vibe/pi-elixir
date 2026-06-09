@@ -1,6 +1,3 @@
-import type { ExtensionAPI, Theme } from '@earendil-works/pi-coding-agent'
-import { Type } from 'typebox'
-
 import {
   bridgeTool,
   DEFAULT_MAX_LINES,
@@ -8,9 +5,11 @@ import {
   DEFAULT_MAX_BYTES,
   displayString,
   renderSingleLine
-} from '../helpers.ts'
-import type { ToolArgs } from '../protocol/types.ts'
-import { renderElixirResult } from '../renderers.ts'
+} from '#src/helpers.ts'
+import type { ToolArgs } from '#src/protocol/types.ts'
+import { renderElixirResult } from '#src/renderers.ts'
+import type { ExtensionAPI, Theme } from '@earendil-works/pi-coding-agent'
+import { Type } from 'typebox'
 
 interface EvalPayload {
   kind?: string

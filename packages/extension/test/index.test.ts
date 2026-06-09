@@ -23,10 +23,10 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { callTool, resolveUrl, getConnectionKind } from '../src/connection/resolver.ts'
-import { onStatusChange } from '../src/connection/status.ts'
-import { onBridgeBusEvent, onBridgeRequest, stopEmbedded } from '../src/embedded/stdio-process.ts'
-import extension from '../src/index.js'
+import { callTool, resolveUrl, getConnectionKind } from '#src/connection/resolver.ts'
+import { onStatusChange } from '#src/connection/status.ts'
+import { onBridgeBusEvent, onBridgeRequest, stopEmbedded } from '#src/embedded/stdio-process.ts'
+import extension from '#src/index.js'
 
 let tempRoot: string
 

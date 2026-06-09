@@ -1,9 +1,8 @@
+import { callTool, resolveUrl, sendBridgeEvent } from '#src/connection/resolver.ts'
+import { recordDiagnostic, withDiagnosticSpan } from '#src/diagnostics.ts'
+import type { ToolArgs } from '#src/protocol/types.ts'
+import { refreshSessionSnapshots } from '#src/sessions/state.ts'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
-
-import { callTool, resolveUrl, sendBridgeEvent } from '../connection/resolver.ts'
-import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
-import type { ToolArgs } from '../protocol/types.ts'
-import { refreshSessionSnapshots } from '../sessions/state.ts'
 
 interface PluginHookResponse {
   0?: string

@@ -10,9 +10,8 @@ vi.mock('@earendil-works/pi-ai', async () => {
   }
 })
 
+import { handleBridgeRequest } from '#src/bridge/requests.ts'
 import { complete, stream } from '@earendil-works/pi-ai'
-
-import { handleBridgeRequest } from '../src/bridge/requests.ts'
 
 const model = {
   provider: 'test-provider',
