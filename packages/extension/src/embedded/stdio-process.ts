@@ -270,6 +270,10 @@ export function startEmbeddedInBackground(cwd: string): void {
     if (embeddedProcesses.get(cwd) === entry) handleStdout(cwd, entry, chunk)
   })
 
+  proc.stderr?.on('data', () => {
+    // Drain stderr so verbose Mix/BEAM output cannot block the child process.
+  })
+
   proc.on('error', (error) => {
     if (embeddedProcesses.get(cwd) !== entry) return
     embeddedProcesses.delete(cwd)
@@ -318,7 +322,11 @@ export function getEmbeddedUrl(cwd: string): string {
 
 export function sendEmbeddedEvent(cwd: string, event: BridgeEvent): Promise<void> {
   if (!isEmbeddedReady(cwd)) return Promise.resolve()
-  return callEmbeddedTool(cwd, 'pi_event', event).then(() => undefined)
+
+  void callEmbeddedTool(cwd, 'pi_event', event).catch(() => {
+    // Bridge events are notifications. They must never block agent tool completion.
+  })
+  return Promise.resolve()
 }
 
 export function callEmbeddedTool(

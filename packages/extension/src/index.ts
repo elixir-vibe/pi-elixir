@@ -1,4 +1,10 @@
-import type { ExtensionAPI, ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
+import {
+  keyHint,
+  type ExtensionAPI,
+  type ExtensionContext,
+  type Theme
+} from '@earendil-works/pi-coding-agent'
+import { Text } from '@earendil-works/pi-tui'
 
 import { showStartupInfo } from './bridge/startup-info.ts'
 import {
@@ -18,7 +24,13 @@ import {
   type BridgeUIEvent
 } from './embedded/stdio-process.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
-import type { BridgeInfo, BridgePluginCommand, StdioMessage, ToolArgs } from './protocol/types.ts'
+import type {
+  BridgeBusEvent,
+  BridgeInfo,
+  BridgePluginCommand,
+  StdioMessage,
+  ToolArgs
+} from './protocol/types.ts'
 import { discoverExecutableSkillPath } from './skills/executable-skills.ts'
 import { register as registerEval } from './tools/eval.ts'
 import { register as registerExAstReplace } from './tools/ex-ast-replace.ts'
@@ -54,12 +66,28 @@ interface PluginCommandResult {
   error?: string
 }
 
+interface SessionSnapshot {
+  id?: string
+  parentId?: string | null
+  name?: string | null
+  status?: string
+  latest?: string | null
+  messageCount?: number
+  events?: Array<{ type?: string; at?: string | null }>
+}
+
+const sessionSnapshots = new Map<string, Map<string, SessionSnapshot>>()
+
 function resolveElixirCwd(cwd: string): string | null {
   return resolveMixProjectCwd(cwd)
 }
 
 function subscriptionKey(ctx: ExtensionContext) {
   return `${ctx.cwd}:${ctx.sessionManager?.getSessionFile?.() ?? 'ephemeral'}`
+}
+
+function hasBridgePlugins(cwd: string): boolean {
+  return (getBridgeInfo(cwd)?.plugins?.length ?? 0) > 0
 }
 
 function updateStatus(ctx: StatusContext, kind: ConnectionKind) {
@@ -180,6 +208,82 @@ function textFromContent(content: unknown): string {
     .join('\n')
 }
 
+function compact(text: string | null | undefined, limit = 72) {
+  const value = (text ?? '').replace(/\s+/g, ' ').trim()
+  return value.length > limit ? value.slice(0, limit - 1) + '…' : value
+}
+
+function sessionIcon(status: string | undefined, theme: Theme) {
+  switch (status) {
+    case 'done':
+      return theme.fg('success', '✓')
+    case 'failed':
+      return theme.fg('error', '✗')
+    case 'cancelled':
+      return theme.fg('warning', '○')
+    case 'running':
+      return theme.fg('warning', '●')
+    default:
+      return theme.fg('muted', '○')
+  }
+}
+
+function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
+  const roots = sessions.filter((session) => !session.parentId)
+  const children = new Map<string, SessionSnapshot[]>()
+  for (const session of sessions) {
+    if (!session.parentId) continue
+    const bucket = children.get(session.parentId) ?? []
+    bucket.push(session)
+    children.set(session.parentId, bucket)
+  }
+
+  const lines: string[] = []
+  const render = (session: SessionSnapshot, depth: number) => {
+    const label = session.name || session.id || 'session'
+    const latest = compact(session.latest)
+    const status = session.status && session.status !== 'idle' ? ` ${session.status}` : ''
+    const prefix = depth > 0 ? `${'  '.repeat(depth - 1)}  └─ ` : ''
+    lines.push(
+      `${prefix}${sessionIcon(session.status, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
+    )
+
+    for (const child of children.get(session.id ?? '') ?? []) render(child, depth + 1)
+  }
+
+  for (const root of roots.slice(0, 8)) render(root, 0)
+  if (sessions.length > 8) lines.push(theme.fg('muted', `… ${sessions.length - 8} more`))
+  if (sessions.length > 1)
+    lines.push(theme.fg('muted', `  (${keyHint('app.tools.expand', 'to expand')})`))
+  return new Text(lines.join('\n'), 0, 0)
+}
+
+function updateSessionWidget(ctx: StatusContext, cwd: string) {
+  const snapshots = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
+  if (snapshots.length === 0) {
+    ctx.ui.setWidget('elixir-sessions', undefined)
+    return
+  }
+
+  ctx.ui.setWidget('elixir-sessions', (_tui, theme) => renderSessionWidget(snapshots, theme), {
+    placement: 'belowEditor'
+  })
+}
+
+function handleSessionEvent(ctx: StatusContext, cwd: string, event: BridgeBusEvent) {
+  const data = event.data
+  if (typeof data !== 'object' || data === null || Array.isArray(data)) return
+  const session = (data as { session?: unknown }).session
+  if (typeof session !== 'object' || session === null || Array.isArray(session)) return
+
+  const snapshot = session as SessionSnapshot
+  if (!snapshot.id) return
+  const cwdSnapshots = sessionSnapshots.get(cwd) ?? new Map<string, SessionSnapshot>()
+  cwdSnapshots.set(snapshot.id, snapshot)
+  sessionSnapshots.set(cwd, cwdSnapshots)
+  updateSessionWidget(ctx, cwd)
+}
+
 async function handleBridgeRequest(
   message: StdioMessage,
   ctx: ExtensionContext,
@@ -248,7 +352,9 @@ export default function (pi: ExtensionAPI) {
       if (cwd === sessionCwd) applyBridgeUIEvent(ctx, event)
     })
     const unsubscribeBus = onBridgeBusEvent((cwd, event) => {
-      if (cwd === sessionCwd && event.name) pi.events.emit(event.name, event.data)
+      if (cwd !== sessionCwd) return
+      if (event.name === 'pi_session') handleSessionEvent(ctx, cwd, event)
+      if (event.name) pi.events.emit(event.name, event.data)
     })
     const unsubscribeRequests = onBridgeRequest(async (cwd, message) => {
       if (cwd !== sessionCwd) return undefined
@@ -305,6 +411,8 @@ export default function (pi: ExtensionAPI) {
       name: event.toolName
     })
 
+    if (!hasBridgePlugins(beamCwd)) return undefined
+
     const conn = await resolveUrl(beamCwd)
     if (!conn) return undefined
 
@@ -330,6 +438,8 @@ export default function (pi: ExtensionAPI) {
       name: event.toolName,
       isError: event.isError
     })
+
+    if (!hasBridgePlugins(beamCwd)) return undefined
 
     const conn = await resolveUrl(beamCwd)
     if (!conn) return undefined
@@ -370,7 +480,11 @@ export default function (pi: ExtensionAPI) {
     clearStatusSubscription(key)
 
     const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (beamCwd) await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
+    if (beamCwd) {
+      await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
+      sessionSnapshots.delete(beamCwd)
+      ctx.ui.setWidget('elixir-sessions', undefined)
+    }
 
     if (beamCwd && !hasStatusSubscriptionForCwd(beamCwd)) {
       stopEmbedded(beamCwd)

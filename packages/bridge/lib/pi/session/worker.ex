@@ -29,6 +29,9 @@ defmodule Pi.Session.Worker do
   def append(pid, message), do: GenServer.call(pid, {:append, message})
   def cancel(pid), do: GenServer.call(pid, :cancel)
 
+  def rerun(pid, opts \\ []),
+    do: GenServer.call(pid, {:rerun, opts}, Keyword.get(opts, :timeout, @timeout) + 1_000)
+
   @impl true
   def init(opts) do
     {:ok,
@@ -86,6 +89,17 @@ defmodule Pi.Session.Worker do
   end
 
   def handle_call({:run, _prompt, _opts}, _from, data) do
+    {:reply, {:error, :busy}, data}
+  end
+
+  def handle_call({:rerun, opts}, from, %{task: nil} = data) do
+    case last_user_message(data.state) do
+      nil -> {:reply, {:error, :no_user_message}, data}
+      prompt -> handle_call({:run, prompt, opts}, from, data)
+    end
+  end
+
+  def handle_call({:rerun, _opts}, _from, data) do
     {:reply, {:error, :busy}, data}
   end
 
@@ -154,6 +168,15 @@ defmodule Pi.Session.Worker do
 
   defp ask(messages, opts), do: Pi.LLM.complete(messages, opts)
 
+  defp last_user_message(%State{messages: messages}) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find_value(fn
+      %Message{role: :user, content: content} -> content
+      _message -> nil
+    end)
+  end
+
   defp safe_ask(ask_fun, messages, opts) do
     ask_fun.(messages, opts)
   rescue
@@ -204,5 +227,46 @@ defmodule Pi.Session.Worker do
 
   defp broadcast(subscribers, state) do
     Enum.each(subscribers, fn {_ref, pid} -> send(pid, {:pi_session, state.id, state}) end)
+    Pi.Plugin.Event.emit("pi_session", %{session: snapshot(state)})
+  end
+
+  defp snapshot(%State{} = state) do
+    %{
+      id: state.id,
+      parentId: state.parent_id,
+      name: name(state.name),
+      status: Atom.to_string(state.status),
+      result: state.result,
+      error: error(state.error),
+      updatedAt: datetime(state.updated_at),
+      messageCount: length(state.messages),
+      latest: latest_text(state),
+      events: Enum.map(state.events, &event/1)
+    }
+  end
+
+  defp name(nil), do: nil
+  defp name(value), do: to_string(value)
+
+  defp error(nil), do: nil
+  defp error(value) when is_binary(value), do: value
+  defp error(value), do: inspect(value)
+
+  defp datetime(nil), do: nil
+  defp datetime(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
+
+  defp latest_text(%State{result: result}) when is_binary(result) and result != "", do: result
+
+  defp latest_text(%State{messages: messages}) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find_value(fn
+      %Message{content: content} when is_binary(content) and content != "" -> content
+      _message -> nil
+    end)
+  end
+
+  defp event(%Event{} = event) do
+    %{type: Atom.to_string(event.type), at: datetime(event.at), data: event.data}
   end
 end

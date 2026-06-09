@@ -7,8 +7,16 @@ defmodule Pi.Session.SessionTest do
   alias Pi.Session.Supervisor, as: SessionSupervisor
 
   setup do
-    if pid = Process.whereis(SessionSupervisor), do: GenServer.stop(pid)
+    stop_supervisor()
+    on_exit(&stop_supervisor/0)
     :ok
+  end
+
+  defp stop_supervisor do
+    if pid = Process.whereis(SessionSupervisor) do
+      Process.exit(pid, :kill)
+      Process.sleep(5)
+    end
   end
 
   test "starts, lists, and looks up server-owned sessions" do
@@ -41,6 +49,42 @@ defmodule Pi.Session.SessionTest do
 
     assert_receive {:pi_session, _id, %State{status: :running}}
     assert_receive {:pi_session, _id, %State{status: :done, result: "ok"}}
+  end
+
+  test "emits session snapshots over the pi event bus" do
+    :persistent_term.put({Pi.Transport.Stdio, :pid}, self())
+
+    ask = fn _messages, _opts -> {:ok, "ok"} end
+    assert {:ok, pid} = Session.start(name: :reviewer, ask_fun: ask)
+    assert {:ok, "ok"} = Session.run(pid, "ping")
+
+    assert_receive {:pi_transport_emit,
+                    %{
+                      "type" => "event",
+                      "name" => "pi_session",
+                      "data" => %{"session" => %{"status" => "done"} = snapshot}
+                    }}
+
+    assert snapshot["name"] == "reviewer"
+    assert snapshot["latest"] == "ok"
+  after
+    :persistent_term.erase({Pi.Transport.Stdio, :pid})
+  end
+
+  test "reruns latest user message" do
+    parent = self()
+
+    ask = fn messages, _opts ->
+      send(parent, {:messages, Enum.map(messages, & &1.content)})
+      {:ok, "ok"}
+    end
+
+    assert {:ok, pid} = Session.start(ask_fun: ask)
+    assert {:ok, "ok"} = Session.run(pid, "ping")
+    assert {:ok, "ok"} = Session.rerun(pid)
+
+    assert_receive {:messages, ["ping"]}
+    assert_receive {:messages, ["ping", "ok", "ping"]}
   end
 
   test "creates child sessions" do

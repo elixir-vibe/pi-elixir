@@ -57,6 +57,9 @@ defmodule Pi.Session do
   @doc "Cancels active work in a BEAM session."
   def cancel(session), do: session |> resolve!() |> Worker.cancel()
 
+  @doc "Reruns a BEAM session from its latest user message."
+  def rerun(session, opts \\ []), do: session |> resolve!() |> Worker.rerun(opts)
+
   @doc "Returns compact project/runtime metadata from the active pi host session."
   def info(opts \\ []) do
     request(:session_info, %{}, opts)
