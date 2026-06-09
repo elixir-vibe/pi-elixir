@@ -4,7 +4,9 @@ import {
   formatSize,
   DEFAULT_MAX_BYTES,
   displayString,
-  renderSingleLine
+  renderSingleLine,
+  pendingArgsSuffix,
+  type ToolCallRenderContext
 } from '#src/helpers.ts'
 import type { ToolArgs } from '#src/protocol/types.ts'
 import { renderElixirResult } from '#src/renderers.ts'
@@ -48,12 +50,13 @@ function optionSuffix(args: ToolArgs, theme: Theme) {
 }
 
 function renderEvalCall(toolName: string) {
-  return (args: ToolArgs, theme: Theme) => {
+  return (args: ToolArgs, theme: Theme, context: ToolCallRenderContext) => {
     const code = displayString(args.code)
     return renderSingleLine(
       theme.fg('toolTitle', theme.bold(`${toolName} `)) +
         theme.fg('accent', code) +
-        optionSuffix(args, theme)
+        optionSuffix(args, theme) +
+        pendingArgsSuffix(context, theme)
     )
   }
 }
