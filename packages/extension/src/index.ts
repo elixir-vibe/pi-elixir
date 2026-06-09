@@ -359,7 +359,7 @@ function activeSessionTree(sessions: SessionSnapshot[]) {
     .flatMap((root) => collectSessionTree(root, children, []))
 }
 
-function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
+function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded = false) {
   const roots = sessions.filter((session) => !session.parentId)
   const children = sessionChildren(sessions)
 
@@ -377,12 +377,21 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
     const summary = synthesis(session, children, theme)
     if (summary) lines.push(`${prefix}${summary}`)
 
+    if (expanded && session.events && session.events.length > 0) {
+      const timeline = session.events
+        .map((sessionEvent) => sessionEvent.type)
+        .filter((type): type is string => typeof type === 'string' && type.length > 0)
+        .join(' → ')
+      const eventPrefix = depth > 0 ? `${'  '.repeat(depth - 1)}     ` : '    '
+      if (timeline) lines.push(`${eventPrefix}${theme.fg('muted', timeline)}`)
+    }
+
     for (const child of children.get(session.id ?? '') ?? []) render(child, depth + 1)
   }
 
   for (const root of roots.slice(0, 8)) render(root, 0)
   if (sessions.length > 8) lines.push(theme.fg('muted', `… ${sessions.length - 8} more`))
-  if (sessions.length > 1)
+  if (!expanded && sessions.length > 1)
     lines.push(theme.fg('muted', `  (${keyHint('app.tools.expand', 'to expand')})`))
   return new Text(lines.join('\n'), 0, 0)
 }
@@ -419,7 +428,7 @@ function renderSessionMessage(
 ) {
   const sessions = message.details?.sessions
   if (!Array.isArray(sessions) || sessions.length === 0) return undefined
-  return renderSessionWidget(sessions, theme)
+  return renderSessionWidget(sessions, theme, _options.expanded)
 }
 
 function emitCompletedSessionMessages(pi: ExtensionAPI, cwd: string) {
