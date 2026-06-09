@@ -1,20 +1,63 @@
 {
-  "private": true,
-  "workspaces": ["packages/extension"],
+  "name": "pi-elixir",
+  "version": "0.4.0",
+  "description": "BEAM runtime tools for pi — connects to the running Elixir app for live introspection",
+  "keywords": [
+    "pi-package"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dannote/pi-elixir"
+  },
+  "packageManager": "pnpm@10.26.1",
+  "files": [
+    "README.md",
+    "CHANGELOG.md",
+    "packages/extension/src",
+    "packages/extension/scripts",
+    "packages/extension/skills",
+    "packages/bridge/lib",
+    "packages/bridge/docs",
+    "packages/bridge/mix.exs",
+    "packages/bridge/README.md"
+  ],
   "scripts": {
-    "lint": "bun run lint:js && bun run lint:beam",
-    "lint:js": "cd packages/extension && bun run lint",
+    "lint": "pnpm run lint:js && pnpm run lint:beam",
+    "lint:js": "pnpm --dir packages/extension run lint",
     "lint:beam": "cd packages/bridge && mix format --check-formatted && mix credo --strict",
-    "fmt": "cd packages/extension && bun run fmt && cd ../bridge && mix format",
-    "fmt:check": "cd packages/extension && bun run fmt:check && cd ../bridge && mix format --check-formatted",
-    "test": "bun run test:js && bun run test:beam",
-    "test:js": "cd packages/extension && bun run test",
+    "fmt": "pnpm --dir packages/extension run fmt && cd packages/bridge && mix format",
+    "fmt:check": "pnpm --dir packages/extension run fmt:check && cd packages/bridge && mix format --check-formatted",
+    "test": "pnpm run test:js && pnpm run test:beam",
+    "test:js": "pnpm --dir packages/extension run test",
     "test:beam": "cd packages/bridge && mix test",
-    "test:integration": "cd packages/extension && bun run test:integration",
-    "test:dupes": "cd packages/extension && bun run test:dupes",
-    "check": "bun run check:js && bun run check:beam",
-    "check:js": "cd packages/extension && bun run check",
+    "test:integration": "pnpm --dir packages/extension run test:integration",
+    "test:dupes": "pnpm --dir packages/extension run test:dupes",
+    "check": "pnpm run check:js && pnpm run check:beam",
+    "check:js": "pnpm --dir packages/extension run check",
     "check:beam": "cd packages/bridge && mix ci",
-    "ci": "bun run check"
+    "ci": "pnpm run check",
+    "pack:check": "npm pack --dry-run"
+  },
+  "dependencies": {
+    "@earendil-works/pi-coding-agent": "*",
+    "@earendil-works/pi-tui": "*",
+    "typebox": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^25.0.0",
+    "jscpd": "^4.0.5",
+    "oxfmt": "^0.35.0",
+    "oxlint": "^1.50.0",
+    "typescript": "^5.9.3",
+    "vitest": "^4.0.18"
+  },
+  "pi": {
+    "extensions": [
+      "./packages/extension/src/index.ts"
+    ],
+    "skills": [
+      "./packages/extension/skills"
+    ]
   }
 }

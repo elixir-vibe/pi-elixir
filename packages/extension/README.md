@@ -93,7 +93,7 @@ Rows are intentionally minimal and label-light:
   ├─ ✓ ok  passed
   ├─ ✗ fail failed  boom
   └─ ○ slow cancelled  wait forever
-  (ctrl+o to expand)
+  (expand for details)
 ```
 
 Expanded rows show useful semantic previews without redundant labels:
@@ -112,7 +112,7 @@ Expanded rows show useful semantic previews without redundant labels:
      started → llm → cancelled · 20ms
 ```
 
-The renderer uses pi keybinding hints from core helpers; it does not hardcode shortcuts like `Ctrl+O`.
+The renderer uses pi keybinding hints from core helpers; it does not hardcode concrete shortcut names.
 
 Private control commands are available for active sessions without adding model-facing tools. The TUI accepts either `id=session_123` or the raw `session_123` as the command argument:
 

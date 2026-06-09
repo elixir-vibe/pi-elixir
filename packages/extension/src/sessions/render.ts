@@ -27,7 +27,7 @@ function expansionHint() {
   try {
     return keyHint('app.tools.expand', 'to expand')
   } catch {
-    return 'ctrl+o to expand'
+    return 'expand for details'
   }
 }
 

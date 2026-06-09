@@ -57,7 +57,7 @@ describe('BEAM session renderer', () => {
   ├─ ✓ ok  passed
   ├─ ✗ fail failed  boom
   └─ ○ slow cancelled  wait forever
-  (ctrl+o to expand)`)
+  (expand for details)`)
   })
 
   it('renders expanded details without redundant labels', () => {

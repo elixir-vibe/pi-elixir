@@ -28,17 +28,17 @@ packages/
 pi install npm:pi-elixir
 ```
 
-For local development, install the extension package directory, not the monorepo root:
+For local development, install the repository root. The root package is the pi/npm package and includes both the TypeScript extension and bundled `packages/bridge` Mix sources via npm's normal packlist rules:
 
 ```sh
 git clone https://github.com/dannote/pi-elixir
 cd pi-elixir
-bun install
-cd packages/bridge && mix deps.get
-pi install "$PWD/../extension"
+pnpm install
+cd packages/bridge && mix deps.get && cd ../..
+pi install "$PWD"
 ```
 
-`pi list` should then show a package path ending in `pi-elixir/packages/extension`.
+`pi list` should then show a package path ending in `pi-elixir`.
 
 When the embedded BEAM side is needed and the target project lacks `:pi_bridge`, pi asks before editing `mix.exs` or running `mix deps.get`.
 
@@ -84,14 +84,15 @@ Pi.Bridge.Info.runtime_apis()
 Pi.LLM.complete("Summarize this module")
 Pi.LLM.stream("Stream this response")
 Pi.ReqLLM.generate_text("Use the active pi model")
-Pi.Agent.async("Review this change", name: :reviewer)
-Pi.Agent.parallel([
-  [name: :reviewer, messages: [%{role: :user, content: "Review correctness"}]],
-  [name: :tester, messages: [%{role: :user, content: "Find missing tests"}]]
-])
+
+Pi.Session.start(name: :reviewer)
+Pi.Session.send_message("demo-message", count: 1)
+
+Pi.Agent.run("Review this change", name: :reviewer)
+Pi.Agent.parallel(["Review correctness", "Find missing tests"], name: :review)
 ```
 
-`Pi.LLM` already uses multiplexed request ids, so out-of-order concurrent responses route to the right caller. Streaming and cancellation have protocol envelopes in place for future active-model streaming. `Pi.ReqLLM` is conditionally available when ReqLLM is loaded and provides the Pi-backed ReqLLM entry point inside `pi_bridge`.
+`Pi.LLM` uses multiplexed request ids, so out-of-order concurrent responses route to the right caller. `Pi.Session` owns OTP-backed BEAM sessions/subagents; active work renders in a live widget and completed root session trees are sent back to pi as inline transcript entries. `Pi.ReqLLM` is conditionally available when ReqLLM is loaded and provides the Pi-backed ReqLLM entry point inside `pi_bridge`.
 
 ## Executable Elixir skills
 
@@ -159,18 +160,19 @@ end
 
 Prerequisites:
 
-- Bun
+- pnpm
 - Elixir `~> 1.20`
 - pi installed globally
 
 Common commands from the repo root:
 
 ```sh
-bun run fmt
-bun run check
-bun run check:js
-bun run check:beam
-bun run test:integration
+pnpm run fmt
+pnpm run check
+pnpm run check:js
+pnpm run check:beam
+pnpm run test:integration
+pnpm run pack:check
 ```
 
 Package-specific checks:
@@ -187,11 +189,11 @@ Local pi setup for contributors:
 
 ```sh
 pi remove /path/to/pi-elixir || true
-pi install /path/to/pi-elixir/packages/extension
+pi install /path/to/pi-elixir
 pi list
 ```
 
-Do not install the monorepo root as a pi package during development. The root package is only a workspace/CI coordinator; the pi manifest lives in `packages/extension/package.json`.
+The root `package.json` is the pi manifest. `packages/extension` is an internal workspace package for TypeScript checks; `packages/bridge` is included in the root npm package so embedded installs can use a local path dependency without custom copy scripts.
 
 ## Protocol contracts
 
