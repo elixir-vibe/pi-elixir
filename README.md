@@ -35,7 +35,7 @@ Instructions are included, but they are not the foundation. The foundation is ex
 - **Stateful IEx-like eval** — bindings, aliases, imports, and requires persist across `elixir_eval` calls. The state is stored as sidecar snapshots next to the pi session, so resume and branch navigation keep the right context.
 - **Structural code intelligence** — `elixir_ast_search` and `elixir_ast_replace` use [ExAST](https://hex.pm/packages/ex_ast) patterns, so the agent searches and edits Elixir syntax instead of playing regex roulette.
 - **OTP-native subagents** — `Pi.Session` and `Pi.Agent` run logical child sessions inside the embedded BEAM. Active work renders as a pi widget; completed trees land in transcript once.
-- **Active-model LLM from BEAM** — `Pi.LLM` and optional `Pi.ReqLLM` route BEAM calls through pi's current model, with request multiplexing and streaming.
+- **Active-model LLM from BEAM** — `Pi.LLM` and optional `Pi.ReqLLM` route BEAM calls through pi's current model. pi owns provider/model selection, credentials, streaming, cancellation, usage, and transcript UI; the BEAM side sends structured completion/stream requests over the active bridge.
 - **Project-local skills and plugins** — trusted Elixir code can teach the agent your app's workflows, guardrails, slash commands, UI widgets, and tool hooks.
 - **Hard quality gates** — the repo itself is checked with JS lint/typecheck/tests, BEAM compile/test/Credo/Dialyzer, [ExDNA](https://hex.pm/packages/ex_dna) clone detection, and [Reach](https://hex.pm/packages/reach) architecture/smell checks.
 
@@ -215,7 +215,7 @@ Large or unsafe bindings are handled defensively:
 pi Node/TUI
   ├─ TypeScript extension
   │  ├─ registers tools and skills
-  │  ├─ resolves external/discovered/embedded BEAM connections
+  │  ├─ starts embedded stdio by default, with explicit/discovered HTTP MCP escape hatches
   │  ├─ owns TUI rendering and sidecar eval-state paths
   │  └─ forwards lifecycle/tool events
   │
@@ -229,7 +229,7 @@ pi Node/TUI
      └─ project modules, deps, processes, Repo, endpoints
 ```
 
-The BEAM side emits renderer-neutral protocol structs. The TS side renders them in pi style.
+The BEAM side emits structured protocol payloads. The TS side renders them in pi style.
 
 ## Install
 
@@ -248,7 +248,7 @@ The exact version matters: npm `pi-elixir` and Hex `pi_bridge` are released toge
 For local development:
 
 ```sh
-git clone https://github.com/elixir-vibe/pi-elixir
+git clone https://github.com/dannote/pi-elixir
 cd pi-elixir
 pnpm install
 cd packages/bridge && mix deps.get && cd ../..
@@ -257,18 +257,21 @@ pi install "$PWD"
 
 ## Connection model
 
-The extension resolves a BEAM connection per Mix project:
+The normal connection path is an embedded stdio bridge started inside the Mix project with `Pi.Transport.Stdio.start()`. HTTP MCP endpoints are escape hatches for advanced/debug setups.
 
-1. `PI_MCP_URL` external MCP endpoint, when explicitly configured.
-2. Discovered local MCP endpoint matching the Mix app name.
-3. Embedded stdio transport running `Pi.Transport.Stdio.start()` inside the project.
+Resolution order:
+
+1. `PI_MCP_URL`, only when explicitly configured for a manually exposed HTTP MCP endpoint.
+2. Discovered local HTTP MCP endpoint matching the Mix app name.
+3. Embedded stdio transport inside the project.
 
 ```sh
+# Advanced/debug only: bypass embedded stdio and use your own HTTP MCP endpoint.
 export PI_MCP_URL=http://localhost:4001/mcp
 export PI_DISABLE_EMBEDDED=1
 ```
 
-Status is actionable: external/embedded/starting/tools-missing/offline plus integration-specific status such as Phoenix endpoints.
+Status is actionable: external/embedded/starting/missing/incompatible/offline plus integration-specific status such as Phoenix endpoints.
 
 ## Included Elixir development skill
 

@@ -28,11 +28,13 @@ The exact version is deliberate: the TypeScript extension and BEAM bridge are re
 
 ## How it connects
 
-The extension resolves the BEAM connection per project:
+The normal path is embedded stdio. The extension starts `Pi.Transport.Stdio` in the Mix project and sends line-delimited protocol messages over the child process pipes. If Pi BEAM tools are missing, the agent asks before editing `mix.exs` and running `mix deps.get`.
 
-1. **External MCP endpoint** — use `PI_MCP_URL` when explicitly configured.
-2. **Discovered MCP endpoint** — probes local dev ports and matches `project_name` to the `app:` in `mix.exs`.
-3. **Embedded stdio transport** — starts `Pi.Transport.Stdio` in the project and sends line-delimited protocol messages over the child process pipes. If Pi BEAM tools are missing, the agent asks before editing `mix.exs` and running `mix deps.get`.
+HTTP MCP endpoints are advanced/debug escape hatches. Resolution order:
+
+1. **Explicit HTTP MCP endpoint** — `PI_MCP_URL`, only when manually configured.
+2. **Discovered HTTP MCP endpoint** — probes local dev ports and matches `project_name` to the `app:` in `mix.exs`.
+3. **Embedded stdio transport** — default fallback inside the project.
 
 Status bar states:
 
@@ -46,7 +48,7 @@ Status bar states:
 
 ### Configuration
 
-Override the connection URL:
+Advanced/debug only: override the connection URL with a manually exposed HTTP MCP endpoint:
 
 ```sh
 export PI_MCP_URL=http://localhost:4001/mcp
@@ -166,7 +168,7 @@ Active BEAM snapshots are widget-only and are reloaded directly from the bridge 
 
 ## Bidirectional UI bridge
 
-BEAM code can emit renderer-neutral UI events through the stdio transport:
+BEAM code can emit structured UI payloads through the stdio transport, and the TS extension renders them in pi:
 
 ```elixir
 Pi.Plugin.UI.set_status(:indexer, "indexing")

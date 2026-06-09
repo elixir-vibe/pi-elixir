@@ -40,6 +40,8 @@ The bridge keeps protocol data as JSONCodec structs internally. These examples s
 
 ## BEAM-initiated LLM completion
 
+pi owns provider/model selection, credentials, streaming, cancellation, usage, and transcript UI. BEAM code sends structured requests over the active bridge and receives structured results.
+
 ```json
 {
   "type": "request",
@@ -53,7 +55,17 @@ The bridge keeps protocol data as JSONCodec structs internally. These examples s
 ```
 
 ```json
-{ "type": "response", "id": "llm_123_1", "ok": true, "result": "hello from pi" }
+{
+  "type": "response",
+  "id": "llm_123_1",
+  "ok": true,
+  "result": {
+    "text": "hello from pi",
+    "usage": null,
+    "model": "gpt-5.5",
+    "provider": "openai"
+  }
+}
 ```
 
 ## BEAM-initiated LLM streaming
@@ -73,7 +85,16 @@ The bridge keeps protocol data as JSONCodec structs internally. These examples s
 ```json
 { "type": "llm_chunk", "id": "llm_456_2", "delta": "first " }
 { "type": "llm_chunk", "id": "llm_456_2", "delta": "second" }
-{ "type": "llm_done", "id": "llm_456_2", "result": "" }
+{
+  "type": "llm_done",
+  "id": "llm_456_2",
+  "result": {
+    "text": "first second",
+    "usage": null,
+    "model": "gpt-5.5",
+    "provider": "openai"
+  }
+}
 ```
 
 Cancellation from BEAM to pi:
@@ -84,7 +105,7 @@ Cancellation from BEAM to pi:
 
 ## BEAM session snapshot event
 
-`Pi.Session` workers emit renderer-neutral snapshots as `pi_session` events. Field names are camelCase at the JSON boundary via `JSONCodec`.
+`Pi.Session` workers emit structured snapshots as `pi_session` events. Field names are camelCase at the JSON boundary via `JSONCodec`.
 
 ```json
 {

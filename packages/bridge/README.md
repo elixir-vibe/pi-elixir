@@ -1,6 +1,6 @@
 # pi_bridge
 
-BEAM runtime bridge for [pi](https://github.com/earendil-works/pi-coding-agent) and the [`pi-elixir`](https://github.com/elixir-vibe/pi-elixir) package. It provides the Elixir-side `Pi.*` modules used for Livebook-style stateful eval, ExAST-backed structural tools, stdio transport, executable Elixir skills, LLM calls through pi's active model, OTP-backed logical agents, and bidirectional plugin UI events.
+BEAM runtime bridge for [pi](https://github.com/earendil-works/pi-coding-agent) and the [`pi-elixir`](https://github.com/dannote/pi-elixir) package. It provides the Elixir-side `Pi.*` modules used for Livebook-style stateful eval, ExAST-backed structural tools, stdio transport, executable Elixir skills, LLM calls through pi's active model, OTP-backed logical agents, and bidirectional plugin UI events.
 
 `pi_bridge` is inspired by [Vibe](https://github.com/elixir-vibe/vibe): keep the model-facing surface small, but let trusted Elixir code operate from inside the running BEAM.
 
@@ -61,6 +61,8 @@ The sandbox applies timeout, reduction, heap, and allowlist limits. It returns `
 
 ## LLM
 
+pi owns provider/model selection, credentials, streaming, cancellation, usage, and transcript UI. The BEAM side sends structured completion/stream requests over the active bridge; it does not create a separate provider stack.
+
 ```elixir
 {:ok, text} = Pi.LLM.complete("Explain this module")
 
@@ -68,7 +70,7 @@ stream = Pi.LLM.stream("Draft a migration plan")
 Enum.each(stream.stream, &IO.write/1)
 ```
 
-ReqLLM can route through the active pi session:
+ReqLLM can route through the active pi session as an adapter on top of that pi-owned model path:
 
 ```elixir
 Pi.ReqLLM.install()
@@ -100,14 +102,14 @@ Use `Pi.Session` when you need attachable, subscribable session state:
 {:ok, state} = Pi.Session.subscribe(reviewer)
 ```
 
-Session snapshots are emitted as `pi_session` events. The extension renders active/running work as a compact live widget, then emits completed root session trees as inline transcript entries. The extension persists the latest snapshot set into pi custom entries (`elixir-sessions`) and reloads active BEAM snapshots on session start. Private slash commands control active sessions without adding model-facing tools. The TUI accepts either `id=session_123` or the raw `session_123` as the command argument:
+Session snapshots are emitted as `pi_session` events. The extension renders active/running work as a compact live widget, then emits completed root session trees once as inline transcript entries (`elixir-sessions`). Active BEAM snapshots are reloaded directly from the bridge on session start. Private slash commands control active sessions without adding model-facing tools. The TUI accepts either `id=session_123` or the raw `session_123` as the command argument:
 
 ```text
 /elixir:sessions.cancel id=session_123
 /elixir:sessions.rerun id=session_123
 ```
 
-Snapshots carry renderer-neutral semantic fields such as prompt/response previews, current activity, recent streaming output, `run_count`, `completed_at`, and timing. Streaming session runs can emit `:delta` events before the final assistant message:
+Snapshots carry structured fields such as prompt/response previews, current activity, recent streaming output, `run_count`, `completed_at`, and timing. Streaming session runs can emit `:delta` events before the final assistant message:
 
 ```elixir
 {:ok, text} = Pi.Session.run(session, "Draft notes", stream: true)
