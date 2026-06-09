@@ -1,6 +1,6 @@
 import {
   complete,
-  type Api,
+  type Api as API,
   type AssistantMessage,
   type Context,
   type Message,
@@ -35,7 +35,7 @@ function contentText(content: unknown): string {
     .join('\n')
 }
 
-function assistantMessage(text: string, model: Model<Api>): AssistantMessage {
+function assistantMessage(text: string, model: Model<API>): AssistantMessage {
   return {
     role: 'assistant',
     content: [{ type: 'text', text }],
@@ -55,7 +55,7 @@ function assistantMessage(text: string, model: Model<Api>): AssistantMessage {
   }
 }
 
-function toContext(messages: BridgeLLMMessage[], model: Model<Api>): Context {
+function toContext(messages: BridgeLLMMessage[], model: Model<API>): Context {
   let systemPrompt: string | undefined
   const converted: Message[] = []
 
