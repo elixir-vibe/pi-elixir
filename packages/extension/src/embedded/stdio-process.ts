@@ -40,7 +40,7 @@ type UIEventListener = (cwd: string, event: BridgeUIEvent) => void
 type BusEventListener = (cwd: string, event: BridgeBusEvent) => void
 export interface BridgeRequestResponder {
   llmChunk: (id: string, delta: string) => void
-  llmDone: (id: string, result: string) => void
+  llmDone: (id: string, result: unknown) => void
   llmError: (id: string, error: string) => void
 }
 

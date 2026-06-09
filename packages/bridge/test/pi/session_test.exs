@@ -44,6 +44,26 @@ defmodule Pi.SessionTest do
     assert Enum.map(events, & &1.type) == [:started, :llm, :done]
   end
 
+  test "stores usage metadata returned by completions" do
+    usage = %{
+      "input" => 12,
+      "output" => 3,
+      "totalTokens" => 15,
+      "cost" => %{"total" => 0.001}
+    }
+
+    ask = fn _messages, _opts -> {:ok, %{text: "done", usage: usage}} end
+    assert {:ok, pid} = Session.start(ask_fun: ask)
+
+    assert {:ok, "done"} = Session.run(pid, "review")
+
+    snapshot = Worker.snapshot(pid)
+    encoded = JSONCodec.dump(snapshot)
+
+    assert snapshot.usage == usage
+    assert encoded["usage"] == usage
+  end
+
   test "subscribers receive state updates" do
     ask = fn _messages, _opts -> {:ok, "ok"} end
     assert {:ok, pid} = Session.start(ask_fun: ask)
@@ -178,6 +198,7 @@ defmodule Pi.SessionTest do
     assert encoded["durationMs"] == 0
     assert encoded["runCount"] == 0
     assert encoded["recentOutput"] == []
+    assert Map.has_key?(encoded, "usage")
     assert Map.has_key?(encoded, "parentId")
     assert Map.has_key?(encoded, "startedAt")
     assert Map.has_key?(encoded, "updatedAt")

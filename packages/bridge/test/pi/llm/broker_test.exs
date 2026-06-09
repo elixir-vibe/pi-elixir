@@ -27,6 +27,16 @@ defmodule Pi.LLM.BrokerTest do
     assert Task.await(second) == {:ok, "second result"}
   end
 
+  test "complete_with_usage preserves model usage metadata" do
+    task = Task.async(fn -> LLM.complete_with_usage("usage") end)
+    request = receive_request(:llm_complete)
+
+    usage = %{"input" => 10, "output" => 2, "totalTokens" => 12}
+    Broker.deliver(request.id, %Response{ok: true, result: %{"text" => "used", "usage" => usage}})
+
+    assert Task.await(task) == {:ok, %{text: "used", usage: usage, model: nil, provider: nil}}
+  end
+
   test "streams LLM chunks until done" do
     stream = LLM.stream("stream")
     request = receive_request(:llm_stream)

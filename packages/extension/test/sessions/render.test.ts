@@ -102,6 +102,50 @@ describe('BEAM session renderer', () => {
      started → llm · 1.2s`)
   })
 
+  it('renders token usage on child rows and aggregated root summaries', () => {
+    expect(
+      textOf(
+        renderSessionWidget(
+          [
+            { id: 'root', name: 'usage', status: 'idle' },
+            {
+              id: 'a',
+              parentId: 'root',
+              name: 'a',
+              status: 'done',
+              response: 'ok',
+              usage: {
+                input: 1200,
+                output: 340,
+                totalTokens: 1540,
+                cost: { input: 0.001, output: 0.002, cacheRead: 0, cacheWrite: 0, total: 0.003 }
+              }
+            },
+            {
+              id: 'b',
+              parentId: 'root',
+              name: 'b',
+              status: 'done',
+              response: 'ok',
+              usage: {
+                input: 800,
+                output: 60,
+                totalTokens: 860,
+                cost: { input: 0.001, output: 0.001, cacheRead: 0, cacheWrite: 0, total: 0.002 }
+              }
+            }
+          ],
+          theme,
+          false
+        )
+      )
+    ).toBe(`✓ usage
+  2 done · ↑2.0k ↓400 $0.005
+  ├─ ✓ a  ok  ↑1.2k ↓340 $0.003
+  └─ ✓ b  ok  ↑800 ↓60 $0.002
+  (expand for details)`)
+  })
+
   it('limits compact session trees and reports hidden lines', () => {
     const many: SessionSnapshot[] = [
       { id: 'root', name: 'many', status: 'idle' },

@@ -88,6 +88,15 @@ function assistantText(message: AssistantMessage): string {
     .join('\n')
 }
 
+function assistantResult(message: AssistantMessage): Record<string, unknown> {
+  return {
+    text: assistantText(message),
+    usage: message.usage,
+    model: message.model,
+    provider: message.provider
+  }
+}
+
 async function resolveLLMRequest(ctx: ExtensionContext, message: StdioMessage) {
   const model = ctx.model
   if (!model) return { ok: false as const, error: 'No active pi model is selected.' }
@@ -124,7 +133,7 @@ export async function handleLLMComplete(
       return { ok: false, error: result.errorMessage ?? result.stopReason }
     }
 
-    return { ok: true, result: assistantText(result) }
+    return { ok: true, result: assistantResult(result) }
   })
 }
 
@@ -156,7 +165,7 @@ export async function handleLLMStream(
         timeoutMs: 60_000
       })) {
         if (event.type === 'text_delta') responder.llmChunk(message.id, event.delta)
-        if (event.type === 'done') responder.llmDone(message.id, assistantText(event.message))
+        if (event.type === 'done') responder.llmDone(message.id, assistantResult(event.message))
         if (event.type === 'error')
           responder.llmError(message.id, event.error.errorMessage ?? event.reason)
       }

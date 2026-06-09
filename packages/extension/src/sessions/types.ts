@@ -13,6 +13,21 @@ export interface SessionEventSnapshot {
   data?: unknown
 }
 
+export interface SessionUsage {
+  input?: number
+  output?: number
+  cacheRead?: number
+  cacheWrite?: number
+  totalTokens?: number
+  cost?: {
+    input?: number
+    output?: number
+    cacheRead?: number
+    cacheWrite?: number
+    total?: number
+  }
+}
+
 export interface SessionSnapshot {
   id?: string
   parentId?: string | null
@@ -28,6 +43,7 @@ export interface SessionSnapshot {
   completedAt?: string | null
   durationMs?: number | null
   current?: string | null
+  usage?: SessionUsage | null
   runCount?: number
   messageCount?: number
   recentOutput?: string[]

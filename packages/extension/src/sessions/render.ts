@@ -2,7 +2,7 @@ import { truncateLine } from '#src/helpers.ts'
 import { keyHint, type Theme } from '@earendil-works/pi-coding-agent'
 import type { Component } from '@earendil-works/pi-tui'
 
-import type { SessionSnapshot } from './types.ts'
+import type { SessionSnapshot, SessionUsage } from './types.ts'
 
 const COMPACT_MAX_LINES = 12
 const EXPANDED_MAX_LINES = 28
@@ -15,6 +15,61 @@ function compact(text: string | null | undefined, limit = 72) {
 function quotePreview(text: string | null | undefined, limit = 92) {
   const value = compact(text, limit)
   return value ? `“${value}”` : ''
+}
+
+function formatUsageNumber(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined
+  if (value < 1_000) return String(Math.round(value))
+  if (value < 1_000_000) return `${(value / 1_000).toFixed(value < 10_000 ? 1 : 0)}k`
+  return `${(value / 1_000_000).toFixed(value < 10_000_000 ? 1 : 0)}m`
+}
+
+function costDecimals(value: number) {
+  if (value < 0.001) return 5
+  if (value < 0.01) return 4
+  if (value < 1) return 3
+  return 2
+}
+
+function formatCost(value: number | null | undefined) {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value <= 0) return undefined
+  return `$${value.toFixed(costDecimals(value)).replace(/0+$/u, '').replace(/\.$/u, '')}`
+}
+
+function usageSummary(usage: SessionUsage | null | undefined) {
+  if (!usage) return ''
+  const input = formatUsageNumber(usage.input)
+  const output = formatUsageNumber(usage.output)
+  const cost = formatCost(usage.cost?.total)
+  return [input ? `↑${input}` : undefined, output ? `↓${output}` : undefined, cost]
+    .filter(Boolean)
+    .join(' ')
+}
+
+function sumField(target: Record<string, number | undefined>, source: unknown, key: string) {
+  if (typeof source !== 'object' || source === null) return
+  const value = (source as Record<string, unknown>)[key]
+  target[key] = (target[key] ?? 0) + (typeof value === 'number' ? value : 0)
+}
+
+function addUsage(total: SessionUsage, usage: SessionUsage | null | undefined) {
+  if (!usage) return total
+
+  for (const key of ['input', 'output', 'cacheRead', 'cacheWrite', 'totalTokens']) {
+    sumField(total as Record<string, number | undefined>, usage, key)
+  }
+
+  const cost = { ...total.cost }
+  for (const key of ['input', 'output', 'cacheRead', 'cacheWrite', 'total']) {
+    sumField(cost, usage.cost, key)
+  }
+  total.cost = cost
+  return total
+}
+
+function aggregateUsage(sessions: SessionSnapshot[]) {
+  const total = sessions.reduce<SessionUsage>((acc, session) => addUsage(acc, session.usage), {})
+  return usageSummary(total)
 }
 
 function formatDurationMs(ms: number | null | undefined) {
@@ -77,7 +132,9 @@ function synthesis(
   if (childSessions.length < 2) return undefined
 
   const parts = statusSummary(countStatuses(childSessions))
-  return parts.length > 0 ? theme.fg('muted', `  ${parts.join(' · ')}`) : undefined
+  const usage = aggregateUsage(collectSessionTree(session, children, []))
+  if (usage) parts.push(usage)
+  return parts.length > 0 ? theme.fg('muted', parts.join(' · ')) : undefined
 }
 
 export function sessionChildren(sessions: SessionSnapshot[]) {
@@ -206,7 +263,8 @@ function sessionRow(
   const label = session.name || session.id || 'session'
   const effectiveStatus = aggregateStatus(session, children)
   const latest = sessionPreview(session)
-  return `${branch}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', sessionStatusSuffix(session.status))}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
+  const usage = usageSummary(session.usage)
+  return `${branch}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', sessionStatusSuffix(session.status))}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}${usage ? `  ${theme.fg('muted', usage)}` : ''}`
 }
 
 function sessionTimeline(session: SessionSnapshot) {
@@ -274,7 +332,7 @@ function sessionWidgetLines(sessions: SessionSnapshot[], theme: Theme, expanded 
     lines.push(sessionRow(session, children, theme, branch))
 
     const summary = synthesis(session, children, theme)
-    if (summary) lines.push(`${branch}${summary}`)
+    if (summary) lines.push(`${isRoot ? '  ' : detail}${summary}`)
 
     if (expanded) {
       for (const line of sessionDetailLines(session, latest, theme)) lines.push(`${detail}${line}`)

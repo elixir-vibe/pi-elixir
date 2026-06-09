@@ -102,7 +102,15 @@ describe('handleBridgeRequest llm_complete', () => {
       {} as any
     )
 
-    expect(result).toEqual({ ok: true, result: 'subagent done' })
+    expect(result).toEqual({
+      ok: true,
+      result: {
+        text: 'subagent done',
+        usage: assistant('subagent done').usage,
+        model: 'test-model',
+        provider: 'test-provider'
+      }
+    })
     expect(complete).toHaveBeenCalledWith(
       model,
       {
@@ -143,7 +151,12 @@ describe('handleBridgeRequest llm_complete', () => {
     expect(result).toBeNull()
     expect(responder.llmChunk).toHaveBeenCalledWith('llm_stream_1', 'hello ')
     expect(responder.llmChunk).toHaveBeenCalledWith('llm_stream_1', 'stream')
-    expect(responder.llmDone).toHaveBeenCalledWith('llm_stream_1', 'hello stream')
+    expect(responder.llmDone).toHaveBeenCalledWith('llm_stream_1', {
+      text: 'hello stream',
+      usage: assistant('hello stream').usage,
+      model: 'test-model',
+      provider: 'test-provider'
+    })
     expect(responder.llmError).not.toHaveBeenCalled()
   })
 })

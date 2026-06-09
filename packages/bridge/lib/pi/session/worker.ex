@@ -40,7 +40,7 @@ defmodule Pi.Session.Worker do
     {:ok,
      %{
        state: State.new(opts),
-       ask_fun: Keyword.get(opts, :ask_fun, &Pi.LLM.complete/2),
+       ask_fun: Keyword.get(opts, :ask_fun, &Pi.LLM.complete_with_usage/2),
        stream_fun: Keyword.get(opts, :stream_fun, &Pi.LLM.stream/2),
        subscribers: %{},
        task: nil,
@@ -130,12 +130,14 @@ defmodule Pi.Session.Worker do
 
   def handle_info({ref, {:ok, result}}, %{task_ref: ref} = data) do
     Process.demonitor(ref, [:flush])
+    {text, usage} = completion_result(result)
 
     data =
       data
-      |> update_state(&append_message(&1, %Message{role: :assistant, content: result}))
-      |> complete(:done, result, nil, Event.new(:done, %{result: result}))
-      |> reply({:ok, result})
+      |> update_state(&append_message(&1, %Message{role: :assistant, content: text}))
+      |> put_usage(usage)
+      |> complete(:done, text, nil, Event.new(:done, %{result: text}))
+      |> reply({:ok, text})
 
     {:noreply, data}
   end
@@ -219,6 +221,22 @@ defmodule Pi.Session.Worker do
       {:error, Exception.message(exception)}
   catch
     kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp completion_result(%{text: text, usage: usage}) when is_binary(text), do: {text, usage}
+
+  defp completion_result(%{"text" => text, "usage" => usage}) when is_binary(text),
+    do: {text, usage}
+
+  defp completion_result(text) when is_binary(text), do: {text, nil}
+  defp completion_result(result), do: {inspect(result), nil}
+
+  defp put_usage(data, nil), do: data
+
+  defp put_usage(data, usage) when is_map(usage) do
+    update_state(data, fn %State{metadata: metadata} = state ->
+      %{state | metadata: Map.put(metadata, :usage, usage)}
+    end)
   end
 
   defp safe_stream(stream_fun, messages, opts, owner) do
@@ -351,6 +369,7 @@ defmodule Pi.Session.Worker do
       message_count: length(state.messages),
       latest: latest_text(state),
       current: Map.get(state.metadata, :current),
+      usage: Map.get(state.metadata, :usage),
       run_count: Map.get(state.metadata, :run_count, 0),
       recent_output: Map.get(state.metadata, :recent_output, []),
       events: Enum.map(state.events, &event/1)
