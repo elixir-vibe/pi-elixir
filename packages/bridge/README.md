@@ -134,8 +134,8 @@ BEAM code can ask the pi extension for small session-state snapshots, persist br
 ```elixir
 {:ok, info} = Pi.Session.info()
 {:ok, %{tools: tools}} = Pi.Session.active_tools()
-{:ok, "ok"} = Pi.Session.append_entry("demo-state", %{count: 1})
-{:ok, "ok"} = Pi.Session.send_message("demo-message", %{count: 1})
+{:ok, "ok"} = Pi.Session.append_entry("demo-state", count: 1)
+{:ok, "ok"} = Pi.Session.send_message("demo-message", count: 1)
 ```
 
 ## Plugins

@@ -1,7 +1,7 @@
 defmodule Pi.Protocol.Session.Snapshot do
   @moduledoc "Renderer-neutral snapshot of a server-owned Pi session."
 
-  use JSONCodec, fast_path: :json
+  use JSONCodec, case: :camel, fast_path: :json
 
   alias Pi.Protocol.Session.Event
 
@@ -46,13 +46,4 @@ defmodule Pi.Protocol.Session.Snapshot do
           recent_output: [String.t()],
           events: [Event.t()]
         }
-
-  codec(:parent_id, as: "parentId")
-  codec(:started_at, as: "startedAt")
-  codec(:updated_at, as: "updatedAt")
-  codec(:completed_at, as: "completedAt")
-  codec(:duration_ms, as: "durationMs")
-  codec(:run_count, as: "runCount")
-  codec(:message_count, as: "messageCount")
-  codec(:recent_output, as: "recentOutput")
 end
