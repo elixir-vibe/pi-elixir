@@ -88,6 +88,19 @@ Use `Pi.Session` when you need attachable, subscribable session state:
 {:ok, state} = Pi.Session.subscribe(reviewer)
 ```
 
+Session snapshots are emitted as `pi_session` events and rendered by the extension as a compact live widget. The extension persists the latest snapshot set into pi custom entries (`elixir-sessions`) and reloads active BEAM snapshots on session start. Private slash commands control active sessions without adding model-facing tools:
+
+```text
+/elixir:sessions.cancel id=session_123
+/elixir:sessions.rerun id=session_123
+```
+
+Streaming session runs can emit `:delta` events before the final assistant message:
+
+```elixir
+{:ok, text} = Pi.Session.run(session, "Draft notes", stream: true)
+```
+
 Use `Pi.Agent` for convenience orchestration over those sessions:
 
 ```elixir

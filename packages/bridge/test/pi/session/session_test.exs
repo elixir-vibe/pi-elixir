@@ -86,6 +86,16 @@ defmodule Pi.Session.SessionTest do
   defp field(map, key) when is_map(map),
     do: Map.get(map, Atom.to_string(key)) || Map.get(map, key)
 
+  test "emits delta events for streaming sessions" do
+    stream_fun = fn _messages, _opts -> %Pi.LLM.Stream{id: "s1", stream: ["hel", "lo"]} end
+    assert {:ok, pid} = Session.start(stream_fun: stream_fun)
+    assert {:ok, "hello"} = Session.run(pid, "ping", stream: true)
+
+    assert Enum.any?(Session.state(pid).events, fn event ->
+             event.type == :delta and event.data == %{delta: "hel"}
+           end)
+  end
+
   test "reruns latest user message" do
     parent = self()
 

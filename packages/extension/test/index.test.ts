@@ -200,11 +200,28 @@ describe('extension status lifecycle', () => {
       name: 'pi_session',
       data: { session: { id: 'root', name: 'review', status: 'running', latest: 'Checking tests' } }
     })
+    busListener?.(projectA, {
+      type: 'event',
+      name: 'pi_session',
+      data: {
+        session: {
+          id: 'child',
+          parentId: 'root',
+          name: 'tests',
+          status: 'done',
+          events: [{ type: 'done' }]
+        }
+      }
+    })
 
     expect(ctx.ui.setWidget).toHaveBeenCalledWith('elixir-sessions', expect.any(Function), {
       placement: 'belowEditor'
     })
     expect(pi.events.emit).toHaveBeenCalledWith('pi_session', expect.any(Object))
+    expect(pi.appendEntry).toHaveBeenCalledWith('elixir-sessions', {
+      cwd: projectA,
+      sessions: expect.arrayContaining([expect.objectContaining({ id: 'root' })])
+    })
   })
 
   it('registers private session control commands', async () => {

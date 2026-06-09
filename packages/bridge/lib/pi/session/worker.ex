@@ -40,6 +40,7 @@ defmodule Pi.Session.Worker do
      %{
        state: State.new(opts),
        ask_fun: Keyword.get(opts, :ask_fun, &ask/2),
+       stream_fun: Keyword.get(opts, :stream_fun, &stream/2),
        subscribers: %{},
        task: nil,
        task_ref: nil,
@@ -115,6 +116,11 @@ defmodule Pi.Session.Worker do
   end
 
   @impl true
+  def handle_info({:session_delta, delta}, data) when is_binary(delta) do
+    data = transition(data, :running, Event.new(:delta, %{delta: delta}))
+    {:noreply, data}
+  end
+
   def handle_info({ref, {:ok, result}}, %{task_ref: ref} = data) do
     Process.demonitor(ref, [:flush])
 
@@ -155,9 +161,19 @@ defmodule Pi.Session.Worker do
     data = transition(data, :running, Event.new(:started))
     messages = messages(data.state)
     ask_fun = data.ask_fun
+    stream_fun = data.stream_fun
     timeout = Keyword.get(opts, :timeout, @timeout)
 
-    task = Task.async(fn -> safe_ask(ask_fun, messages, Keyword.put(opts, :timeout, timeout)) end)
+    owner = self()
+
+    task =
+      Task.async(fn ->
+        if Keyword.get(opts, :stream, false) do
+          safe_stream(stream_fun, messages, Keyword.put(opts, :timeout, timeout), owner)
+        else
+          safe_ask(ask_fun, messages, Keyword.put(opts, :timeout, timeout))
+        end
+      end)
 
     data =
       transition(
@@ -170,6 +186,7 @@ defmodule Pi.Session.Worker do
   end
 
   defp ask(messages, opts), do: Pi.LLM.complete(messages, opts)
+  defp stream(messages, opts), do: Pi.LLM.stream(messages, opts)
 
   defp last_user_message(%State{messages: messages}) do
     messages
@@ -182,6 +199,24 @@ defmodule Pi.Session.Worker do
 
   defp safe_ask(ask_fun, messages, opts) do
     ask_fun.(messages, opts)
+  rescue
+    exception -> {:error, Exception.message(exception)}
+  catch
+    kind, reason -> {:error, {kind, reason}}
+  end
+
+  defp safe_stream(stream_fun, messages, opts, owner) do
+    stream = stream_fun.(messages, opts)
+
+    text =
+      stream.stream
+      |> Enum.map(fn delta ->
+        send(owner, {:session_delta, to_string(delta)})
+        to_string(delta)
+      end)
+      |> Enum.join()
+
+    {:ok, text}
   rescue
     exception -> {:error, Exception.message(exception)}
   catch

@@ -72,6 +72,7 @@ interface SessionSnapshot {
   name?: string | null
   status?: string
   latest?: string | null
+  result?: unknown
   messageCount?: number
   events?: Array<{ type?: string; at?: string | null }>
 }
@@ -276,6 +277,31 @@ function sessionIcon(status: string | undefined, theme: Theme) {
   }
 }
 
+function synthesis(
+  session: SessionSnapshot,
+  children: Map<string, SessionSnapshot[]>,
+  theme: Theme
+) {
+  const childSessions = children.get(session.id ?? '') ?? []
+  if (childSessions.length < 2) return undefined
+
+  const done = childSessions.filter((child) => child.status === 'done').length
+  const running = childSessions.filter((child) => child.status === 'running').length
+  const failed = childSessions.filter((child) => child.status === 'failed').length
+  const parts = [
+    done > 0 ? `${done} done` : undefined,
+    running > 0 ? `${running} running` : undefined,
+    failed > 0 ? `${failed} failed` : undefined
+  ].filter(Boolean)
+
+  return parts.length > 0 ? theme.fg('muted', `  ${parts.join(' · ')}`) : undefined
+}
+
+function lastEvent(session: SessionSnapshot) {
+  const event = session.events?.at(-1)
+  return event?.type ? event.type : undefined
+}
+
 function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
   const roots = sessions.filter((session) => !session.parentId)
   const children = new Map<string, SessionSnapshot[]>()
@@ -291,11 +317,15 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
   const render = (session: SessionSnapshot, depth: number) => {
     const label = session.name || session.id || 'session'
     const latest = compact(session.latest)
+    const event = lastEvent(session)
     const status = session.status && session.status !== 'idle' ? ` ${session.status}` : ''
     const prefix = depth > 0 ? `${'  '.repeat(depth - 1)}  └─ ` : ''
     lines.push(
-      `${prefix}${sessionIcon(session.status, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
+      `${prefix}${sessionIcon(session.status, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${event ? theme.fg('muted', ` · ${event}`) : ''}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
     )
+
+    const summary = synthesis(session, children, theme)
+    if (summary) lines.push(`${prefix}${summary}`)
 
     for (const child of children.get(session.id ?? '') ?? []) render(child, depth + 1)
   }
@@ -326,7 +356,18 @@ function updateSessionWidget(ctx: StatusContext, cwd: string) {
   })
 }
 
-function handleSessionEvent(ctx: StatusContext, cwd: string, event: BridgeBusEvent) {
+function persistSessionSnapshots(pi: ExtensionAPI, cwd: string) {
+  const sessions = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
+  if (sessions.length === 0) return
+  pi.appendEntry('elixir-sessions', { cwd, sessions })
+}
+
+function handleSessionEvent(
+  pi: ExtensionAPI,
+  ctx: StatusContext,
+  cwd: string,
+  event: BridgeBusEvent
+) {
   const data = event.data
   if (typeof data !== 'object' || data === null || Array.isArray(data)) return
   const session = (data as { session?: unknown }).session
@@ -336,6 +377,7 @@ function handleSessionEvent(ctx: StatusContext, cwd: string, event: BridgeBusEve
   if (!snapshot.id) return
   storeSessionSnapshot(cwd, snapshot)
   updateSessionWidget(ctx, cwd)
+  persistSessionSnapshots(pi, cwd)
 }
 
 async function loadSessionSnapshots(ctx: StatusContext, cwd: string, connUrl: string) {
@@ -425,7 +467,7 @@ export default function (pi: ExtensionAPI) {
     })
     const unsubscribeBus = onBridgeBusEvent((cwd, event) => {
       if (cwd !== sessionCwd) return
-      if (event.name === 'pi_session') handleSessionEvent(ctx, cwd, event)
+      if (event.name === 'pi_session') handleSessionEvent(pi, ctx, cwd, event)
       if (event.name) pi.events.emit(event.name, event.data)
     })
     const unsubscribeRequests = onBridgeRequest(async (cwd, message) => {
