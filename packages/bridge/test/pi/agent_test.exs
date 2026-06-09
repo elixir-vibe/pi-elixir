@@ -69,6 +69,7 @@ defmodule Pi.AgentTest do
     assert parent
     children = Enum.filter(states, &(&1.parent_id == parent.id))
     assert [_, _] = children
+    assert Enum.map(children, & &1.name) |> Enum.sort() == ["docs", "tests"]
   end
 
   test "tracks session history" do

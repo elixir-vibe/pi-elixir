@@ -40,7 +40,10 @@ defmodule Pi.Agent do
 
     results =
       runs
-      |> Enum.map(fn run -> Task.async(fn -> run_child(parent, run, opts) end) end)
+      |> Enum.with_index(1)
+      |> Enum.map(fn {run, index} ->
+        Task.async(fn -> run_child(parent, run, child_opts(run, opts, index)) end)
+      end)
       |> await_many(timeout + 1_000)
 
     if Enum.all?(results, &match?({:ok, %Result{}}, &1)) do
@@ -86,6 +89,28 @@ defmodule Pi.Agent do
   end
 
   def session(%Session{} = session, _opts), do: session
+
+  defp child_opts(run, opts, index) do
+    opts = Keyword.delete(opts, :name)
+
+    if child_has_name?(run) do
+      opts
+    else
+      Keyword.put(opts, :name, child_name(run, index))
+    end
+  end
+
+  defp child_has_name?(run) when is_list(run), do: Keyword.has_key?(run, :name)
+  defp child_has_name?(_run), do: false
+
+  defp child_name(prompt, _index) when is_binary(prompt) do
+    prompt
+    |> String.replace(~r/\s+/u, " ")
+    |> String.trim()
+    |> String.slice(0, 40)
+  end
+
+  defp child_name(_run, index), do: "child #{index}"
 
   defp run_child(parent, prompt_or_opts, opts) do
     session = prompt_or_opts |> session(opts) |> Registry.put()
