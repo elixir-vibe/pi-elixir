@@ -78,6 +78,7 @@ interface SessionSnapshot {
 }
 
 const sessionSnapshots = new Map<string, Map<string, SessionSnapshot>>()
+const emittedCompletedSessionRoots = new Map<string, Set<string>>()
 
 function resolveElixirCwd(cwd: string): string | null {
   return resolveMixProjectCwd(cwd)
@@ -302,8 +303,7 @@ function lastEvent(session: SessionSnapshot) {
   return event?.type ? event.type : undefined
 }
 
-function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
-  const roots = sessions.filter((session) => !session.parentId)
+function sessionChildren(sessions: SessionSnapshot[]) {
   const children = new Map<string, SessionSnapshot[]>()
   for (const session of sessions) {
     const parentId = session.parentId
@@ -312,6 +312,56 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
     bucket.push(session)
     children.set(parentId, bucket)
   }
+  return children
+}
+
+function isTerminalSession(session: SessionSnapshot) {
+  return session.status === 'done' || session.status === 'failed' || session.status === 'cancelled'
+}
+
+function hasActiveSession(
+  session: SessionSnapshot,
+  children: Map<string, SessionSnapshot[]>
+): boolean {
+  if (session.status === 'running') return true
+  return (children.get(session.id ?? '') ?? []).some((child) => hasActiveSession(child, children))
+}
+
+function collectSessionTree(
+  session: SessionSnapshot,
+  children: Map<string, SessionSnapshot[]>,
+  out: SessionSnapshot[] = []
+) {
+  out.push(session)
+  for (const child of children.get(session.id ?? '') ?? []) collectSessionTree(child, children, out)
+  return out
+}
+
+function completedRootTrees(sessions: SessionSnapshot[]) {
+  const children = sessionChildren(sessions)
+  const roots = sessions.filter((session) => !session.parentId)
+  return roots
+    .filter((root) => {
+      const tree = collectSessionTree(root, children, [])
+      return (
+        tree.length > 1 &&
+        tree.every((session) => session.status === 'idle' || isTerminalSession(session))
+      )
+    })
+    .map((root) => collectSessionTree(root, children, []))
+}
+
+function activeSessionTree(sessions: SessionSnapshot[]) {
+  const children = sessionChildren(sessions)
+  const roots = sessions.filter((session) => !session.parentId)
+  return roots
+    .filter((root) => hasActiveSession(root, children))
+    .flatMap((root) => collectSessionTree(root, children, []))
+}
+
+function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
+  const roots = sessions.filter((session) => !session.parentId)
+  const children = sessionChildren(sessions)
 
   const lines: string[] = []
   const render = (session: SessionSnapshot, depth: number) => {
@@ -345,7 +395,7 @@ function storeSessionSnapshot(cwd: string, snapshot: SessionSnapshot) {
 }
 
 function updateSessionWidget(ctx: StatusContext, cwd: string) {
-  const snapshots = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
+  const snapshots = activeSessionTree(Array.from(sessionSnapshots.get(cwd)?.values() ?? []))
   if (snapshots.length === 0) {
     ctx.ui.setWidget('elixir-sessions', undefined)
     return
@@ -360,6 +410,34 @@ function persistSessionSnapshots(pi: ExtensionAPI, cwd: string) {
   const sessions = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
   if (sessions.length === 0) return
   pi.appendEntry('elixir-sessions', { cwd, sessions })
+}
+
+function renderSessionMessage(
+  message: { details?: { sessions?: SessionSnapshot[] } },
+  _options: { expanded: boolean },
+  theme: Theme
+) {
+  const sessions = message.details?.sessions
+  if (!Array.isArray(sessions) || sessions.length === 0) return undefined
+  return renderSessionWidget(sessions, theme)
+}
+
+function emitCompletedSessionMessages(pi: ExtensionAPI, cwd: string) {
+  const snapshots = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
+  const emitted = emittedCompletedSessionRoots.get(cwd) ?? new Set<string>()
+  for (const tree of completedRootTrees(snapshots)) {
+    const root = tree[0]
+    const rootId = root?.id
+    if (!rootId || emitted.has(rootId)) continue
+    emitted.add(rootId)
+    pi.sendMessage({
+      customType: 'elixir-sessions',
+      content: '',
+      display: true,
+      details: { cwd, sessions: tree }
+    })
+  }
+  emittedCompletedSessionRoots.set(cwd, emitted)
 }
 
 function handleSessionEvent(
@@ -378,6 +456,7 @@ function handleSessionEvent(
   storeSessionSnapshot(cwd, snapshot)
   updateSessionWidget(ctx, cwd)
   persistSessionSnapshots(pi, cwd)
+  emitCompletedSessionMessages(pi, cwd)
 }
 
 async function loadSessionSnapshots(ctx: StatusContext, cwd: string, connUrl: string) {
@@ -397,12 +476,14 @@ async function loadSessionSnapshots(ctx: StatusContext, cwd: string, connUrl: st
   }
 }
 
-async function refreshSessionSnapshots(ctx: ExtensionContext) {
+async function refreshSessionSnapshots(pi: ExtensionAPI, ctx: ExtensionContext) {
   const beamCwd = resolveElixirCwd(ctx.cwd)
   if (!beamCwd) return
   const conn = await resolveUrl(beamCwd)
   if (!conn) return
   await loadSessionSnapshots(ctx as StatusContext, beamCwd, conn.url)
+  persistSessionSnapshots(pi, beamCwd)
+  emitCompletedSessionMessages(pi, beamCwd)
 }
 
 async function handleBridgeRequest(
@@ -440,12 +521,29 @@ async function handleBridgeRequest(
     return { ok: true, result: 'ok' }
   }
 
+  if (message.op === 'send_message') {
+    const customType = message.payload?.customType
+    const data = message.payload?.data
+    if (typeof customType !== 'string' || typeof data !== 'object' || data === null) {
+      return { ok: false, error: 'send_message requires customType and data' }
+    }
+
+    pi.sendMessage({
+      customType,
+      content: '',
+      display: true,
+      details: data as Record<string, unknown>
+    })
+    return { ok: true, result: 'ok' }
+  }
+
   return undefined
 }
 
 export default function (pi: ExtensionAPI) {
   const statusSubscriptions = new Map<string, StatusSubscription>()
   const registeredCommands = new Set<string>()
+  pi.registerMessageRenderer('elixir-sessions', renderSessionMessage)
   registerSessionCommands(pi, registeredCommands)
 
   function clearStatusSubscription(key: string) {
@@ -555,7 +653,7 @@ export default function (pi: ExtensionAPI) {
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return undefined
 
-    if (event.toolName?.startsWith('elixir_')) await refreshSessionSnapshots(ctx)
+    if (event.toolName?.startsWith('elixir_')) await refreshSessionSnapshots(pi, ctx)
 
     await sendBridgeEvent(beamCwd, {
       type: 'tool_result',

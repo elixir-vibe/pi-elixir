@@ -82,6 +82,12 @@ defmodule Pi.Session do
     request(:append_entry, %{customType: custom_type, data: data}, opts)
   end
 
+  @doc "Sends a custom message entry to the active pi host session."
+  def send_message(custom_type, data \\ %{}, opts \\ [])
+      when is_binary(custom_type) and is_map(data) do
+    request(:send_message, %{customType: custom_type, data: data}, opts)
+  end
+
   defp resolve!(pid) when is_pid(pid), do: pid
 
   defp resolve!(id) when is_binary(id) do

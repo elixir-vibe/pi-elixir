@@ -46,10 +46,12 @@ function fakePi() {
       }),
       registerTool: vi.fn(),
       registerCommand: vi.fn(),
+      registerMessageRenderer: vi.fn(),
       events: { emit: vi.fn() },
       getSessionName: vi.fn(() => undefined),
       getActiveTools: vi.fn(() => []),
-      appendEntry: vi.fn()
+      appendEntry: vi.fn(),
+      sendMessage: vi.fn()
     },
     handlers
   }
@@ -229,7 +231,10 @@ describe('extension status lifecycle', () => {
     vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
     vi.mocked(callTool).mockResolvedValue({
       text: JSON.stringify({
-        sessions: [{ id: 'root', name: 'tool-result-root', status: 'done', latest: 'ok' }]
+        sessions: [
+          { id: 'root', name: 'tool-result-root', status: 'idle' },
+          { id: 'child', parentId: 'root', name: 'tests', status: 'done', latest: 'ok' }
+        ]
       }),
       isError: false
     })
@@ -241,8 +246,15 @@ describe('extension status lifecycle', () => {
     await handlers.get('tool_result')!({ toolName: 'elixir_eval' }, ctx)
 
     expect(callTool).toHaveBeenCalledWith('stdio:test', 'pi_session_snapshots', {})
-    expect(ctx.ui.setWidget).toHaveBeenCalledWith('elixir-sessions', expect.any(Function), {
-      placement: 'belowEditor'
+    expect(ctx.ui.setWidget).toHaveBeenCalledWith('elixir-sessions', undefined)
+    expect(pi.sendMessage).toHaveBeenCalledWith({
+      customType: 'elixir-sessions',
+      content: '',
+      display: true,
+      details: {
+        cwd: projectA,
+        sessions: expect.arrayContaining([expect.objectContaining({ id: 'root' })])
+      }
     })
   })
 
