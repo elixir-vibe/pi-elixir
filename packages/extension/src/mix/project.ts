@@ -3,6 +3,8 @@ import * as path from 'node:path'
 
 const IGNORED_MIX_DIRS = new Set(['.git', '_build', 'deps', 'node_modules'])
 const PREFERRED_NESTED_MIX_PATHS = ['packages/bridge/mix.exs']
+const RESOLVE_CACHE_TTL_MS = 2_000
+const resolvedMixProjectCache = new Map<string, { value: string | null; timestamp: number }>()
 
 export function readMixExs(cwd: string): string | null {
   try {
@@ -20,6 +22,17 @@ export function readAppName(cwd: string): string | null {
 }
 
 export function resolveMixProjectCwd(cwd: string): string | null {
+  const cached = resolvedMixProjectCache.get(cwd)
+  if (cached && Date.now() - cached.timestamp < RESOLVE_CACHE_TTL_MS) {
+    if (!cached.value || fs.existsSync(path.join(cached.value, 'mix.exs'))) return cached.value
+  }
+
+  const resolved = resolveMixProjectCwdUncached(cwd)
+  resolvedMixProjectCache.set(cwd, { value: resolved, timestamp: Date.now() })
+  return resolved
+}
+
+function resolveMixProjectCwdUncached(cwd: string): string | null {
   if (fs.existsSync(path.join(cwd, 'mix.exs'))) return cwd
 
   for (const relative of PREFERRED_NESTED_MIX_PATHS) {

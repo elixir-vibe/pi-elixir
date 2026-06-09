@@ -1,5 +1,5 @@
 import * as crypto from 'node:crypto'
-import * as fs from 'node:fs'
+import * as fs from 'node:fs/promises'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
@@ -60,18 +60,23 @@ function skillMarkdown(skill: Required<BridgeSkillInfo>): string {
   return `---\nname: ${yamlString(skill.name)}\ndescription: ${yamlString(description)}\n---\n\nExecutable Elixir skill loaded from \`${skill.path}\`.\n\n${skill.markdown}${apiBlock}\n`
 }
 
-function materialize(cwd: string, skills: Required<BridgeSkillInfo>[]): string | null {
+async function materialize(
+  cwd: string,
+  skills: Required<BridgeSkillInfo>[]
+): Promise<string | null> {
   if (skills.length === 0) return null
 
   const root = cacheDir(cwd)
-  fs.rmSync(root, { recursive: true, force: true })
-  fs.mkdirSync(root, { recursive: true })
+  await fs.rm(root, { recursive: true, force: true })
+  await fs.mkdir(root, { recursive: true })
 
-  for (const skill of skills) {
-    const dir = path.join(root, safeName(skill.name))
-    fs.mkdirSync(dir, { recursive: true })
-    fs.writeFileSync(path.join(dir, 'SKILL.md'), skillMarkdown(skill))
-  }
+  await Promise.all(
+    skills.map(async (skill) => {
+      const dir = path.join(root, safeName(skill.name))
+      await fs.mkdir(dir, { recursive: true })
+      await fs.writeFile(path.join(dir, 'SKILL.md'), skillMarkdown(skill))
+    })
+  )
 
   return root
 }
@@ -83,5 +88,5 @@ export async function discoverExecutableSkillPath(cwd: string): Promise<string |
   const result = await callTool(conn.url, 'pi_skills_list', {}, undefined)
   if (result.isError) return null
 
-  return materialize(cwd, parseSkills(result.text))
+  return await materialize(cwd, parseSkills(result.text))
 }

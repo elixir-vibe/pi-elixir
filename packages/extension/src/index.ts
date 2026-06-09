@@ -8,6 +8,13 @@ import { applyBridgeUIEvent, updateStatus } from './bridge/ui-events.ts'
 import { resolveUrl, getConnectionKind, sendBridgeEvent } from './connection/resolver.ts'
 import { onStatusChange } from './connection/status.ts'
 import {
+  markTurnEnd,
+  markTurnStart,
+  recordDiagnostic,
+  startEventLoopLagMonitor,
+  writeDiagnosticDump
+} from './diagnostics.ts'
+import {
   getBridgeInfo,
   onBridgeBusEvent,
   onBridgeRequest,
@@ -48,6 +55,8 @@ function hasBridgePlugins(cwd: string): boolean {
 }
 
 export default function (pi: ExtensionAPI) {
+  startEventLoopLagMonitor()
+
   const statusSubscriptions = new Map<string, StatusSubscription>()
   const registeredCommands = new Set<string>()
   pi.registerMessageRenderer('elixir-sessions', renderSessionMessage)
@@ -68,6 +77,7 @@ export default function (pi: ExtensionAPI) {
   }
 
   pi.on('session_start', async (_event, ctx) => {
+    recordDiagnostic('session_start', ctx.cwd)
     const key = subscriptionKey(ctx)
     clearStatusSubscription(key)
 
@@ -96,19 +106,30 @@ export default function (pi: ExtensionAPI) {
       unsubscribeRequests
     })
 
-    const conn = await resolveUrl(sessionCwd)
-    updateStatus(ctx, conn?.kind ?? getConnectionKind(sessionCwd))
-    if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
-    const info = getBridgeInfo(sessionCwd)
-    showStartupInfo(ctx, info)
-    registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
-    await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
+    updateStatus(ctx, getConnectionKind(sessionCwd))
+
+    void (async () => {
+      recordDiagnostic('bridge_resolve_start', sessionCwd)
+      const conn = await resolveUrl(sessionCwd)
+      updateStatus(ctx, conn?.kind ?? getConnectionKind(sessionCwd))
+      if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
+      const info = getBridgeInfo(sessionCwd)
+      showStartupInfo(ctx, info)
+      registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
+      await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
+      recordDiagnostic('bridge_resolve_done', sessionCwd, { kind: conn?.kind ?? null })
+    })().catch((error) => {
+      recordDiagnostic('bridge_resolve_error', sessionCwd, {
+        error: error instanceof Error ? error.message : String(error)
+      })
+    })
   })
 
   pi.on('before_agent_start', async (event, ctx) => {
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return
 
+    recordDiagnostic('before_agent_start', beamCwd, { promptBytes: event.prompt?.length ?? 0 })
     await sendBridgeEvent(beamCwd, {
       type: 'before_agent_start',
       cwd: ctx.cwd,
@@ -120,6 +141,7 @@ export default function (pi: ExtensionAPI) {
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return
 
+    markTurnStart(beamCwd, ctx.sessionManager?.getSessionFile?.(), { turnIndex: event.turnIndex })
     await sendBridgeEvent(beamCwd, { type: 'turn_start', cwd: ctx.cwd, turnIndex: event.turnIndex })
   })
 
@@ -127,6 +149,7 @@ export default function (pi: ExtensionAPI) {
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return
 
+    markTurnEnd(beamCwd, ctx.sessionManager?.getSessionFile?.(), { turnIndex: event.turnIndex })
     await sendBridgeEvent(beamCwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
   })
 
@@ -134,11 +157,16 @@ export default function (pi: ExtensionAPI) {
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return {}
 
+    recordDiagnostic('resources_discover', beamCwd)
+    const kind = getConnectionKind(beamCwd)
+    if (kind !== 'embedded' && kind !== 'external') return {}
+
     const skillPath = await discoverExecutableSkillPath(beamCwd)
     return skillPath ? { skillPaths: [skillPath] } : {}
   })
 
   pi.on('session_shutdown', async (_event, ctx) => {
+    recordDiagnostic('session_shutdown', ctx.cwd)
     const key = subscriptionKey(ctx)
     clearStatusSubscription(key)
 
@@ -152,6 +180,10 @@ export default function (pi: ExtensionAPI) {
     if (beamCwd && !hasStatusSubscriptionForCwd(beamCwd)) {
       stopEmbedded(beamCwd)
     }
+
+    await writeDiagnosticDump('session_shutdown', { cwd: beamCwd ?? ctx.cwd }).catch(
+      () => undefined
+    )
   })
 
   registerEval(pi)

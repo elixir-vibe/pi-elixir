@@ -245,7 +245,12 @@ describe('extension status lifecycle', () => {
 
     await handlers.get('tool_result')!({ toolName: 'elixir_eval' }, ctx)
 
-    expect(callTool).toHaveBeenCalledWith('stdio:test', 'pi_session_snapshots', {})
+    expect(callTool).toHaveBeenCalledWith(
+      'stdio:test',
+      'pi_session_snapshots',
+      {},
+      expect.any(AbortSignal)
+    )
     expect(ctx.ui.setWidget).toHaveBeenCalledWith('elixir-sessions', undefined)
     expect(pi.sendMessage).toHaveBeenCalledWith({
       customType: 'elixir-sessions',

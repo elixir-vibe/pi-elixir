@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
 import { callTool, resolveUrl } from '../connection/resolver.ts'
+import { recordDiagnostic } from '../diagnostics.ts'
 import type { BridgeBusEvent } from '../protocol/types.ts'
 import {
   activeSessionTree,
@@ -82,9 +83,23 @@ export function handleSessionEvent(
   emitCompletedSessionMessages(pi, cwd)
 }
 
+const SNAPSHOT_TIMEOUT_MS = 1_000
+
+function timeoutSignal(ms: number): AbortSignal {
+  const controller = new AbortController()
+  setTimeout(() => controller.abort(), ms).unref()
+  return controller.signal
+}
+
 export async function loadSessionSnapshots(ctx: StatusContext, cwd: string, connUrl: string) {
   try {
-    const result = await callTool(connUrl, 'pi_session_snapshots', {})
+    recordDiagnostic('session_snapshots_start', cwd)
+    const result = await callTool(
+      connUrl,
+      'pi_session_snapshots',
+      {},
+      timeoutSignal(SNAPSHOT_TIMEOUT_MS)
+    )
     if (result.isError) return
     const payload = JSON.parse(result.text) as { sessions?: unknown }
     if (!Array.isArray(payload.sessions)) return
@@ -94,7 +109,11 @@ export async function loadSessionSnapshots(ctx: StatusContext, cwd: string, conn
       }
     }
     updateSessionWidget(ctx, cwd)
-  } catch {
+    recordDiagnostic('session_snapshots_done', cwd)
+  } catch (error) {
+    recordDiagnostic('session_snapshots_error', cwd, {
+      error: error instanceof Error ? error.message : String(error)
+    })
     // Snapshot restore is best-effort.
   }
 }
@@ -106,9 +125,11 @@ export async function refreshSessionSnapshots(
 ) {
   const beamCwd = resolveElixirCwd(ctx.cwd)
   if (!beamCwd) return
+  recordDiagnostic('session_snapshots_refresh_start', beamCwd)
   const conn = await resolveUrl(beamCwd)
   if (!conn) return
   await loadSessionSnapshots(ctx as StatusContext, beamCwd, conn.url)
   persistSessionSnapshots(pi, beamCwd)
   emitCompletedSessionMessages(pi, beamCwd)
+  recordDiagnostic('session_snapshots_refresh_done', beamCwd)
 }

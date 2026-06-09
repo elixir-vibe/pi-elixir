@@ -1,6 +1,7 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
 import { callTool, resolveUrl, sendBridgeEvent } from '../connection/resolver.ts'
+import { recordDiagnostic } from '../diagnostics.ts'
 import type { ToolArgs } from '../protocol/types.ts'
 import { refreshSessionSnapshots } from '../sessions/state.ts'
 
@@ -40,6 +41,7 @@ export function registerBridgeToolHooks(
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return undefined
 
+    recordDiagnostic('tool_call', beamCwd, { toolName: event.toolName })
     await sendBridgeEvent(beamCwd, {
       type: 'tool_call',
       cwd: ctx.cwd,
@@ -48,6 +50,7 @@ export function registerBridgeToolHooks(
 
     if (!hasBridgePlugins(beamCwd)) return undefined
 
+    recordDiagnostic('plugin_tool_call_start', beamCwd, { toolName: event.toolName })
     const conn = await resolveUrl(beamCwd)
     if (!conn) return undefined
 
@@ -57,6 +60,7 @@ export function registerBridgeToolHooks(
       input: event.input
     })
     const payload = parsePluginHookResponse(result.text)
+    recordDiagnostic('plugin_tool_call_done', beamCwd, { toolName: event.toolName })
 
     if (payload.block) return { block: true, reason: payload.block }
     if (payload.ok && typeof payload.ok === 'object') Object.assign(event.input, payload.ok)
@@ -67,6 +71,7 @@ export function registerBridgeToolHooks(
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return undefined
 
+    recordDiagnostic('tool_result', beamCwd, { toolName: event.toolName, isError: event.isError })
     if (event.toolName?.startsWith('elixir_'))
       await refreshSessionSnapshots(pi, ctx, resolveElixirCwd)
 
@@ -79,6 +84,7 @@ export function registerBridgeToolHooks(
 
     if (!hasBridgePlugins(beamCwd)) return undefined
 
+    recordDiagnostic('plugin_tool_result_start', beamCwd, { toolName: event.toolName })
     const conn = await resolveUrl(beamCwd)
     if (!conn) return undefined
 
@@ -90,6 +96,7 @@ export function registerBridgeToolHooks(
       isError: event.isError
     })
     const payload = parsePluginHookResponse(result.text)
+    recordDiagnostic('plugin_tool_result_done', beamCwd, { toolName: event.toolName })
 
     if (payload.ok && typeof payload.ok === 'object') {
       const patch = payload.ok
