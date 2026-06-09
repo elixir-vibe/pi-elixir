@@ -241,7 +241,7 @@ defmodule Pi.Transport.Stdio do
     |> Map.new(fn {key, value} -> {to_string(key), value} end)
   end
 
-  defp to_payload(%_module{} = struct), do: Pi.Protocol.Encoder.to_map(struct)
+  defp to_payload(%_module{} = struct), do: JSONCodec.dump(struct)
 
   defp to_payload(map) when is_map(map), do: map
 

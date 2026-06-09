@@ -179,7 +179,7 @@ defmodule Pi.MCP.Tools do
 
   defp encode_payload(payload) when is_map(payload) do
     payload
-    |> Pi.Protocol.Encoder.to_map()
+    |> JSONCodec.dump()
     |> normalize()
     |> Jason.encode!()
   end
@@ -189,7 +189,7 @@ defmodule Pi.MCP.Tools do
   end
 
   defp normalize_value(%_module{} = value) do
-    value |> Pi.Protocol.Encoder.to_map() |> normalize()
+    value |> JSONCodec.dump() |> normalize()
   end
 
   defp normalize_value(value) when is_list(value), do: Enum.map(value, &normalize_value/1)

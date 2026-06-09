@@ -121,7 +121,7 @@ defmodule Pi.Session.SessionTest do
     assert snapshot.name == "root"
     assert snapshot.status == "idle"
 
-    encoded = Pi.Protocol.Encoder.to_map(snapshot)
+    encoded = JSONCodec.dump(snapshot)
     assert encoded["messageCount"] == 0
     assert Map.has_key?(encoded, "parentId")
     assert Map.has_key?(encoded, "updatedAt")
