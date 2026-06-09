@@ -54,9 +54,7 @@ function skillMarkdown(skill: Required<BridgeSkillInfo>): string {
     skill.apis.length === 0
       ? ''
       : `\n\n## Executable APIs\n\n${skill.apis
-          .map(
-            (api) => `- \`${String(api.name ?? '')}\` via \`${String(api.module ?? skill.module)}\``
-          )
+          .map((api) => `- \`${api.name ?? ''}\` via \`${api.module ?? skill.module}\``)
           .join('\n')}\n`
 
   return `---\nname: ${yamlString(skill.name)}\ndescription: ${yamlString(description)}\n---\n\nExecutable Elixir skill loaded from \`${skill.path}\`.\n\n${skill.markdown}${apiBlock}\n`

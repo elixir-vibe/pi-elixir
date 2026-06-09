@@ -5,7 +5,7 @@
     "suspicious": "error",
     "perf": "warn"
   },
-  "plugins": ["typescript", "unicorn", "promise", "node"],
+  "plugins": ["typescript", "unicorn"],
   "rules": {
     "no-console": "warn",
     "no-debugger": "error",
@@ -13,21 +13,18 @@
     "eqeqeq": "error",
     "typescript/no-explicit-any": "warn",
     "typescript/no-floating-promises": "error",
-    "promise/no-floating-promises": "error",
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/no-base-to-string": "off",
     "typescript/restrict-template-expressions": "off",
     "typescript/no-unnecessary-type-assertion": "off",
-    "unicorn/prefer-node-protocol": "error",
-    "node/prefer-global/process": "off"
+    "unicorn/prefer-node-protocol": "error"
   },
   "overrides": [
     {
       "files": ["test/**/*.ts"],
       "rules": {
         "typescript/no-explicit-any": "off",
-        "typescript/no-floating-promises": "off",
-        "promise/no-floating-promises": "off"
+        "typescript/no-floating-promises": "off"
       }
     }
   ]

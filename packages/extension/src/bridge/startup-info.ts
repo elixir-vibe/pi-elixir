@@ -12,7 +12,7 @@ export function renderStartupInfo(info: BridgeInfo) {
     'pi_bridge',
     `  project: ${info.project ?? 'unknown'}`,
     `  transport: ${info.transport ?? 'unknown'}`,
-    `  integrations: ${list(info.integrations, (name) => String(name))}`,
+    `  integrations: ${list(info.integrations, (name) => name)}`,
     `  executable skills: ${info.skills?.length ?? 0}`,
     `  plugins: ${info.plugins?.length ?? 0}`,
     `  endpoints: ${list(info.endpoints, (endpoint) => endpoint.url ?? (endpoint.port ? `:${endpoint.port}` : endpoint.module))}`
