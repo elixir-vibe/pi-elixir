@@ -4,7 +4,7 @@ import * as path from 'node:path'
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest'
 
-import { resolveMixProjectCwd } from '../src/mix/project.ts'
+import { resolveMixProjectCwd } from '../../src/mix/project.ts'
 
 let tempRoot: string
 

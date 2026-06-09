@@ -1,4 +1,4 @@
-defmodule Pi.Session.SessionTest do
+defmodule Pi.SessionTest do
   use ExUnit.Case, async: false
 
   alias Pi.LLM.Broker
