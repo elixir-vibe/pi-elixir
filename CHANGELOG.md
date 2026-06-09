@@ -2,6 +2,22 @@
 
 ## Unreleased
 
+## 0.5.1 - 2026-06-09
+
+### Added
+
+- Hidden `/elixir:debug` command that writes a snapshot-style diagnostic dump to `~/.pi/agent/pi-elixir-debug.log`, following pi core's debugging style.
+- `PI_ELIXIR_DEBUG=1|debug|verbose` responsiveness diagnostics, including automatic event-loop lag snapshots during active turns and optional verbose diagnostic values.
+- Diagnostic timing spans for lifecycle hooks, connection resolution, embedded BEAM startup/ready/error/exit, bridge request handlers, plugin tool hooks, tool calls, and executable skill discovery/materialization.
+
+### Changed
+
+- Mix project resolution no longer recursively scans arbitrary nested directories from broad working directories; it now only accepts the current `mix.exs` or known bundled `packages/bridge/mix.exs` layout.
+
+### Fixed
+
+- Avoided extension hot-path filesystem traversal that could stall pi's Node event loop and delay interrupt handling when pi was launched from broad monorepo roots such as `~/Development`.
+
 ## 0.5.0 - 2026-06-09
 
 ### Added
