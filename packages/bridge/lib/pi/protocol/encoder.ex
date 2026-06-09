@@ -2,10 +2,16 @@ defmodule Pi.Protocol.Encoder do
   @moduledoc "Protocol encoder that respects JSONCodec field metadata."
 
   def to_map(%module{} = struct) do
-    if function_exported?(module, :__json_codec_fields__, 0) do
-      encode_json_codec(struct, module.__json_codec_fields__())
-    else
-      struct |> Map.from_struct() |> to_map()
+    cond do
+      function_exported?(JSONCodec, :dump, 1) and
+          function_exported?(module, :__json_codec_fields__, 0) ->
+        apply(JSONCodec, :dump, [struct])
+
+      function_exported?(module, :__json_codec_fields__, 0) ->
+        encode_json_codec(struct, module.__json_codec_fields__())
+
+      true ->
+        struct |> Map.from_struct() |> to_map()
     end
   end
 
