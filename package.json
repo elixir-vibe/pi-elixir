@@ -39,7 +39,8 @@
     "check:beam": "cd packages/bridge && mix ci",
     "ci": "pnpm run check",
     "hex:check": "cd packages/bridge && mix hex.build --unpack --output /tmp/pi_bridge_hex_check >/dev/null && rm -rf /tmp/pi_bridge_hex_check",
-    "pack:check": "node scripts/check-pack.ts && pnpm pack --dry-run --json > /dev/null"
+    "pack:check": "node scripts/check-pack.ts && pnpm pack --dry-run --json > /dev/null",
+    "dogfood:install": "pi install ."
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "*",

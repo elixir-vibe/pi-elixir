@@ -17,6 +17,23 @@ When releasing a new tagged version:
 
 The current publish workflow publishes npm and Hex packages, but it does not create GitHub Releases automatically.
 
+## Local dogfooding
+
+Use the local checkout instead of the last published npm package when developing `pi-elixir` with `pi-elixir` itself:
+
+```bash
+pnpm run dogfood:install
+```
+
+Then run `/reload` in the current pi TUI, or restart pi. If BEAM status shows offline, call `elixir_eval` once and check for a version mismatch. A mismatch like “extension expects 0.5.x” means the current TUI is still running an old installed extension instance.
+
+From the repo root, the extension should resolve the nested Mix project at `packages/bridge/mix.exs` and start embedded stdio there. Manual bridge smoke:
+
+```bash
+cd packages/bridge
+mix run --no-halt -e 'Pi.Transport.Stdio.start()'
+```
+
 ## Checks and integration tests
 
 `pnpm run check` is the normal release gate. JS unit tests intentionally exclude `packages/extension/test/integration/**` for speed; run the integration suite explicitly when touching embedded stdio, MCP HTTP routing, resolver behavior, or fixture-project startup:
