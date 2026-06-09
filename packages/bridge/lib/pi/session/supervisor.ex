@@ -9,8 +9,18 @@ defmodule Pi.Session.Supervisor do
 
   def install do
     case Process.whereis(__MODULE__) do
-      nil -> start_link([])
-      _pid -> :ok
+      nil ->
+        case start_link([]) do
+          {:ok, pid} ->
+            Process.unlink(pid)
+            {:ok, pid}
+
+          other ->
+            other
+        end
+
+      _pid ->
+        :ok
     end
   end
 

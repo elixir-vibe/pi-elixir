@@ -4,6 +4,7 @@ defmodule Pi.Session.Worker do
   use GenServer
 
   alias Pi.Protocol.LLM.Message
+  alias Pi.Protocol.Session.Snapshot
   alias Pi.Session.Event
   alias Pi.Session.State
 
@@ -15,6 +16,7 @@ defmodule Pi.Session.Worker do
 
   def id(pid), do: state(pid).id
   def state(pid), do: GenServer.call(pid, :state)
+  def snapshot(pid), do: GenServer.call(pid, :snapshot)
   def subscribe(pid, subscriber \\ self()), do: GenServer.call(pid, {:subscribe, subscriber})
   def detach(pid, subscriber \\ self()), do: GenServer.call(pid, {:detach, subscriber})
 
@@ -47,6 +49,7 @@ defmodule Pi.Session.Worker do
 
   @impl true
   def handle_call(:state, _from, data), do: {:reply, data.state, data}
+  def handle_call(:snapshot, _from, data), do: {:reply, to_snapshot(data.state), data}
 
   def handle_call({:subscribe, subscriber}, _from, data) when is_pid(subscriber) do
     ref = Process.monitor(subscriber)
@@ -227,19 +230,19 @@ defmodule Pi.Session.Worker do
 
   defp broadcast(subscribers, state) do
     Enum.each(subscribers, fn {_ref, pid} -> send(pid, {:pi_session, state.id, state}) end)
-    Pi.Plugin.Event.emit("pi_session", %{session: snapshot(state)})
+    Pi.Plugin.Event.emit("pi_session", %{session: to_snapshot(state)})
   end
 
-  defp snapshot(%State{} = state) do
-    %{
+  defp to_snapshot(%State{} = state) do
+    %Snapshot{
       id: state.id,
-      parentId: state.parent_id,
+      parent_id: state.parent_id,
       name: name(state.name),
       status: Atom.to_string(state.status),
       result: state.result,
       error: error(state.error),
-      updatedAt: datetime(state.updated_at),
-      messageCount: length(state.messages),
+      updated_at: datetime(state.updated_at),
+      message_count: length(state.messages),
       latest: latest_text(state),
       events: Enum.map(state.events, &event/1)
     }
@@ -267,6 +270,10 @@ defmodule Pi.Session.Worker do
   end
 
   defp event(%Event{} = event) do
-    %{type: Atom.to_string(event.type), at: datetime(event.at), data: event.data}
+    %Pi.Protocol.Session.Event{
+      type: Atom.to_string(event.type),
+      at: datetime(event.at),
+      data: event.data
+    }
   end
 end

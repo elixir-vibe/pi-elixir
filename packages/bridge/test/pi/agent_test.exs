@@ -6,8 +6,9 @@ defmodule Pi.AgentTest do
   alias Pi.Agent.Run
   alias Pi.Agent.Session
   alias Pi.LLM.Broker
-  alias Pi.Session.Supervisor, as: SessionSupervisor
   alias Pi.Protocol.LLM.Message
+  alias Pi.Session, as: RuntimeSession
+  alias Pi.Session.Supervisor, as: SessionSupervisor
   alias Pi.Protocol.Response
 
   setup do
@@ -49,6 +50,25 @@ defmodule Pi.AgentTest do
 
     assert first_result.result == "plan"
     assert second_result.result == "review"
+  end
+
+  test "parallel runs use child runtime sessions" do
+    task = Task.async(fn -> Agent.parallel(["tests", "docs"], name: :review) end)
+
+    first = receive_request(:llm_complete)
+    Broker.deliver(first.id, %Response{ok: true, result: "tests ok"})
+
+    second = receive_request(:llm_complete)
+    Broker.deliver(second.id, %Response{ok: true, result: "docs ok"})
+
+    assert {:ok, %Run{kind: :parallel, status: :ok, results: results}} = Task.await(task)
+    assert Enum.map(results, & &1.result) |> Enum.sort() == ["docs ok", "tests ok"]
+
+    states = RuntimeSession.list()
+    parent = Enum.find(states, &(&1.name == :review))
+    assert parent
+    children = Enum.filter(states, &(&1.parent_id == parent.id))
+    assert length(children) == 2
   end
 
   test "tracks session history" do

@@ -1,7 +1,14 @@
 defmodule Pi.MCP.ToolsTest do
-  use ExUnit.Case, async: true
+  use ExUnit.Case, async: false
 
   alias Pi.MCP.Tools
+  alias Pi.Session.Supervisor, as: SessionSupervisor
+
+  setup do
+    if pid = Process.whereis(SessionSupervisor), do: Process.exit(pid, :kill)
+    Process.sleep(5)
+    :ok
+  end
 
   describe "dispatch/2 project_eval_structured" do
     test "returns structured result payload" do
@@ -86,6 +93,19 @@ defmodule Pi.MCP.ToolsTest do
 
       assert total <= 2
       assert Enum.all?(matches, &Map.has_key?(&1, "source"))
+    end
+  end
+
+  describe "dispatch/2 private session routes" do
+    test "returns snapshots and cancels sessions" do
+      assert {:ok, pid} = Pi.Session.start(name: :reviewer)
+      id = Pi.Session.state(pid).id
+
+      assert {:ok, json} = Tools.dispatch("pi_session_snapshots", %{})
+      assert %{"sessions" => [%{"id" => ^id, "name" => "reviewer"}]} = Jason.decode!(json)
+
+      assert {:ok, "ok"} = Tools.dispatch("pi_session_cancel", %{"id" => id})
+      assert Pi.Session.state(pid).status == :cancelled
     end
   end
 

@@ -42,6 +42,28 @@ defmodule Pi.MCP.Tools do
     end
   end
 
+  def dispatch("pi_session_cancel", %{"id" => id}) when is_binary(id) do
+    with {:ok, pid} <- Pi.Session.lookup(id), :ok <- Pi.Session.cancel(pid) do
+      {:ok, "ok"}
+    else
+      {:error, reason} -> {:error, inspect(reason)}
+    end
+  end
+
+  def dispatch("pi_session_rerun", %{"id" => id} = args) when is_binary(id) do
+    timeout = Map.get(args, "timeout", 60_000)
+
+    with {:ok, pid} <- Pi.Session.lookup(id) do
+      Pi.Session.rerun(pid, timeout: timeout)
+    else
+      {:error, reason} -> {:error, inspect(reason)}
+    end
+  end
+
+  def dispatch("pi_session_snapshots", _args) do
+    {:ok, encode_payload(%{sessions: Pi.Session.snapshots()})}
+  end
+
   def dispatch(name, _args), do: {:error, "Unknown tool: #{name}"}
 
   defp eval(args, opts) do
@@ -162,6 +184,12 @@ defmodule Pi.MCP.Tools do
     |> Jason.encode!()
   end
 
+  defp encode_payload(payload) when is_map(payload) do
+    payload
+    |> normalize()
+    |> Jason.encode!()
+  end
+
   defp normalize(map) when is_map(map) do
     Map.new(map, fn {key, value} -> {key, normalize_value(value)} end)
   end
@@ -174,5 +202,9 @@ defmodule Pi.MCP.Tools do
 
   defp normalize_value(value) when is_list(value), do: Enum.map(value, &normalize_value/1)
   defp normalize_value(value) when is_map(value), do: normalize(value)
+
+  defp normalize_value(value) when is_atom(value) and not is_boolean(value) and not is_nil(value),
+    do: Atom.to_string(value)
+
   defp normalize_value(value), do: value
 end

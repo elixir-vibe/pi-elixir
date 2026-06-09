@@ -69,10 +69,12 @@ interface PluginCommandResult {
 interface SessionSnapshot {
   id?: string
   parentId?: string | null
+  parent_id?: string | null
   name?: string | null
   status?: string
   latest?: string | null
   messageCount?: number
+  message_count?: number
   events?: Array<{ type?: string; at?: string | null }>
 }
 
@@ -146,6 +148,54 @@ function applyBridgeUIEvent(ctx: StatusContext, event: BridgeUIEvent) {
 function pluginCommandName(command: BridgePluginCommand): string | null {
   if (!command.name) return null
   return `elixir:${command.name}`
+}
+
+function registerSessionCommands(pi: ExtensionAPI, registered: Set<string>) {
+  const commands = [
+    {
+      name: 'elixir:sessions.cancel',
+      description: 'Cancel an OTP-backed BEAM session',
+      tool: 'pi_session_cancel'
+    },
+    {
+      name: 'elixir:sessions.rerun',
+      description: 'Rerun an OTP-backed BEAM session',
+      tool: 'pi_session_rerun'
+    }
+  ]
+
+  for (const command of commands) {
+    if (registered.has(command.name)) continue
+    registered.add(command.name)
+    pi.registerCommand(command.name, {
+      description: command.description,
+      handler: async (args, ctx) => {
+        const rawArgs = args as unknown
+        const id =
+          typeof rawArgs === 'string'
+            ? rawArgs
+            : typeof rawArgs === 'object' &&
+                rawArgs !== null &&
+                typeof (rawArgs as { id?: unknown }).id === 'string'
+              ? (rawArgs as { id: string }).id
+              : undefined
+        if (!id) {
+          ctx.ui.notify('Session id is required.', 'error')
+          return
+        }
+
+        const beamCwd = resolveElixirCwd(ctx.cwd)
+        const conn = beamCwd ? await resolveUrl(beamCwd) : null
+        if (!conn) {
+          ctx.ui.notify('No BEAM connection for this project.', 'error')
+          return
+        }
+
+        const result = await callTool(conn.url, command.tool, { id })
+        ctx.ui.notify(result.isError ? result.text : 'ok', result.isError ? 'error' : 'info')
+      }
+    })
+  }
 }
 
 function registerBridgeCommands(
@@ -229,13 +279,14 @@ function sessionIcon(status: string | undefined, theme: Theme) {
 }
 
 function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
-  const roots = sessions.filter((session) => !session.parentId)
+  const roots = sessions.filter((session) => !(session.parentId ?? session.parent_id))
   const children = new Map<string, SessionSnapshot[]>()
   for (const session of sessions) {
-    if (!session.parentId) continue
-    const bucket = children.get(session.parentId) ?? []
+    const parentId = session.parentId ?? session.parent_id
+    if (!parentId) continue
+    const bucket = children.get(parentId) ?? []
     bucket.push(session)
-    children.set(session.parentId, bucket)
+    children.set(parentId, bucket)
   }
 
   const lines: string[] = []
@@ -258,6 +309,13 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
   return new Text(lines.join('\n'), 0, 0)
 }
 
+function storeSessionSnapshot(cwd: string, snapshot: SessionSnapshot) {
+  if (!snapshot.id) return
+  const cwdSnapshots = sessionSnapshots.get(cwd) ?? new Map<string, SessionSnapshot>()
+  cwdSnapshots.set(snapshot.id, snapshot)
+  sessionSnapshots.set(cwd, cwdSnapshots)
+}
+
 function updateSessionWidget(ctx: StatusContext, cwd: string) {
   const snapshots = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
   if (snapshots.length === 0) {
@@ -278,10 +336,25 @@ function handleSessionEvent(ctx: StatusContext, cwd: string, event: BridgeBusEve
 
   const snapshot = session as SessionSnapshot
   if (!snapshot.id) return
-  const cwdSnapshots = sessionSnapshots.get(cwd) ?? new Map<string, SessionSnapshot>()
-  cwdSnapshots.set(snapshot.id, snapshot)
-  sessionSnapshots.set(cwd, cwdSnapshots)
+  storeSessionSnapshot(cwd, snapshot)
   updateSessionWidget(ctx, cwd)
+}
+
+async function loadSessionSnapshots(ctx: StatusContext, cwd: string, connUrl: string) {
+  try {
+    const result = await callTool(connUrl, 'pi_session_snapshots', {})
+    if (result.isError) return
+    const payload = JSON.parse(result.text) as { sessions?: unknown }
+    if (!Array.isArray(payload.sessions)) return
+    for (const session of payload.sessions) {
+      if (typeof session === 'object' && session !== null && !Array.isArray(session)) {
+        storeSessionSnapshot(cwd, session as SessionSnapshot)
+      }
+    }
+    updateSessionWidget(ctx, cwd)
+  } catch {
+    // Snapshot restore is best-effort.
+  }
 }
 
 async function handleBridgeRequest(
@@ -325,6 +398,7 @@ async function handleBridgeRequest(
 export default function (pi: ExtensionAPI) {
   const statusSubscriptions = new Map<string, StatusSubscription>()
   const registeredCommands = new Set<string>()
+  registerSessionCommands(pi, registeredCommands)
 
   function clearStatusSubscription(key: string) {
     const subscription = statusSubscriptions.get(key)
@@ -370,6 +444,7 @@ export default function (pi: ExtensionAPI) {
 
     const conn = await resolveUrl(sessionCwd)
     updateStatus(ctx, conn?.kind ?? getConnectionKind(sessionCwd))
+    if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
     const info = getBridgeInfo(sessionCwd)
     showStartupInfo(ctx, info)
     registerBridgeCommands(pi, info, registeredCommands)

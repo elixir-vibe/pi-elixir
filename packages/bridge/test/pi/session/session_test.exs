@@ -58,18 +58,33 @@ defmodule Pi.Session.SessionTest do
     assert {:ok, pid} = Session.start(name: :reviewer, ask_fun: ask)
     assert {:ok, "ok"} = Session.run(pid, "ping")
 
-    assert_receive {:pi_transport_emit,
-                    %{
-                      "type" => "event",
-                      "name" => "pi_session",
-                      "data" => %{"session" => %{"status" => "done"} = snapshot}
-                    }}
+    snapshot = receive_done_snapshot()
 
-    assert snapshot["name"] == "reviewer"
-    assert snapshot["latest"] == "ok"
+    assert field(snapshot, :name) == "reviewer"
+    assert field(snapshot, :latest) == "ok"
   after
     :persistent_term.erase({Pi.Transport.Stdio, :pid})
   end
+
+  defp receive_done_snapshot do
+    receive do
+      {:pi_transport_emit, payload} ->
+        snapshot = payload |> field(:data) |> field(:session)
+
+        if is_map(snapshot) and field(snapshot, :status) == "done" do
+          snapshot
+        else
+          receive_done_snapshot()
+        end
+    after
+      1_000 -> flunk("expected done session snapshot")
+    end
+  end
+
+  defp field(nil, _key), do: nil
+
+  defp field(map, key) when is_map(map),
+    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
 
   test "reruns latest user message" do
     parent = self()
@@ -85,6 +100,15 @@ defmodule Pi.Session.SessionTest do
 
     assert_receive {:messages, ["ping"]}
     assert_receive {:messages, ["ping", "ok", "ping"]}
+  end
+
+  test "returns protocol snapshots" do
+    assert {:ok, pid} = Session.start(name: :root)
+    [snapshot] = Session.snapshots()
+
+    assert snapshot.id == Session.state(pid).id
+    assert snapshot.name == "root"
+    assert snapshot.status == "idle"
   end
 
   test "creates child sessions" do

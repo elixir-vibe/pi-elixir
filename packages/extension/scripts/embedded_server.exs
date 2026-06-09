@@ -46,6 +46,8 @@ for file <- [
       "pi/protocol/llm/done.ex",
       "pi/protocol/llm/error.ex",
       "pi/protocol/llm/cancel.ex",
+      "pi/protocol/session/event.ex",
+      "pi/protocol/session/snapshot.ex",
       "pi/protocol/ui_event.ex",
       "pi/plugin/event.ex",
       "pi/plugin/ui.ex",

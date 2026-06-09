@@ -42,10 +42,13 @@ defmodule Pi.Agent do
   end
 
   def parallel(runs, opts \\ []) when is_list(runs) do
+    {:ok, parent} = RuntimeSession.start(name: Keyword.get(opts, :name, :parallel))
+    timeout = Keyword.get(opts, :timeout, 60_000)
+
     results =
       runs
-      |> Enum.map(&async(&1, opts))
-      |> await_many(Keyword.get(opts, :timeout, 60_000) + 1_000)
+      |> Enum.map(fn run -> Task.async(fn -> run_child(parent, run, opts) end) end)
+      |> await_many(timeout + 1_000)
 
     if Enum.all?(results, &match?({:ok, %Result{}}, &1)) do
       {:ok, Run.ok(:parallel, Enum.map(results, fn {:ok, result} -> result end))}
@@ -91,10 +94,35 @@ defmodule Pi.Agent do
 
   def session(%Session{} = session, _opts), do: session
 
+  defp run_child(parent, prompt_or_opts, opts) do
+    session = prompt_or_opts |> session(opts) |> Registry.put()
+
+    with {:ok, runtime} <- start_runtime_child(parent, session, opts) do
+      case RuntimeSession.complete(runtime, Keyword.put(opts, :agent, session.id)) do
+        {:ok, result} ->
+          Registry.append(session.id, %Message{role: :assistant, content: result})
+          {:ok, Result.ok(session, result)}
+
+        {:error, reason} ->
+          {:error, Result.error(session, reason)}
+      end
+    end
+  end
+
   defp start_runtime_session(%Session{} = session, opts) do
     RuntimeSession.start(
       id: session.id,
       parent_id: session.parent_id,
+      name: session.name,
+      system: session.system,
+      messages: session.messages,
+      metadata: Map.merge(session.metadata, Map.new(Keyword.get(opts, :metadata, %{})))
+    )
+  end
+
+  defp start_runtime_child(parent, %Session{} = session, opts) do
+    RuntimeSession.child(parent,
+      id: session.id,
       name: session.name,
       system: session.system,
       messages: session.messages,

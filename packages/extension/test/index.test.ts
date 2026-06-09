@@ -23,9 +23,9 @@ import * as fs from 'node:fs'
 import * as os from 'node:os'
 import * as path from 'node:path'
 
-import { resolveUrl, getConnectionKind } from '../src/connection/resolver.ts'
+import { callTool, resolveUrl, getConnectionKind } from '../src/connection/resolver.ts'
 import { onStatusChange } from '../src/connection/status.ts'
-import { onBridgeRequest, stopEmbedded } from '../src/embedded/stdio-process.ts'
+import { onBridgeBusEvent, onBridgeRequest, stopEmbedded } from '../src/embedded/stdio-process.ts'
 import extension from '../src/index.js'
 
 let tempRoot: string
@@ -180,6 +180,50 @@ describe('extension status lifecycle', () => {
 
     expect(unsubscribe).toHaveBeenCalledTimes(1)
     expect(onStatusChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('renders compact BEAM session widget from session snapshots', async () => {
+    const projectA = makeProject('project-a')
+    let busListener: ((cwd: string, event: any) => void) | undefined
+    vi.mocked(onBridgeBusEvent).mockImplementation((cb) => {
+      busListener = cb as typeof busListener
+      return vi.fn()
+    })
+
+    const { pi, handlers } = fakePi()
+    const ctx = fakeCtx(projectA)
+    extension(pi as any)
+    await handlers.get('session_start')!({}, ctx)
+
+    busListener?.(projectA, {
+      type: 'event',
+      name: 'pi_session',
+      data: { session: { id: 'root', name: 'review', status: 'running', latest: 'Checking tests' } }
+    })
+
+    expect(ctx.ui.setWidget).toHaveBeenCalledWith('elixir-sessions', expect.any(Function), {
+      placement: 'belowEditor'
+    })
+    expect(pi.events.emit).toHaveBeenCalledWith('pi_session', expect.any(Object))
+  })
+
+  it('registers private session control commands', async () => {
+    const projectA = makeProject('project-a')
+    vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
+    vi.mocked(callTool).mockResolvedValue({ text: 'ok', isError: false })
+
+    const { pi } = fakePi()
+    const ctx = fakeCtx(projectA)
+    extension(pi as any)
+
+    const command = pi.registerCommand.mock.calls.find(
+      ([name]) => name === 'elixir:sessions.cancel'
+    )
+    expect(command).toBeTruthy()
+    await command?.[1].handler({ id: 'session_1' }, ctx)
+
+    expect(callTool).toHaveBeenCalledWith('stdio:test', 'pi_session_cancel', { id: 'session_1' })
+    expect(ctx.ui.notify).toHaveBeenCalledWith('ok', 'info')
   })
 
   it('handles BEAM session request APIs', async () => {

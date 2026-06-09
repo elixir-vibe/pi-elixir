@@ -29,6 +29,12 @@ defmodule Pi.Session do
     |> Enum.map(&Worker.state/1)
   end
 
+  @doc "Returns renderer-neutral snapshots for active BEAM sessions."
+  def snapshots do
+    SessionSupervisor.workers()
+    |> Enum.map(&Worker.snapshot/1)
+  end
+
   @doc "Returns one BEAM session state."
   def state(session), do: session |> resolve!() |> Worker.state()
 
