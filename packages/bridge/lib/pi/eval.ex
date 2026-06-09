@@ -4,6 +4,9 @@ defmodule Pi.Eval do
   alias Pi.Bridge.Info
   alias Pi.Eval.Sandbox
   alias Pi.Protocol.Tool.Eval, as: EvalPayload
+  alias Pi.Protocol.Tool.OutputPart
+  alias Pi.Protocol.UI.Block
+  alias Pi.Protocol.UI.Display
 
   @inspect_opts [charlists: :as_lists, limit: 50, pretty: true]
 
@@ -96,15 +99,40 @@ defmodule Pi.Eval do
   end
 
   defp structured_eval_result(:"do not show this result in output", true, io, {:ok, text}) do
-    {:ok, %EvalPayload{io: io, result: nil, text: text}}
+    parts = if io == "", do: [], else: [%OutputPart{format: :text, output: io}]
+    {:ok, %EvalPayload{io: io, result: nil, text: text, parts: parts, display: display(parts)}}
   end
 
   defp structured_eval_result(result, true, io, {:ok, text}) do
-    {:ok, %EvalPayload{io: io, result: inspect(result, @inspect_opts), text: text}}
+    inspected = inspect(result, @inspect_opts)
+
+    parts =
+      []
+      |> maybe_io_part(io)
+      |> Kernel.++([%OutputPart{format: :inspect, output: inspected, language: "elixir"}])
+
+    {:ok,
+     %EvalPayload{io: io, result: inspected, text: text, parts: parts, display: display(parts)}}
   end
 
   defp structured_eval_result(_result, false, io, {:error, text}) do
-    {:error, %EvalPayload{io: io, error: text, text: text}}
+    parts =
+      []
+      |> maybe_io_part(io)
+      |> Kernel.++([%OutputPart{format: :error, output: text}])
+
+    {:error, %EvalPayload{io: io, error: text, text: text, parts: parts, display: display(parts)}}
+  end
+
+  defp maybe_io_part(parts, ""), do: parts
+  defp maybe_io_part(parts, io), do: parts ++ [%OutputPart{format: :text, output: io}]
+
+  defp display(parts) do
+    %Display{blocks: Enum.map(parts, &part_block/1)}
+  end
+
+  defp part_block(%OutputPart{format: format, output: output, language: language}) do
+    %Block{type: format, text: output, language: language}
   end
 
   defp env do

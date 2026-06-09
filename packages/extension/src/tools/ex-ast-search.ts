@@ -1,4 +1,4 @@
-import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
+import type { ExtensionAPI, Theme } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
@@ -9,6 +9,14 @@ interface AstSearchPayload {
   kind?: string
   matches?: Array<{ file?: string; line?: number; source?: string }>
   total?: number
+}
+
+const astSearchOptions = {
+  path: Type.Optional(Type.String({ description: 'Path to search (default: lib/)' })),
+  inside: Type.Optional(Type.String({ description: 'Only match inside this AST pattern' })),
+  notInside: Type.Optional(Type.String({ description: 'Skip matches inside this AST pattern' })),
+  allowBroad: Type.Optional(Type.Boolean({ description: 'Allow broad patterns such as _' })),
+  limit: Type.Optional(Type.Integer({ description: 'Maximum number of matches' }))
 }
 
 function parseAstSearchPayload(text: string): AstSearchPayload | null {
@@ -43,6 +51,17 @@ function astSearchText(text: string) {
   return `${lines.join('\n\n')}\n\n${payload.total ?? matches.length} match(es)`
 }
 
+const astSearchRenderResult = {
+  transformResult: astSearchText,
+  resultDetails: astSearchDetails,
+  renderResult: renderAstSearchResult
+}
+
+function appendPath(text: string, path: unknown, theme: Theme) {
+  const pathText = displayString(path)
+  return pathText ? text + theme.fg('muted', ` ${pathText}`) : text
+}
+
 export function register(pi: ExtensionAPI) {
   bridgeTool(
     pi,
@@ -60,19 +79,37 @@ Examples:
 - '{:error, reason}' — find error tuples and capture the reason`,
     Type.Object({
       pattern: Type.String({ description: 'Elixir AST pattern to match' }),
-      path: Type.Optional(Type.String({ description: 'Path to search (default: lib/)' }))
+      ...astSearchOptions
     }),
     (args, theme) => {
       let text = theme.fg('toolTitle', theme.bold('elixir_ast_search '))
       text += theme.fg('accent', displayString(args.pattern))
-      const path = displayString(args.path)
-      if (path) text += theme.fg('muted', ` ${path}`)
-      return new Text(text, 0, 0)
+      return new Text(appendPath(text, args.path, theme), 0, 0)
     },
-    {
-      transformResult: astSearchText,
-      resultDetails: astSearchDetails,
-      renderResult: renderAstSearchResult
-    }
+    astSearchRenderResult
+  )
+
+  bridgeTool(
+    pi,
+    'elixir_ast_search_many',
+    'ex_ast_search_many',
+    'AST Search Many',
+    `Search Elixir code with multiple named ExAST patterns in one traversal.`,
+    Type.Object({
+      patterns: Type.Record(Type.String(), Type.String(), {
+        description: 'Named Elixir AST patterns to match'
+      }),
+      ...astSearchOptions
+    }),
+    (args, theme) => {
+      const count =
+        typeof args.patterns === 'object' && args.patterns !== null
+          ? Object.keys(args.patterns).length
+          : 0
+      let text = theme.fg('toolTitle', theme.bold('elixir_ast_search_many '))
+      text += theme.fg('accent', `${count} patterns`)
+      return new Text(appendPath(text, args.path, theme), 0, 0)
+    },
+    astSearchRenderResult
   )
 }

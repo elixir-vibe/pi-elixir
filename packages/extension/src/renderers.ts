@@ -102,10 +102,17 @@ function stackFrames(text: string): string[] {
     .slice(0, 6)
 }
 
+interface OutputPart {
+  format?: string
+  output?: string
+  language?: string | null
+}
+
 interface EvalPayload {
   io?: string
   result?: string | null
   error?: string
+  parts?: OutputPart[]
 }
 
 function evalPayload(result: AgentToolResult<unknown>): EvalPayload | null {
@@ -162,9 +169,57 @@ function renderIoAndValue(io: string, value: string, expanded: boolean, theme: T
 }
 
 function renderStructuredEval(payload: EvalPayload, expanded: boolean, theme: Theme) {
+  if (payload.parts && payload.parts.length > 0)
+    return renderOutputParts(payload.parts, expanded, theme)
+
   const io = payload.io ?? ''
   const value = payload.result ?? ''
   return io ? renderIoAndValue(io, value, expanded, theme) : renderEvalValue(value, expanded, theme)
+}
+
+function partPreview(part: OutputPart) {
+  return firstContentLine(part.output ?? '')
+}
+
+function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
+  const visibleParts = parts.filter((part) => part.output)
+  if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
+
+  if (!expanded) {
+    const [first, second] = visibleParts
+    const suffix = second ? theme.fg('muted', `  ↳ ${oneLine(second.output ?? '', 60)}`) : ''
+    return renderLines([
+      `${icon(true, theme)} ${theme.fg('toolOutput', oneLine(partPreview(first)))}${suffix}`,
+      ...(visibleParts.length > 1 ? [expandHint(theme)] : [])
+    ])
+  }
+
+  const lines: string[] = []
+  for (const [index, part] of visibleParts.entries()) {
+    if (index > 0) lines.push('')
+    const output = stripFinalNewline(part.output ?? '')
+    const format = part.format ?? 'text'
+    if (format === 'inspect' || format === 'source') {
+      const code = codeLines(output, part.language ?? 'elixir', theme)
+      if (index === 0) {
+        const [first, ...rest] = code
+        lines.push(`${icon(true, theme)} ${first?.trimStart() ?? ''}`, ...rest)
+      } else {
+        lines.push(...code)
+      }
+    } else if (format === 'error') {
+      lines.push(`${index === 0 ? icon(false, theme) + ' ' : ''}${theme.fg('error', output)}`)
+    } else {
+      const rendered = output.split('\n').map((line) => `  ${theme.fg('toolOutput', line)}`)
+      if (index === 0) {
+        const [first, ...rest] = rendered
+        lines.push(`${icon(true, theme)} ${first?.trimStart() ?? ''}`, ...rest)
+      } else {
+        lines.push(...rendered)
+      }
+    }
+  }
+  return renderLines(lines)
 }
 
 function parseIoResult(text: string): { io: string; result: string } | null {
@@ -331,6 +386,7 @@ interface ReplacementLine {
 interface AstReplacePayload {
   dry_run?: boolean
   replacements?: Array<{ file?: string; count?: number }>
+  diffs?: Array<{ file?: string; diff?: string; language?: string }>
   total?: number
 }
 
@@ -384,6 +440,14 @@ export function renderAstReplaceResult(
   }
   const more = hiddenLine(replacements.length - 20, theme)
   if (more) lines.push(more)
+
+  const diffs = payload.diffs ?? []
+  for (const diff of diffs.slice(0, 3)) {
+    if (!diff.diff) continue
+    lines.push('', `  ${theme.fg('muted', diff.file ?? '(diff)')}`)
+    lines.push(...codeLines(diff.diff, diff.language ?? 'diff', theme, 40))
+  }
+
   return renderLines(lines)
 }
 

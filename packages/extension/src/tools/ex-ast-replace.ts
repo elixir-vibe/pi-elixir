@@ -9,6 +9,7 @@ interface AstReplacePayload {
   kind?: string
   dry_run?: boolean
   replacements?: Array<{ file?: string; count?: number }>
+  diffs?: Array<{ file?: string; diff?: string }>
   total?: number
 }
 
@@ -60,6 +61,12 @@ Examples:
         description: 'Replacement template (use capture names from pattern)'
       }),
       path: Type.Optional(Type.String({ description: 'Path to replace in (default: lib/)' })),
+      inside: Type.Optional(Type.String({ description: 'Only replace inside this AST pattern' })),
+      notInside: Type.Optional(
+        Type.String({ description: 'Skip replacements inside this AST pattern' })
+      ),
+      allowBroad: Type.Optional(Type.Boolean({ description: 'Allow broad patterns such as _' })),
+      limit: Type.Optional(Type.Integer({ description: 'Maximum number of matches to replace' })),
       dryRun: Type.Optional(
         Type.Boolean({
           description: 'Preview changes without writing files (default: false)'

@@ -3,13 +3,18 @@ defmodule Pi.Protocol.Tool.Eval do
 
   use JSONCodec, fast_path: :json
 
-  defstruct kind: "eval", io: "", result: nil, error: nil, text: ""
+  alias Pi.Protocol.Tool.OutputPart
+  alias Pi.Protocol.UI.Display
+
+  defstruct kind: "eval", io: "", result: nil, error: nil, text: "", parts: [], display: nil
 
   @type t :: %__MODULE__{
           kind: String.t(),
           io: String.t(),
           result: String.t() | nil,
           error: String.t() | nil,
-          text: String.t()
+          text: String.t(),
+          parts: [OutputPart.t()],
+          display: Display.t() | nil
         }
 end

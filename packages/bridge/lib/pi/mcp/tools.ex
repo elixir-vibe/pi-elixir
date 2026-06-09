@@ -27,7 +27,14 @@ defmodule Pi.MCP.Tools do
   end
 
   def dispatch("ex_ast_search", %{"pattern" => pattern} = args) do
-    case Pi.AST.search(pattern, path: Map.get(args, "path")) do
+    case Pi.AST.search(pattern, ast_opts(args)) do
+      {:ok, payload} -> {:ok, encode_payload(payload)}
+      {:error, message} -> {:error, message}
+    end
+  end
+
+  def dispatch("ex_ast_search_many", %{"patterns" => patterns} = args) do
+    case Pi.AST.search_many(patterns, ast_opts(args)) do
       {:ok, payload} -> {:ok, encode_payload(payload)}
       {:error, message} -> {:error, message}
     end
@@ -36,7 +43,7 @@ defmodule Pi.MCP.Tools do
   def dispatch("ex_ast_replace", %{"pattern" => pattern, "replacement" => replacement} = args) do
     dry_run = Map.get(args, "dryRun", Map.get(args, "dry_run", false))
 
-    case Pi.AST.replace(pattern, replacement, path: Map.get(args, "path"), dry_run: dry_run) do
+    case Pi.AST.replace(pattern, replacement, Keyword.put(ast_opts(args), :dry_run, dry_run)) do
       {:ok, payload} -> {:ok, encode_payload(payload)}
       {:error, message} -> {:error, message}
     end
@@ -45,6 +52,7 @@ defmodule Pi.MCP.Tools do
   def dispatch("project_eval", _args), do: {:error, "Missing required parameter: code"}
   def dispatch("project_eval_structured", _args), do: {:error, "Missing required parameter: code"}
   def dispatch("ex_ast_search", _args), do: {:error, "Missing required parameter: pattern"}
+  def dispatch("ex_ast_search_many", _args), do: {:error, "Missing required parameter: patterns"}
 
   def dispatch("ex_ast_replace", _args),
     do: {:error, "Missing required parameters: pattern and replacement"}
@@ -60,6 +68,18 @@ defmodule Pi.MCP.Tools do
 
   defp sandbox_result({:error, :unavailable}), do: {:error, "Dune sandbox is not available"}
   defp sandbox_result({:error, message}), do: {:error, message}
+
+  defp ast_opts(args) do
+    []
+    |> maybe_put(:path, Map.get(args, "path"))
+    |> maybe_put(:inside, Map.get(args, "inside"))
+    |> maybe_put(:not_inside, Map.get(args, "notInside", Map.get(args, "not_inside")))
+    |> maybe_put(:allow_broad, Map.get(args, "allowBroad", Map.get(args, "allow_broad")))
+    |> maybe_put(:limit, Map.get(args, "limit"))
+  end
+
+  defp maybe_put(opts, _key, nil), do: opts
+  defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
   defp encode_payload(%module{} = payload) do
     payload

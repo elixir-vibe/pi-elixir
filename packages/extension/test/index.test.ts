@@ -93,11 +93,12 @@ describe('extension registration', () => {
     const { pi } = fakePi()
     extension(pi as any)
 
-    expect(pi.registerTool).toHaveBeenCalledTimes(4)
+    expect(pi.registerTool).toHaveBeenCalledTimes(5)
     expect(pi.registerTool.mock.calls.map(([tool]) => tool.name)).toEqual([
       'elixir_eval',
       'elixir_sandbox_eval',
       'elixir_ast_search',
+      'elixir_ast_search_many',
       'elixir_ast_replace'
     ])
   })
