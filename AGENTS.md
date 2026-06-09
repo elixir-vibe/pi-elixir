@@ -19,24 +19,19 @@ The current publish workflow publishes npm and Hex packages, but it does not cre
 
 ## Local dogfooding
 
-Use the local checkout instead of the last published npm package when developing `pi-elixir` with `pi-elixir` itself:
+For local development, start pi with the checkout extension directly:
 
 ```bash
-pnpm run dogfood:install
+pnpm dogfood
 ```
 
-Then run `/reload` in the current pi TUI, or restart pi.
+This bypasses package discovery and the last published npm package. Use it as the default way to develop `pi-elixir` with `pi-elixir` itself.
 
-For a discovery-free dogfood session that always loads the checkout directly:
-
-```bash
-pnpm run dogfood:pi
-```
-
-Quick explicit smoke:
+Optional helpers:
 
 ```bash
-pnpm run dogfood:smoke
+pnpm run dogfood:install # add this checkout to pi package settings
+pnpm run dogfood:smoke   # non-interactive version smoke; should print current pi_bridge version
 ```
 
 If BEAM status shows offline, call `elixir_eval` once and check for a version mismatch. A mismatch like “extension expects 0.5.x” means the current TUI is still running an old installed extension instance. If `dogfood:smoke` returns the current version but the TUI still says offline, investigate the status widget/startup path rather than the bridge itself.
