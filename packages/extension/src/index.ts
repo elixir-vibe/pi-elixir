@@ -417,22 +417,22 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded
   const children = sessionChildren(sessions)
 
   const lines: string[] = []
-  const render = (session: SessionSnapshot, depth: number) => {
+  const render = (session: SessionSnapshot, prefix = '', isLast = true, isRoot = false) => {
     const label = session.name || session.id || 'session'
     const effectiveStatus = aggregateStatus(session, children)
     const latest = sessionPreview(session)
     const status =
       session.status === 'failed' || session.status === 'cancelled' ? ` ${session.status}` : ''
-    const prefix = depth > 0 ? `${'  '.repeat(depth - 1)}  └─ ` : ''
+    const branch = isRoot ? '' : `${prefix}${isLast ? '└─ ' : '├─ '}`
+    const detailPrefix = isRoot ? '    ' : `${prefix}${isLast ? '   ' : '│  '}`
     lines.push(
-      `${prefix}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
+      `${branch}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
     )
 
     const summary = synthesis(session, children, theme)
-    if (summary) lines.push(`${prefix}${summary}`)
+    if (summary) lines.push(`${branch}${summary}`)
 
     if (expanded) {
-      const detailPrefix = depth > 0 ? `${'  '.repeat(depth - 1)}     ` : '    '
       const prompt = quotePreview(session.prompt)
       if (prompt) lines.push(`${detailPrefix}${theme.fg('muted', prompt)}`)
 
@@ -452,10 +452,13 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded
       if (trail) lines.push(`${detailPrefix}${theme.fg('muted', trail)}`)
     }
 
-    for (const child of children.get(session.id ?? '') ?? []) render(child, depth + 1)
+    const childSessions = children.get(session.id ?? '') ?? []
+    childSessions.forEach((child, index) => {
+      render(child, isRoot ? '  ' : detailPrefix, index === childSessions.length - 1)
+    })
   }
 
-  for (const root of roots.slice(0, 8)) render(root, 0)
+  roots.slice(0, 8).forEach((root) => render(root, '', true, true))
   if (sessions.length > 8) lines.push(theme.fg('muted', `… ${sessions.length - 8} more`))
   if (!expanded && sessions.length > 1)
     lines.push(theme.fg('muted', `  (${keyHint('app.tools.expand', 'to expand')})`))
