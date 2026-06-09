@@ -28,6 +28,8 @@ function relativePiBeamPath(cwd: string, beamPath: string): string {
 }
 
 function dependencyLine(cwd: string): string {
+  if (process.env.PI_BEAM_DEPENDENCY !== 'path') return '{:pi_bridge, "~> 0.1", only: :dev}'
+
   const beamPath = localPiBeamPath()
   if (!beamPath) return '{:pi_bridge, "~> 0.1", only: :dev}'
   return `{:pi_bridge, path: "${relativePiBeamPath(cwd, beamPath)}", only: :dev}`

@@ -34,12 +34,21 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Install Hex
+        run: mix local.hex --force
+
       - name: Install Elixir deps
         run: mix deps.get
         working-directory: packages/bridge
 
       - name: Strict checks
         run: pnpm run check
+
+      - name: Publish pi_bridge to Hex
+        run: mix hex.publish package --yes
+        working-directory: packages/bridge
+        env:
+          HEX_API_KEY: ${{ secrets.HEX_API_KEY }}
 
       - name: Publish to npm
         run: pnpm publish --access public --provenance --no-git-checks

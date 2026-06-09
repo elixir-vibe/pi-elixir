@@ -42,6 +42,9 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
+      - name: Install Hex
+        run: mix local.hex --force
+
       - name: Install Elixir deps
         run: mix deps.get
         working-directory: packages/bridge
