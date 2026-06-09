@@ -1,6 +1,6 @@
 {
   "name": "pi-elixir",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "description": "BEAM runtime tools for pi — connects to the running Elixir app for live introspection",
   "keywords": [
     "pi-package"

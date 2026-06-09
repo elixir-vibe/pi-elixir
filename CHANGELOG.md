@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.5.3 - 2026-06-09
+
+### Changed
+
+- Improved extension import readability with runtime-safe `#src/*` package import aliases.
+
 ## 0.5.2 - 2026-06-09
 
 ### Added

@@ -1,6 +1,6 @@
 {
   "name": "@pi-elixir/extension-internal",
-  "version": "0.5.2",
+  "version": "0.5.3",
   "private": true,
   "description": "Internal TypeScript extension workspace for pi-elixir",
   "license": "MIT",
