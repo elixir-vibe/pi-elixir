@@ -1,7 +1,7 @@
 defmodule Pi.Eval.Snapshot do
   @moduledoc "Sidecar representation for durable eval session state snapshots."
 
-  @version 1
+  @version 2
   @default_max_bytes 10 * 1_024 * 1_024
 
   @type t :: %{binding: Code.binding(), env: Macro.Env.t(), metadata: map()}
@@ -65,8 +65,14 @@ defmodule Pi.Eval.Snapshot do
 
   defp decode(binary) when is_binary(binary) do
     case :erlang.binary_to_term(binary, [:safe]) do
-      %{version: @version, binding: binding, env: %Macro.Env{} = env} = payload ->
-        {:ok, %{binding: binding, env: env, metadata: Map.get(payload, :metadata, %{})}}
+      %{version: @version, binding: binding, env: env_snapshot} = payload
+      when is_map(env_snapshot) ->
+        {:ok,
+         %{
+           binding: restore_binding(binding),
+           env: restore_env(env_snapshot),
+           metadata: Map.get(payload, :metadata, %{})
+         }}
 
       _other ->
         :error
@@ -78,8 +84,8 @@ defmodule Pi.Eval.Snapshot do
   defp payload(binding, env, dropped) do
     %{
       version: @version,
-      binding: binding,
-      env: env,
+      binding: snapshot_binding(binding),
+      env: snapshot_env(env),
       metadata: %{
         bridge_version: bridge_version(),
         elixir_version: System.version(),
@@ -153,6 +159,48 @@ defmodule Pi.Eval.Snapshot do
 
   defp max_bytes do
     Application.get_env(:pi_bridge, :eval_state_max_bytes, @default_max_bytes)
+  end
+
+  defp snapshot_binding(binding) do
+    Enum.map(binding, fn {name, value} -> {Atom.to_string(name), value} end)
+  end
+
+  defp restore_binding(binding) do
+    binding
+    |> Enum.map(fn {name, value} when is_binary(name) -> {existing_atom(name), value} end)
+    |> Enum.reject(fn {name, _value} -> is_nil(name) end)
+  end
+
+  defp snapshot_env(%Macro.Env{} = env) do
+    %{
+      aliases: snapshot_aliases(env.aliases),
+      macro_aliases: snapshot_aliases(env.macro_aliases)
+    }
+  end
+
+  defp restore_env(snapshot) when is_map(snapshot) do
+    struct(Code.env_for_eval([]), %{
+      aliases: restore_aliases(Map.get(snapshot, :aliases, [])),
+      macro_aliases: restore_aliases(Map.get(snapshot, :macro_aliases, []))
+    })
+  end
+
+  defp snapshot_aliases(aliases) do
+    Enum.map(aliases, fn {alias_name, module} -> {Atom.to_string(alias_name), module} end)
+  end
+
+  defp restore_aliases(aliases) do
+    aliases
+    |> Enum.map(fn {alias_name, module} when is_binary(alias_name) ->
+      {existing_atom(alias_name), module}
+    end)
+    |> Enum.reject(fn {alias_name, _module} -> is_nil(alias_name) end)
+  end
+
+  defp existing_atom(name) when is_binary(name) do
+    String.to_existing_atom(name)
+  rescue
+    _exception in [ArgumentError] -> nil
   end
 
   defp bridge_version do
