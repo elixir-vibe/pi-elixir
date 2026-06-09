@@ -3,7 +3,7 @@ defmodule Pi.Protocol.Tool.OutputPart do
 
   use JSONCodec, fast_path: :json
 
-  defstruct [:format, output: "", language: nil, truncation: nil]
+  defstruct [:format, output: "", language: nil, preview: nil, truncation: nil]
 
   @type format :: :text | :inspect | :markdown | :source | :error | :diff
   @type truncation :: :head | :tail | nil
@@ -12,6 +12,7 @@ defmodule Pi.Protocol.Tool.OutputPart do
           format: format(),
           output: String.t(),
           language: String.t() | nil,
+          preview: String.t() | nil,
           truncation: truncation()
         }
 

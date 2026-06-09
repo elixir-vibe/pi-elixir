@@ -11,6 +11,13 @@ defmodule Pi.Eval.Evaluator do
   alias Pi.Protocol.UI.Display
 
   @inspect_opts [charlists: :as_lists, limit: 50, pretty: true]
+  @preview_inspect_opts [
+    charlists: :as_lists,
+    limit: 20,
+    pretty: false,
+    printable_limit: 200,
+    width: 1_000_000
+  ]
   @control_key {Pi.Eval, :control}
   @binding_info_key {Pi.Eval, :binding_info}
   @session_id_key {Pi.Eval, :session_id}
@@ -163,11 +170,14 @@ defmodule Pi.Eval.Evaluator do
 
   defp structured_result(result, io, state, persist_meta) do
     inspected = inspect(result, @inspect_opts)
+    preview = inspect(result, @preview_inspect_opts)
 
     parts =
       []
       |> maybe_io_part(io)
-      |> Kernel.++([%OutputPart{format: :inspect, output: inspected, language: "elixir"}])
+      |> Kernel.++([
+        %OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}
+      ])
 
     text = if io == "", do: inspected, else: "IO:\n\n#{io}\n\nResult:\n\n#{inspected}"
 

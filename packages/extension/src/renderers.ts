@@ -6,7 +6,9 @@ import {
   type ToolRenderResultOptions,
   type Theme
 } from '@earendil-works/pi-coding-agent'
-import { Text } from '@earendil-works/pi-tui'
+import { Text, visibleWidth, type Component } from '@earendil-works/pi-tui'
+
+import { truncateLine } from './helpers.ts'
 
 function resultText(result: AgentToolResult<unknown>) {
   return result.content
@@ -27,8 +29,12 @@ function decodeInspectedString(text: string): string {
   }
 }
 
+function compactText(text: string): string {
+  return text.replace(/\s+/g, ' ').trim()
+}
+
 function oneLine(text: string, limit = 120): string {
-  const compact = text.replace(/\s+/g, ' ').trim()
+  const compact = compactText(text)
   return compact.length > limit ? compact.slice(0, limit - 1) + '…' : compact
 }
 
@@ -72,6 +78,30 @@ function expandHint(theme: Theme) {
   )
 }
 
+function inlineExpandHint(theme: Theme) {
+  return theme.fg('muted', ' (') + keyHint('app.tools.expand', 'to expand') + theme.fg('muted', ')')
+}
+
+function renderCompactLine(
+  prefix: string,
+  preview: string,
+  hidden: boolean,
+  theme: Theme
+): Component {
+  return {
+    render: (width) => {
+      if (!hidden) return [truncateLine(prefix + preview, width)]
+
+      const hint = inlineExpandHint(theme)
+      const reserve = visibleWidth(prefix) + visibleWidth(hint)
+      if (width > reserve + 4) return [prefix + truncateLine(preview, width - reserve) + hint]
+
+      return [truncateLine(prefix + preview, width)]
+    },
+    invalidate: () => undefined
+  }
+}
+
 function codeLines(text: string, language: string, theme: Theme, maxLines?: number): string[] {
   const highlighted = highlightCode(text, language)
   const shown = typeof maxLines === 'number' ? highlighted.slice(0, maxLines) : highlighted
@@ -106,6 +136,7 @@ interface OutputPart {
   format?: string
   output?: string
   language?: string | null
+  preview?: string | null
 }
 
 interface EvalPayload {
@@ -139,8 +170,15 @@ function renderErrorBlock(message: string, expanded: boolean, theme: Theme) {
 
 function renderEvalValue(value: string, expanded: boolean, theme: Theme) {
   if (!value) return renderLines([theme.fg('muted', '(no output)')])
-  if (!expanded)
-    return renderLines([`${icon(true, theme)} ${theme.fg('toolOutput', oneLine(value))}`])
+  if (!expanded) {
+    const hidden = value.includes('\n')
+    return renderCompactLine(
+      `${icon(true, theme)} `,
+      theme.fg('toolOutput', compactText(value)),
+      hidden,
+      theme
+    )
+  }
 
   const lines = codeLines(value, 'elixir', theme)
   const [firstLine, ...rest] = lines
@@ -151,11 +189,13 @@ function renderIoAndValue(io: string, value: string, expanded: boolean, theme: T
   const cleanIo = stripFinalNewline(io)
   const ioPreview = firstContentLine(cleanIo)
   if (!expanded) {
-    const suffix = value ? theme.fg('muted', `  ↳ ${oneLine(value, 60)}`) : ''
-    return renderLines([
-      `${icon(true, theme)} ${theme.fg('toolOutput', oneLine(ioPreview))}${suffix}`,
-      expandHint(theme)
-    ])
+    const suffix = value ? theme.fg('muted', ` ↳ ${compactText(value)}`) : ''
+    return renderCompactLine(
+      `${icon(true, theme)} `,
+      theme.fg('toolOutput', compactText(ioPreview)) + suffix,
+      true,
+      theme
+    )
   }
 
   return renderLines([
@@ -178,7 +218,13 @@ function renderStructuredEval(payload: EvalPayload, expanded: boolean, theme: Th
 }
 
 function partPreview(part: OutputPart) {
-  return firstContentLine(part.output ?? '')
+  return part.preview ?? compactText(part.output ?? '')
+}
+
+function partHasHiddenOutput(part: OutputPart) {
+  const output = part.output ?? ''
+  const preview = partPreview(part)
+  return output.includes('\n') || compactText(output) !== preview
 }
 
 function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
@@ -186,12 +232,15 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
   if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
 
   if (!expanded) {
-    const [first, second] = visibleParts
-    const suffix = second ? theme.fg('muted', `  ↳ ${oneLine(second.output ?? '', 60)}`) : ''
-    return renderLines([
-      `${icon(true, theme)} ${theme.fg('toolOutput', oneLine(partPreview(first)))}${suffix}`,
-      ...(visibleParts.length > 1 ? [expandHint(theme)] : [])
-    ])
+    const preview = visibleParts
+      .map((part, index) => {
+        const text = partPreview(part)
+        const styled = part.format === 'text' && index === 0 ? theme.fg('toolOutput', text) : text
+        return index === 0 ? styled : theme.fg('muted', ` ↳ ${text}`)
+      })
+      .join('')
+    const hidden = visibleParts.length > 1 || visibleParts.some(partHasHiddenOutput)
+    return renderCompactLine(`${icon(true, theme)} `, preview, hidden, theme)
   }
 
   const lines: string[] = []

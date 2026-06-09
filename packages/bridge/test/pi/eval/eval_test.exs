@@ -25,4 +25,15 @@ raise "boom"|)
     assert message =~ "IO:\n\nbefore\n"
     assert message =~ "Error:\n\n** (RuntimeError) boom"
   end
+
+  test "structured eval includes compact inspect previews" do
+    assert {:ok, payload} = Eval.run_structured("%{bridge: \"0.6.0\", app: :pi_bridge}")
+
+    assert [%Pi.Protocol.Tool.OutputPart{format: :inspect, output: output, preview: preview}] =
+             payload.parts
+
+    assert output =~ "bridge: \"0.6.0\""
+    assert preview == "%{bridge: \"0.6.0\", app: :pi_bridge}"
+    refute preview =~ "\n"
+  end
 end

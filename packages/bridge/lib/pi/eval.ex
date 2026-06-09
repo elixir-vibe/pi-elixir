@@ -9,6 +9,13 @@ defmodule Pi.Eval do
   alias Pi.Protocol.UI.Display
 
   @inspect_opts [charlists: :as_lists, limit: 50, pretty: true]
+  @preview_inspect_opts [
+    charlists: :as_lists,
+    limit: 20,
+    pretty: false,
+    printable_limit: 200,
+    width: 1_000_000
+  ]
 
   def sandbox(code, opts \\ []) when is_binary(code), do: Sandbox.eval(code, opts)
 
@@ -164,11 +171,14 @@ defmodule Pi.Eval do
 
   defp structured_eval_result(result, true, io, {:ok, text}) do
     inspected = inspect(result, @inspect_opts)
+    preview = inspect(result, @preview_inspect_opts)
 
     parts =
       []
       |> maybe_io_part(io)
-      |> Kernel.++([%OutputPart{format: :inspect, output: inspected, language: "elixir"}])
+      |> Kernel.++([
+        %OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}
+      ])
 
     {:ok,
      %EvalPayload{io: io, result: inspected, text: text, parts: parts, display: display(parts)}}
