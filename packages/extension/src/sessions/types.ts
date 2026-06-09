@@ -7,6 +7,12 @@ export interface StatusContext extends ExtensionContext {
   }
 }
 
+export interface SessionEventSnapshot {
+  type?: string
+  at?: string | null
+  data?: unknown
+}
+
 export interface SessionSnapshot {
   id?: string
   parentId?: string | null
@@ -21,5 +27,5 @@ export interface SessionSnapshot {
   updatedAt?: string | null
   durationMs?: number | null
   messageCount?: number
-  events?: Array<{ type?: string; at?: string | null }>
+  events?: SessionEventSnapshot[]
 }
