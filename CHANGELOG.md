@@ -2,6 +2,23 @@
 
 ## Unreleased
 
+## 0.5.2 - 2026-06-09
+
+### Added
+
+- BEAM `llm_stream` routing through pi's active model with `llm_chunk`, `llm_done`, and `llm_error` delivery.
+- Version alignment enforcement between the npm extension and installed `pi_bridge`; mismatches now tell users exactly which Mix dependency to install.
+- Hex package build validation in the strict release gate.
+
+### Changed
+
+- Pi BEAM install prompts now prefer exact Hex dependencies like `{:pi_bridge, "== 0.5.2", only: :dev}` instead of leaking local checkout paths.
+- BEAM session trees are width-aware and parallel child sessions use meaningful child labels.
+
+### Fixed
+
+- `pi_bridge` startup info now reports the bridge application version rather than the consuming Mix project version.
+
 ## 0.5.1 - 2026-06-09
 
 ### Added
