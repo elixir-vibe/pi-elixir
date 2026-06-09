@@ -51,7 +51,8 @@ function fakePi() {
       getSessionName: vi.fn(() => undefined),
       getActiveTools: vi.fn(() => []),
       appendEntry: vi.fn(),
-      sendMessage: vi.fn()
+      sendMessage: vi.fn(),
+      exec: vi.fn()
     },
     handlers
   }
@@ -101,6 +102,15 @@ describe('extension registration', () => {
       'elixir_ast_search',
       'elixir_ast_replace'
     ])
+  })
+
+  it('registers dogfood and debug slash commands', () => {
+    const { pi } = fakePi()
+    extension(pi as any)
+
+    expect(pi.registerCommand.mock.calls.map(([name]) => name)).toEqual(
+      expect.arrayContaining(['elixir:debug', 'elixir:dogfood'])
+    )
   })
 })
 

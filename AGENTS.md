@@ -27,6 +27,14 @@ pnpm dogfood
 
 This bypasses package discovery and the last published npm package. Use it as the default way to develop `pi-elixir` with `pi-elixir` itself.
 
+If you are already inside pi with a new-enough `pi-elixir` extension loaded, run:
+
+```text
+/elixir:dogfood
+```
+
+That installs the current checkout with `pi install .` and reloads pi.
+
 Optional helpers:
 
 ```bash

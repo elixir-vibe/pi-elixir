@@ -1,3 +1,6 @@
+import { readFile } from 'node:fs/promises'
+import { join } from 'node:path'
+
 import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent'
 
 import { registerBridgeCommands } from './bridge/plugin-commands.ts'
@@ -75,6 +78,42 @@ export default function (pi: ExtensionAPI) {
         const beamCwd = resolveElixirCwd(ctx.cwd)
         const file = await writeDiagnosticDump('manual_debug', { cwd: beamCwd ?? ctx.cwd })
         ctx.ui.notify(`pi-elixir debug snapshot written:\n${file}`, 'info')
+      }
+    })
+  }
+
+  if (!registeredCommands.has('elixir:dogfood')) {
+    registeredCommands.add('elixir:dogfood')
+    pi.registerCommand('elixir:dogfood', {
+      description: 'Install this checkout as the active pi-elixir package and reload pi',
+      handler: async (_args, ctx) => {
+        let packageJson: { name?: string }
+        try {
+          packageJson = JSON.parse(await readFile(join(ctx.cwd, 'package.json'), 'utf8')) as {
+            name?: string
+          }
+        } catch {
+          ctx.ui.notify('/elixir:dogfood must be run from the pi-elixir repository root', 'error')
+          return
+        }
+        if (packageJson.name !== 'pi-elixir') {
+          ctx.ui.notify('/elixir:dogfood must be run from the pi-elixir repository root', 'error')
+          return
+        }
+
+        ctx.ui.notify('Installing local pi-elixir checkout...', 'info')
+        const result = await pi.exec('pi', ['install', '.'], { cwd: ctx.cwd, timeout: 120_000 })
+        if (result.code !== 0) {
+          const output = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n')
+          ctx.ui.notify(
+            `pi-elixir dogfood install failed:\n${output || `exit ${result.code}`}`,
+            'error'
+          )
+          return
+        }
+
+        ctx.ui.notify('Local pi-elixir installed. Reloading pi...', 'info')
+        await ctx.reload()
       }
     })
   }
