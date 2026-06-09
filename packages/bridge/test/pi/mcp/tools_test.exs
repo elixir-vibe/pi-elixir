@@ -11,6 +11,12 @@ defmodule Pi.MCP.ToolsTest do
                Jason.decode!(json)
     end
 
+    test "keeps inspected boolean results as strings" do
+      assert {:ok, json} = Tools.dispatch("project_eval_structured", %{"code" => "true"})
+
+      assert %{"kind" => "eval", "result" => "true", "text" => "true"} = Jason.decode!(json)
+    end
+
     test "returns structured IO and result payload" do
       assert {:ok, json} =
                Tools.dispatch("project_eval_structured", %{
