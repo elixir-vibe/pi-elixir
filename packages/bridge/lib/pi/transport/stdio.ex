@@ -236,9 +236,9 @@ defmodule Pi.Transport.Stdio do
 
   defp to_payload(%PluginHookResponse{} = response) do
     response
-    |> Map.from_struct()
+    |> JSONCodec.dump()
     |> Enum.reject(fn {_key, value} -> is_nil(value) end)
-    |> Map.new(fn {key, value} -> {to_string(key), value} end)
+    |> Map.new()
   end
 
   defp to_payload(%_module{} = struct), do: JSONCodec.dump(struct)

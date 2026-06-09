@@ -27,8 +27,8 @@ defmodule Pi.MCP.JSONRPC do
 
   def empty(id), do: {:ok, response(id, %{})}
 
-  def to_map(%Error{} = error), do: Error.to_map(error)
-  def to_map(%Response{} = response), do: response_to_map(response)
+  def to_map(%Error{} = error), do: JSONCodec.dump(error)
+  def to_map(%Response{} = response), do: response |> JSONCodec.dump() |> drop_nil_fields()
 
   defp handle_request(%Request{method: "tools/call", id: id, params: params}) do
     name = params["name"]
@@ -48,19 +48,12 @@ defmodule Pi.MCP.JSONRPC do
   defp response(id, result), do: %Response{jsonrpc: "2.0", id: id, result: result}
   defp text_content(text), do: %Content{type: "text", text: text}
 
-  defp response_to_map(%Response{result: %Result{} = result} = response) do
-    response
-    |> Response.to_map()
-    |> Map.put("result", result_to_map(result))
+  defp drop_nil_fields(map) when is_map(map) do
+    map
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new(fn {key, value} -> {key, drop_nil_fields(value)} end)
   end
 
-  defp response_to_map(%Response{} = response), do: Response.to_map(response)
-
-  defp result_to_map(%Result{content: content, is_error: is_error}) do
-    %{"content" => Enum.map(content, &Content.to_map/1)}
-    |> maybe_put_is_error(is_error)
-  end
-
-  defp maybe_put_is_error(map, nil), do: map
-  defp maybe_put_is_error(map, is_error), do: Map.put(map, "isError", is_error)
+  defp drop_nil_fields(values) when is_list(values), do: Enum.map(values, &drop_nil_fields/1)
+  defp drop_nil_fields(value), do: value
 end
