@@ -1,6 +1,11 @@
 defmodule Pi.AST do
   @moduledoc "Structured ExAST helpers for bridge tools."
 
+  alias Pi.Protocol.Tool.AST.Match
+  alias Pi.Protocol.Tool.AST.Replace
+  alias Pi.Protocol.Tool.AST.Replacement
+  alias Pi.Protocol.Tool.AST.Search
+
   @missing_ex_ast "ex_ast is not installed. Add {:ex_ast, \"~> 0.1\", only: [:dev, :test], runtime: false} to mix.exs"
 
   def search(pattern, opts \\ []) when is_binary(pattern) do
@@ -12,7 +17,7 @@ defmodule Pi.AST do
         paths
         |> ExAST.search(pattern)
         |> Enum.map(fn %{file: file, line: line, source: source, captures: captures} ->
-          %{
+          %Match{
             file: file,
             line: line,
             source: source,
@@ -20,14 +25,7 @@ defmodule Pi.AST do
           }
         end)
 
-      {:ok,
-       %{
-         kind: "ast_search",
-         pattern: pattern,
-         path: path,
-         matches: matches,
-         total: length(matches)
-       }}
+      {:ok, %Search{pattern: pattern, path: path, matches: matches, total: length(matches)}}
     end
   end
 
@@ -41,13 +39,12 @@ defmodule Pi.AST do
         path
         |> paths()
         |> ExAST.replace(pattern, replacement, dry_run: dry_run)
-        |> Enum.map(fn {file, count} -> %{file: file, count: count} end)
+        |> Enum.map(fn {file, count} -> %Replacement{file: file, count: count} end)
 
-      total = Enum.reduce(replacements, 0, fn %{count: count}, acc -> acc + count end)
+      total = Enum.reduce(replacements, 0, fn %Replacement{count: count}, acc -> acc + count end)
 
       {:ok,
-       %{
-         kind: "ast_replace",
+       %Replace{
          dry_run: dry_run,
          pattern: pattern,
          replacement: replacement,

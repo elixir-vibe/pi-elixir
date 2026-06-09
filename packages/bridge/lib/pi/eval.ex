@@ -3,6 +3,7 @@ defmodule Pi.Eval do
 
   alias Pi.Bridge.Info
   alias Pi.Eval.Sandbox
+  alias Pi.Protocol.Tool.Eval, as: EvalPayload
 
   @inspect_opts [charlists: :as_lists, limit: 50, pretty: true]
 
@@ -95,15 +96,15 @@ defmodule Pi.Eval do
   end
 
   defp structured_eval_result(:"do not show this result in output", true, io, {:ok, text}) do
-    {:ok, %{kind: "eval", io: io, result: nil, text: text}}
+    {:ok, %EvalPayload{io: io, result: nil, text: text}}
   end
 
   defp structured_eval_result(result, true, io, {:ok, text}) do
-    {:ok, %{kind: "eval", io: io, result: inspect(result, @inspect_opts), text: text}}
+    {:ok, %EvalPayload{io: io, result: inspect(result, @inspect_opts), text: text}}
   end
 
   defp structured_eval_result(_result, false, io, {:error, text}) do
-    {:error, %{kind: "eval", io: io, error: text, text: text}}
+    {:error, %EvalPayload{io: io, error: text, text: text}}
   end
 
   defp env do
