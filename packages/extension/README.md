@@ -85,6 +85,8 @@ Override the snapshot path with:
 export PI_ELIXIR_DEBUG_LOG=/tmp/pi-elixir-debug.json
 ```
 
+Snapshots include the recent in-memory diagnostic ring, active turns, active diagnostic spans, lifecycle hook timings, connection resolution phases, embedded BEAM startup/ready/error/exit details, tool/plugin hook timings, bridge request handler timings, and executable skill discovery/materialization timings. Values are compacted by default; `PI_ELIXIR_DEBUG=verbose` keeps fuller diagnostic values.
+
 ## Executable Elixir skills
 
 Projects can add trusted executable skills under `priv/skills`, `.pi/skills`, or `skills` using `*.skill.exs` or `skill.exs`. The BEAM loader compiles those files in the project runtime and the JS extension materializes them as temporary pi `SKILL.md` resources via `resources_discover`.

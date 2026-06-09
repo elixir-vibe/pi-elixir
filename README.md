@@ -57,6 +57,25 @@ export PI_MCP_URL=http://localhost:4001/mcp
 export PI_DISABLE_EMBEDDED=1
 ```
 
+## Debugging
+
+`pi-elixir` follows pi core's snapshot-first debugging style. Run this hidden slash command from pi to write the current in-memory extension diagnostics:
+
+```text
+/elixir:debug
+```
+
+The snapshot is written to `~/.pi/agent/pi-elixir-debug.log` by default. For responsiveness investigations, enable automatic snapshots when event-loop lag is detected during an active turn:
+
+```sh
+export PI_ELIXIR_DEBUG=1
+# or: export PI_ELIXIR_DEBUG=debug
+# or: export PI_ELIXIR_DEBUG=verbose
+export PI_ELIXIR_DEBUG_LOG=/tmp/pi-elixir-debug.json
+```
+
+Snapshots include recent lifecycle events, active turns, active diagnostic spans, hook timings, connection resolution phases, embedded BEAM startup/ready/error/exit details, bridge request timings, tool/plugin hook timings, and executable skill discovery timings. Values are compacted unless `PI_ELIXIR_DEBUG=verbose` is set.
+
 ## What is exposed to the model
 
 The model-facing surface stays intentionally small:
