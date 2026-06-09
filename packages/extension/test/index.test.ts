@@ -274,6 +274,41 @@ describe('extension status lifecycle', () => {
     )
   })
 
+  it('truncates both model text and structured eval details for long output', async () => {
+    const projectA = makeProject('project-a')
+    const long = `${'x'.repeat(60 * 1024)}`
+    vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({
+        kind: 'eval',
+        text: long,
+        result: long,
+        parts: [{ format: 'inspect', output: long, preview: '"xxx…"' }]
+      }),
+      isError: false
+    })
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+    const ctx = fakeCtx(projectA)
+
+    const result = await tool.execute(
+      'tool-1',
+      { code: 'String.duplicate("x", 60000)' },
+      undefined,
+      undefined,
+      ctx
+    )
+
+    expect(result.content[0].text).toContain('[Truncated:')
+    expect(result.details.eval.result).toContain('[Truncated:')
+    expect(result.details.eval.parts[0].output).toContain('[Truncated:')
+    expect(result.details.eval.parts[0].preview).toBe('"xxx…"')
+  })
+
   it('does not attach sidecar eval state refs to sandbox eval', async () => {
     const projectA = makeProject('project-a')
     vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })

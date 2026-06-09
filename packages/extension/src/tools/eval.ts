@@ -8,7 +8,8 @@ import {
   formatSize,
   DEFAULT_MAX_BYTES,
   displaySingleLine,
-  renderSingleLine
+  renderSingleLine,
+  truncated
 } from '#src/helpers.ts'
 import type { ToolArgs } from '#src/protocol/types.ts'
 import { renderElixirResult } from '#src/renderers.ts'
@@ -21,6 +22,12 @@ interface EvalPayload {
   result?: string | null
   error?: string
   text?: string
+  parts?: Array<{
+    format?: string
+    output?: string
+    language?: string | null
+    preview?: string | null
+  }>
 }
 
 interface SessionEntryLike {
@@ -45,9 +52,24 @@ function parseEvalPayload(text: string): EvalPayload | null {
   }
 }
 
+function truncateOutputPart(part: NonNullable<EvalPayload['parts']>[number]) {
+  return typeof part.output === 'string' ? { ...part, output: truncated(part.output) } : part
+}
+
+function truncateEvalPayload(payload: EvalPayload): EvalPayload {
+  return {
+    ...payload,
+    ...(typeof payload.io === 'string' ? { io: truncated(payload.io) } : {}),
+    ...(typeof payload.result === 'string' ? { result: truncated(payload.result) } : {}),
+    ...(typeof payload.error === 'string' ? { error: truncated(payload.error) } : {}),
+    ...(typeof payload.text === 'string' ? { text: truncated(payload.text) } : {}),
+    ...(payload.parts ? { parts: payload.parts.map(truncateOutputPart) } : {})
+  }
+}
+
 function evalDetails(text: string) {
   const payload = parseEvalPayload(text)
-  return payload?.kind === 'eval' ? { eval: payload } : {}
+  return payload?.kind === 'eval' ? { eval: truncateEvalPayload(payload) } : {}
 }
 
 function evalText(text: string) {

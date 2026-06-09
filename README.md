@@ -9,10 +9,12 @@ This follows the broader [Vibe](https://github.com/elixir-vibe/vibe) direction: 
 Real pi TUI output looks like this — compact tool calls, real BEAM status, and session trees rendered in the transcript/widget:
 
 ```text
- iex case Pi.Agent.parallel(["Reply only: child A ok", "Reply only: child B ok"], name: :review_smoke, timeout: 60000) d…
- (70000ms)
- ✓ %{status: :ok, kind: :parallel, results: ["child A ok", "child B ok"]}
+iex case Pi.Agent.parallel(["Reply only: child A ok", "Reply only: child B ok"], name: :review_smoke, timeout: 60000) d…
+(70000ms)
 
+%{status: :ok, kind: :parallel, results: ["child A ok", "child B ok"]}
+
+Took 6.8s
 
 ✓ review_smoke
   2 done
@@ -48,15 +50,21 @@ The philosophy is the same as Vibe: compact agent APIs, structured BEAM payloads
 The agent uses `iex` (`elixir_eval`) to inspect the live BEAM. Calls render as compact pi tool rows, not giant JSON blobs:
 
 ```text
- iex alias MyApp.Repo; alias MyApp.Billing.Invoice; stale = Repo.all(...); length(stale)
- ✓ 14
+iex alias MyApp.Repo; alias MyApp.Billing.Invoice; stale = Repo.all(...); length(stale)
+
+14
+
+Took 0.1s
 ```
 
 The next eval continues from the same IEx-like state:
 
 ```text
- iex stale |> Enum.group_by(& &1.customer_id) |> Enum.map(fn {id, xs} -> {id, length(xs)} end)
- ✓ [{"cust_123", 5}, {"cust_456", 9}]
+iex stale |> Enum.group_by(& &1.customer_id) |> Enum.map(fn {id, xs} -> {id, length(xs)} end)
+
+[{"cust_123", 5}, {"cust_456", 9}]
+
+Took 0.1s
 ```
 
 That continuity is real state, not prompt memory. On resume/branch navigation, `pi-elixir` restores the newest matching sidecar eval snapshot.
@@ -66,11 +74,14 @@ That continuity is real state, not prompt memory. On resume/branch navigation, `
 The agent can ask the live system about supervisors, queues, process state, ETS, logs, and application config:
 
 ```text
- iex Supervisor.which_children(MyApp.Supervisor)
- ✓ [
-   {MyApp.Repo, #PID<0.421.0>, :worker, [MyApp.Repo]},
-   {MyAppWeb.Endpoint, #PID<0.422.0>, :supervisor, [MyAppWeb.Endpoint]}
- ]
+iex Supervisor.which_children(MyApp.Supervisor)
+
+[
+  {MyApp.Repo, #PID<0.421.0>, :worker, [MyApp.Repo]},
+  {MyAppWeb.Endpoint, #PID<0.422.0>, :supervisor, [MyAppWeb.Endpoint]}
+]
+
+Took 0.1s
 ```
 
 For Elixir bugs, this is the daily win: pi does not have to infer runtime truth from files alone.
@@ -82,18 +93,19 @@ ExAST-backed tools show pi-style compact calls and semantic results. The agent c
 Real captured `ast grep` output:
 
 ```text
- ast grep defmodule _ do _ end lib/pi/ast.ex · limit 2 · allow broad
- ✓ 1 match  defmodule _ do _ end
-   lib/pi/ast.ex:1  defmodule Pi.AST do @moduledoc "Structured ExAST helpers
- for bridge tools." ali…
-   (ctrl+o to expand)
+ast grep defmodule _ do _ end lib/pi/ast.ex · limit 2 · allow broad
+
+1 match  defmodule _ do _ end
+  lib/pi/ast.ex:1  defmodule Pi.AST do @moduledoc "Structured ExAST helpers for bridge tools." ali…
+  (ctrl+o to expand)
 ```
 
 Real captured `ast edit` dry-run/no-match output:
 
 ```text
- ast edit Logger.debug(_) → Logger.info(_) lib/pi/eval/snapshot.ex · limit 2 ·…
- ✓ No matches found.
+ast edit Logger.debug(_) → Logger.info(_) lib/pi/eval/snapshot.ex · limit 2 ·…
+
+No matches found.
 ```
 
 The structure is Elixir AST. Captures, partial structs/maps, nested expressions, and broad-pattern guards are handled by ExAST, not a regex pretending to know Elixir. When a replacement matches, the same tool row renders semantic replacement counts and diff blocks in the expandable details.
@@ -103,9 +115,11 @@ The structure is Elixir AST. Captures, partial structs/maps, nested expressions,
 BEAM sessions render as real pi session trees. This is captured from tmux; names/strings are sanitized only:
 
 ```text
- iex {:ok, root} = Pi.Session.start(name: :showcase); ...; :ok
- ✓ :ok
+iex {:ok, root} = Pi.Session.start(name: :showcase); ...; :ok
 
+:ok
+
+Took 0.1s
 
 ○ showcase
   3 done
@@ -122,10 +136,12 @@ BEAM sessions render as real pi session trees. This is captured from tmux; names
 For real model-backed BEAM agents, the transcript shape is the same:
 
 ```text
- iex case Pi.Agent.parallel(["Review API", "Review tests"], name: :review_smoke, timeout: 60000) d…
- (70000ms)
- ✓ %{status: :ok, kind: :parallel, results: ["API ok", "tests ok"]}
+iex case Pi.Agent.parallel(["Review API", "Review tests"], name: :review_smoke, timeout: 60000) d…
+(70000ms)
 
+%{status: :ok, kind: :parallel, results: ["API ok", "tests ok"]}
+
+Took 6.8s
 
 ✓ review_smoke
   2 done
@@ -240,7 +256,7 @@ pi install npm:pi-elixir
 When a Mix project needs embedded runtime access, pi asks before adding the exact dev-only Hex dependency:
 
 ```elixir
-{:pi_bridge, "== 0.5.4", only: :dev}
+{:pi_bridge, "== 0.6.0", only: :dev}
 ```
 
 The exact version matters: npm `pi-elixir` and Hex `pi_bridge` are released together and must speak the same protocol.
