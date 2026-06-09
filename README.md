@@ -40,7 +40,13 @@ pi install "$PWD"
 
 `pi list` should then show a package path ending in `pi-elixir`.
 
-When the embedded BEAM side is needed and the target project lacks `:pi_bridge`, pi asks before editing `mix.exs` or running `mix deps.get`.
+When the embedded BEAM side is needed and the target project lacks `:pi_bridge`, pi asks before editing `mix.exs` or running `mix deps.get`. The dependency is intentionally exact-versioned so the npm extension and Hex bridge speak the same protocol:
+
+```elixir
+{:pi_bridge, "== 0.5.3", only: :dev}
+```
+
+If an existing project has an older `pi_bridge`, the extension refuses the embedded connection and tells you which exact version to install.
 
 ## Connection model
 

@@ -4,6 +4,9 @@ import type { Component } from '@earendil-works/pi-tui'
 
 import type { SessionSnapshot } from './types.ts'
 
+const COMPACT_MAX_LINES = 12
+const EXPANDED_MAX_LINES = 28
+
 function compact(text: string | null | undefined, limit = 72) {
   const value = (text ?? '').replace(/\s+/g, ' ').trim()
   return value.length > limit ? value.slice(0, limit - 1) + '…' : value
@@ -239,6 +242,27 @@ function sessionDetailLines(session: SessionSnapshot, latest: string, theme: The
   return lines
 }
 
+function applyLineBudget(
+  lines: string[],
+  theme: Theme,
+  expanded: boolean,
+  showExpandHint: boolean
+) {
+  const maxLines = expanded ? EXPANDED_MAX_LINES : COMPACT_MAX_LINES
+  const reserved = showExpandHint ? 1 : 0
+  if (lines.length <= maxLines - reserved) {
+    return showExpandHint ? [...lines, theme.fg('muted', `  (${expansionHint()})`)] : lines
+  }
+
+  const available = Math.max(1, maxLines - reserved - 1)
+  const visible = lines.slice(0, available)
+  const hidden = lines.length - visible.length
+
+  visible.push(theme.fg('muted', `… ${hidden} hidden`))
+  if (showExpandHint) visible.push(theme.fg('muted', `  (${expansionHint()})`))
+  return visible
+}
+
 function sessionWidgetLines(sessions: SessionSnapshot[], theme: Theme, expanded = false) {
   const roots = sessions.filter((session) => !session.parentId)
   const children = sessionChildren(sessions)
@@ -262,10 +286,8 @@ function sessionWidgetLines(sessions: SessionSnapshot[], theme: Theme, expanded 
     })
   }
 
-  roots.slice(0, 8).forEach((root) => render(root, '', true, true))
-  if (sessions.length > 8) lines.push(theme.fg('muted', `… ${sessions.length - 8} more`))
-  if (!expanded && sessions.length > 1) lines.push(theme.fg('muted', `  (${expansionHint()})`))
-  return lines
+  roots.forEach((root, index) => render(root, '', index === roots.length - 1, true))
+  return applyLineBudget(lines, theme, expanded, !expanded && sessions.length > 1)
 }
 
 export function renderSessionWidget(

@@ -102,6 +102,43 @@ describe('BEAM session renderer', () => {
      started → llm · 1.2s`)
   })
 
+  it('limits compact session trees and reports hidden lines', () => {
+    const many: SessionSnapshot[] = [
+      { id: 'root', name: 'many', status: 'idle' },
+      ...Array.from({ length: 20 }, (_, index) => ({
+        id: `child-${index}`,
+        parentId: 'root',
+        name: `child-${index}`,
+        status: 'done' as const,
+        response: `done ${index}`
+      }))
+    ]
+
+    const lines = textOf(renderSessionWidget(many, theme, false)).split('\n')
+
+    expect(lines).toHaveLength(12)
+    expect(lines.at(-2)).toMatch(/^… \d+ hidden$/)
+    expect(lines.at(-1)).toBe('  (expand for details)')
+  })
+
+  it('limits expanded session trees and reports hidden lines', () => {
+    const many: SessionSnapshot[] = [
+      { id: 'root', name: 'many expanded', status: 'idle' },
+      ...Array.from({ length: 40 }, (_, index) => ({
+        id: `child-${index}`,
+        parentId: 'root',
+        name: `child-${index}`,
+        status: 'done' as const,
+        response: `done ${index}`
+      }))
+    ]
+
+    const lines = textOf(renderSessionWidget(many, theme, true)).split('\n')
+
+    expect(lines).toHaveLength(28)
+    expect(lines.at(-1)).toMatch(/^… \d+ hidden$/)
+  })
+
   it('truncates to render width', () => {
     const text = textOf(
       renderSessionWidget(

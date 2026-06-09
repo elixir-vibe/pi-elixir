@@ -739,6 +739,39 @@ describe('onStatusChange', () => {
     unsubscribe()
   })
 
+  it('reports incompatible pi_bridge versions instead of marking embedded ready', async () => {
+    const cb = vi.fn()
+    const unsubscribe = onStatusChange(cb)
+
+    vi.mocked(fetch).mockRejectedValue(new Error('connection refused'))
+    vi.mocked(fs.readFileSync).mockImplementation(() => {
+      throw new Error('ENOENT')
+    })
+
+    const fakeProc = new EventEmitter() as childProcess.ChildProcess
+    fakeProc.stdout = new EventEmitter() as any
+    fakeProc.stderr = new EventEmitter() as any
+    fakeProc.kill = vi.fn()
+    fakeProc.pid = 24680
+    vi.mocked(childProcess.spawn).mockReturnValue(fakeProc)
+
+    await resolveUrl('/old-bridge-project')
+    ;(fakeProc.stdout as EventEmitter).emit(
+      'data',
+      Buffer.from(
+        JSON.stringify({
+          type: 'ready',
+          info: { project: 'old_app', version: '0.5.2', transport: 'stdio' }
+        }) + '\n'
+      )
+    )
+
+    expect(getConnectionKind('/old-bridge-project')).toBe('incompatible')
+    expect(cb).toHaveBeenCalledWith('/old-bridge-project', 'incompatible')
+    expect(fakeProc.kill).toHaveBeenCalled()
+    unsubscribe()
+  })
+
   it('notifies multiple subscribers and supports unsubscribe', async () => {
     const first = vi.fn()
     const second = vi.fn()

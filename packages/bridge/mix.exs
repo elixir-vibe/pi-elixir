@@ -11,6 +11,12 @@ defmodule PiBridge.MixProject do
       package: package(),
       source_url: "https://github.com/dannote/pi-elixir",
       docs: [main: "readme", extras: ["README.md", "docs/protocol.md"]],
+      elixirc_options: [
+        no_warn_undefined: [
+          {Dune, :eval_string, 2},
+          {ReqLLM.Providers, :register, 1}
+        ]
+      ],
       aliases: aliases(),
       dialyzer: [
         plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
