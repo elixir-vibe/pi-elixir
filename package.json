@@ -6,6 +6,7 @@
     "pi-package"
   ],
   "license": "MIT",
+  "type": "module",
   "repository": {
     "type": "git",
     "url": "https://github.com/dannote/pi-elixir"
@@ -37,7 +38,7 @@
     "check:js": "pnpm --dir packages/extension run check",
     "check:beam": "cd packages/bridge && mix ci",
     "ci": "pnpm run check",
-    "pack:check": "npm pack --dry-run"
+    "pack:check": "node scripts/check-pack.ts && pnpm pack --dry-run --json"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "*",
@@ -45,6 +46,7 @@
     "typebox": "*"
   },
   "devDependencies": {
+    "@pnpm/fs.packlist": "^1100.0.1",
     "@types/node": "^25.0.0",
     "jscpd": "^4.0.5",
     "oxfmt": "^0.35.0",

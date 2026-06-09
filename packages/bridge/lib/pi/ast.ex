@@ -18,7 +18,7 @@ defmodule Pi.AST do
 
       matches =
         paths
-        |> ExAST.search(pattern, search_opts(opts))
+        |> ex_ast_search(pattern, search_opts(opts))
         |> Enum.map(&match_payload/1)
 
       {:ok,
@@ -41,7 +41,7 @@ defmodule Pi.AST do
         patterns
         |> Enum.flat_map(fn {name, pattern} ->
           paths
-          |> ExAST.search(pattern, search_opts(opts))
+          |> ex_ast_search(pattern, search_opts(opts))
           |> Enum.map(&Map.put(&1, :pattern, to_string(name)))
         end)
         |> maybe_limit(Keyword.get(opts, :limit))
@@ -70,7 +70,7 @@ defmodule Pi.AST do
 
       replacements =
         paths
-        |> ExAST.replace(pattern, replacement, opts)
+        |> ex_ast_replace(pattern, replacement, opts)
         |> Enum.map(fn {file, count} -> %Replacement{file: file, count: count} end)
 
       total = Enum.reduce(replacements, 0, fn %Replacement{count: count}, acc -> acc + count end)
@@ -157,7 +157,7 @@ defmodule Pi.AST do
     |> Enum.flat_map(&resolve_paths/1)
     |> Enum.flat_map(fn file ->
       source = File.read!(file)
-      replaced = ExAST.Patcher.replace_all(source, pattern, replacement, opts)
+      replaced = ex_ast_replace_all(source, pattern, replacement, opts)
 
       if source == replaced do
         []
@@ -179,22 +179,27 @@ defmodule Pi.AST do
     end
   end
 
-  defp diff_lines(old_lines, new_lines) do
-    max = max(length(old_lines), length(new_lines))
+  defp diff_lines(old_lines, new_lines), do: diff_lines(old_lines, new_lines, [])
 
-    0..(max - 1)
-    |> Enum.flat_map(fn index ->
-      old_line = Enum.at(old_lines, index)
-      new_line = Enum.at(new_lines, index)
+  defp diff_lines([], [], acc), do: acc |> Enum.reverse() |> List.flatten()
 
-      cond do
-        old_line == new_line -> if is_nil(old_line), do: [], else: [" ", old_line, "\n"]
-        is_nil(old_line) -> ["+", new_line, "\n"]
-        is_nil(new_line) -> ["-", old_line, "\n"]
-        true -> ["-", old_line, "\n", "+", new_line, "\n"]
-      end
-    end)
+  defp diff_lines([old_line | old_rest], [new_line | new_rest], acc) do
+    diff_lines(old_rest, new_rest, [diff_line(old_line, new_line) | acc])
   end
+
+  defp diff_lines([], [new_line | new_rest], acc) do
+    diff_lines([], new_rest, [diff_line(nil, new_line) | acc])
+  end
+
+  defp diff_lines([old_line | old_rest], [], acc) do
+    diff_lines(old_rest, [], [diff_line(old_line, nil) | acc])
+  end
+
+  defp diff_line(nil, nil), do: []
+  defp diff_line(line, line), do: [" ", line, "\n"]
+  defp diff_line(nil, new_line), do: ["+", new_line, "\n"]
+  defp diff_line(old_line, nil), do: ["-", old_line, "\n"]
+  defp diff_line(old_line, new_line), do: ["-", old_line, "\n", "+", new_line, "\n"]
 
   defp resolve_paths(path) when is_binary(path) do
     cond do
@@ -212,6 +217,14 @@ defmodule Pi.AST do
       ext -> String.trim_leading(ext, ".")
     end
   end
+
+  defp ex_ast_search(paths, pattern, opts), do: apply(ExAST, :search, [paths, pattern, opts])
+
+  defp ex_ast_replace(paths, pattern, replacement, opts),
+    do: apply(ExAST, :replace, [paths, pattern, replacement, opts])
+
+  defp ex_ast_replace_all(source, pattern, replacement, opts),
+    do: apply(ExAST.Patcher, :replace_all, [source, pattern, replacement, opts])
 
   defp ensure_ex_ast do
     if Code.ensure_loaded?(ExAST), do: :ok, else: {:error, @missing_ex_ast}

@@ -2,11 +2,13 @@ defmodule Pi.Session.SessionTest do
   use ExUnit.Case, async: false
 
   alias Pi.LLM.Broker
+  alias Pi.LLM.Stream, as: LLMStream
   alias Pi.Protocol.LLM.Message
   alias Pi.Protocol.Response
   alias Pi.Session
   alias Pi.Session.State
   alias Pi.Session.Supervisor, as: SessionSupervisor
+  alias Pi.Session.Worker
 
   setup do
     stop_supervisor()
@@ -116,7 +118,7 @@ defmodule Pi.Session.SessionTest do
     do: Map.get(map, Atom.to_string(key)) || Map.get(map, key)
 
   test "emits delta events for streaming sessions" do
-    stream_fun = fn _messages, _opts -> %Pi.LLM.Stream{id: "s1", stream: ["hel", "lo"]} end
+    stream_fun = fn _messages, _opts -> %LLMStream{id: "s1", stream: ["hel", "lo"]} end
     assert {:ok, pid} = Session.start(stream_fun: stream_fun)
     assert {:ok, "hello"} = Session.run(pid, "ping", stream: true)
 
@@ -140,7 +142,7 @@ defmodule Pi.Session.SessionTest do
     assert_receive {:messages, ["ping"]}
     assert_receive {:messages, ["ping", "ok", "ping"]}
 
-    snapshot = Pi.Session.Worker.snapshot(pid)
+    snapshot = Worker.snapshot(pid)
     encoded = JSONCodec.dump(snapshot)
 
     assert snapshot.run_count == 2
@@ -191,7 +193,7 @@ defmodule Pi.Session.SessionTest do
     assert {:ok, pid} = Session.start(ask_fun: fn _messages, _opts -> {:ok, "pong"} end)
     assert {:ok, "pong"} = Session.run(pid, "ping")
 
-    snapshot = Pi.Session.Worker.snapshot(pid)
+    snapshot = Worker.snapshot(pid)
     encoded = JSONCodec.dump(snapshot)
 
     assert snapshot.prompt == "ping"
@@ -211,7 +213,7 @@ defmodule Pi.Session.SessionTest do
     assert {:ok, pid} = Session.start(stream_fun: stream_fun)
     assert {:ok, "onetwo"} = Session.run(pid, "stream", stream: true)
 
-    snapshot = Pi.Session.Worker.snapshot(pid)
+    snapshot = Worker.snapshot(pid)
     encoded = JSONCodec.dump(snapshot)
 
     assert snapshot.recent_output == ["one", "two"]
@@ -248,9 +250,9 @@ defmodule Pi.Session.SessionTest do
     task = Task.async(fn -> Session.run(pid, "stream", stream: true) end)
 
     wait_for(fn -> Agent.get(gate, & &1) == :waiting end)
-    wait_for(fn -> Pi.Session.Worker.snapshot(pid).current == "streaming" end)
+    wait_for(fn -> Worker.snapshot(pid).current == "streaming" end)
 
-    snapshot = Pi.Session.Worker.snapshot(pid)
+    snapshot = Worker.snapshot(pid)
     encoded = JSONCodec.dump(snapshot)
 
     assert snapshot.recent_output == ["one"]
@@ -265,7 +267,7 @@ defmodule Pi.Session.SessionTest do
     assert {:ok, pid} = Session.start(ask_fun: fn _messages, _opts -> {:error, "boom"} end)
     assert {:error, "boom"} = Session.run(pid, "ping")
 
-    snapshot = Pi.Session.Worker.snapshot(pid)
+    snapshot = Worker.snapshot(pid)
     encoded = JSONCodec.dump(snapshot)
 
     assert snapshot.status == "failed"
@@ -289,7 +291,7 @@ defmodule Pi.Session.SessionTest do
     assert :ok = Session.cancel(pid)
     assert {:error, :cancelled} = Task.await(task)
 
-    snapshot = Pi.Session.Worker.snapshot(pid)
+    snapshot = Worker.snapshot(pid)
     encoded = JSONCodec.dump(snapshot)
 
     assert snapshot.status == "cancelled"

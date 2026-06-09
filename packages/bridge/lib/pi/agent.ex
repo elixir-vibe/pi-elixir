@@ -13,14 +13,7 @@ defmodule Pi.Agent do
     session = prompt_or_opts |> session(opts) |> Registry.put()
 
     with {:ok, runtime} <- start_runtime_session(session, opts) do
-      case RuntimeSession.complete(runtime, Keyword.put(opts, :agent, session.id)) do
-        {:ok, result} ->
-          Registry.append(session.id, %Message{role: :assistant, content: result})
-          {:ok, Result.ok(session, result)}
-
-        {:error, reason} ->
-          {:error, Result.error(session, reason)}
-      end
+      complete_runtime(runtime, session, opts)
     end
   end
 
@@ -98,14 +91,18 @@ defmodule Pi.Agent do
     session = prompt_or_opts |> session(opts) |> Registry.put()
 
     with {:ok, runtime} <- start_runtime_child(parent, session, opts) do
-      case RuntimeSession.complete(runtime, Keyword.put(opts, :agent, session.id)) do
-        {:ok, result} ->
-          Registry.append(session.id, %Message{role: :assistant, content: result})
-          {:ok, Result.ok(session, result)}
+      complete_runtime(runtime, session, opts)
+    end
+  end
 
-        {:error, reason} ->
-          {:error, Result.error(session, reason)}
-      end
+  defp complete_runtime(runtime, %Session{} = session, opts) do
+    case RuntimeSession.complete(runtime, Keyword.put(opts, :agent, session.id)) do
+      {:ok, result} ->
+        Registry.append(session.id, %Message{role: :assistant, content: result})
+        {:ok, Result.ok(session, result)}
+
+      {:error, reason} ->
+        {:error, Result.error(session, reason)}
     end
   end
 

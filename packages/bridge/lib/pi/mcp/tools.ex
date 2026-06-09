@@ -53,9 +53,8 @@ defmodule Pi.MCP.Tools do
   def dispatch("pi_session_rerun", %{"id" => id} = args) when is_binary(id) do
     timeout = Map.get(args, "timeout", 60_000)
 
-    with {:ok, pid} <- Pi.Session.lookup(id) do
-      Pi.Session.rerun(pid, timeout: timeout)
-    else
+    case Pi.Session.lookup(id) do
+      {:ok, pid} -> Pi.Session.rerun(pid, timeout: timeout)
       {:error, reason} -> {:error, inspect(reason)}
     end
   end

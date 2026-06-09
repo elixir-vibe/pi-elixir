@@ -4,7 +4,7 @@
 
 ### Added
 
-- Root-level pnpm workspace/npm package metadata so `npm pack` includes both the TypeScript extension and bundled `packages/bridge` sources without custom copy scripts.
+- Root-level pnpm workspace/npm package metadata and pack validation so `pnpm pack` includes both the TypeScript extension and bundled `packages/bridge` sources without custom copy scripts.
 - Strict JSONCodec protocol structs for stdio, MCP, LLM, API inventory, bridge info, integration status, and plugin/skill metadata.
 - Namespaced protocol families: `Pi.Protocol.API.*`, `Pi.Protocol.MCP.*`, `Pi.Protocol.LLM.*`, and `Pi.Protocol.Integration.*`.
 - `Pi.LLM` complete/stream APIs over the active pi stdio session.

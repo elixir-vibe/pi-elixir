@@ -1,6 +1,7 @@
 defmodule Pi.Session.State do
   @moduledoc "Semantic state owned by a Pi session process."
 
+  alias Pi.Agent.Messages
   alias Pi.Protocol.LLM.Message
   alias Pi.Session.Event
 
@@ -47,7 +48,7 @@ defmodule Pi.Session.State do
       status: Keyword.get(opts, :status, :idle),
       started_at: now,
       updated_at: now,
-      messages: opts |> Keyword.get(:messages, []) |> Enum.map(&Pi.Agent.Messages.normalize/1),
+      messages: opts |> Keyword.get(:messages, []) |> Enum.map(&Messages.normalize/1),
       metadata: Keyword.get(opts, :metadata, %{})
     }
   end

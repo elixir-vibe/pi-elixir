@@ -3,6 +3,7 @@ defmodule Pi.Session.Worker do
 
   use GenServer
 
+  alias Pi.Agent.Messages
   alias Pi.Protocol.LLM.Message
   alias Pi.Protocol.Session.Snapshot
   alias Pi.Session.Event
@@ -39,8 +40,8 @@ defmodule Pi.Session.Worker do
     {:ok,
      %{
        state: State.new(opts),
-       ask_fun: Keyword.get(opts, :ask_fun, &ask/2),
-       stream_fun: Keyword.get(opts, :stream_fun, &stream/2),
+       ask_fun: Keyword.get(opts, :ask_fun, &Pi.LLM.complete/2),
+       stream_fun: Keyword.get(opts, :stream_fun, &Pi.LLM.stream/2),
        subscribers: %{},
        task: nil,
        task_ref: nil,
@@ -195,9 +196,6 @@ defmodule Pi.Session.Worker do
     {:noreply, data}
   end
 
-  defp ask(messages, opts), do: Pi.LLM.complete(messages, opts)
-  defp stream(messages, opts), do: Pi.LLM.stream(messages, opts)
-
   defp last_user_message(%State{messages: messages}) do
     messages
     |> Enum.reverse()
@@ -210,7 +208,15 @@ defmodule Pi.Session.Worker do
   defp safe_ask(ask_fun, messages, opts) do
     ask_fun.(messages, opts)
   rescue
-    exception -> {:error, Exception.message(exception)}
+    exception in [
+      RuntimeError,
+      ArgumentError,
+      FunctionClauseError,
+      MatchError,
+      UndefinedFunctionError,
+      ErlangError
+    ] ->
+      {:error, Exception.message(exception)}
   catch
     kind, reason -> {:error, {kind, reason}}
   end
@@ -219,16 +225,23 @@ defmodule Pi.Session.Worker do
     stream = stream_fun.(messages, opts)
 
     text =
-      stream.stream
-      |> Enum.map(fn delta ->
-        send(owner, {:session_delta, to_string(delta)})
-        to_string(delta)
+      Enum.map_join(stream.stream, fn delta ->
+        text = to_string(delta)
+        send(owner, {:session_delta, text})
+        text
       end)
-      |> Enum.join()
 
     {:ok, text}
   rescue
-    exception -> {:error, Exception.message(exception)}
+    exception in [
+      RuntimeError,
+      ArgumentError,
+      FunctionClauseError,
+      MatchError,
+      UndefinedFunctionError,
+      ErlangError
+    ] ->
+      {:error, Exception.message(exception)}
   catch
     kind, reason -> {:error, {kind, reason}}
   end
@@ -242,7 +255,7 @@ defmodule Pi.Session.Worker do
   defp append_message(%State{messages: messages} = state, message) do
     %{
       state
-      | messages: messages ++ [Pi.Agent.Messages.normalize(message)],
+      | messages: messages ++ [Messages.normalize(message)],
         updated_at: DateTime.utc_now()
     }
   end

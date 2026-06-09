@@ -7,9 +7,9 @@ defmodule Pi.AgentTest do
   alias Pi.Agent.Session
   alias Pi.LLM.Broker
   alias Pi.Protocol.LLM.Message
+  alias Pi.Protocol.Response
   alias Pi.Session, as: RuntimeSession
   alias Pi.Session.Supervisor, as: SessionSupervisor
-  alias Pi.Protocol.Response
 
   setup do
     if pid = Process.whereis(Registry), do: GenServer.stop(pid)
@@ -68,7 +68,7 @@ defmodule Pi.AgentTest do
     parent = Enum.find(states, &(&1.name == :review))
     assert parent
     children = Enum.filter(states, &(&1.parent_id == parent.id))
-    assert length(children) == 2
+    assert [_, _] = children
   end
 
   test "tracks session history" do
