@@ -95,7 +95,7 @@ describe('elixir result rendering', () => {
         })
       )
 
-      expect(compact).toBe('\n42\nTook 1.2s')
+      expect(compact).toBe('\n42\n\nTook 1.2s')
     } finally {
       vi.useRealTimers()
     }

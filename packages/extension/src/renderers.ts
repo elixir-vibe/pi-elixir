@@ -87,7 +87,7 @@ function withTiming(component: Component, theme: Theme, context: unknown): Compo
   const timing = theme.fg('muted', `${label} ${formatDuration(endTime - startedAt)}`)
 
   return {
-    render: (width) => [...component.render(width), timing],
+    render: (width) => [...component.render(width), '', timing],
     invalidate: () => component.invalidate?.()
   }
 }
