@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.5.0 - 2026-06-09
+
 ### Added
 
 - Root-level pnpm workspace/npm package metadata and pack validation so `pnpm pack` includes both the TypeScript extension and bundled `packages/bridge` sources without custom copy scripts.

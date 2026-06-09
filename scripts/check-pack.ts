@@ -42,7 +42,6 @@ const forbiddenPatterns = [
 
 const requiredMetadata = [
   ['name', 'pi-elixir'],
-  ['version', '0.4.0'],
   ['pi.extensions.0', './packages/extension/src/index.ts'],
   ['pi.skills.0', './packages/extension/skills']
 ] as const
@@ -60,6 +59,10 @@ const metadataErrors = requiredMetadata.flatMap(([keyPath, expected]) => {
   const actual = getPath(packageJson, keyPath)
   return actual === expected ? [] : [`${keyPath}: expected ${expected}, got ${String(actual)}`]
 })
+
+if (typeof packageJson.version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(packageJson.version)) {
+  metadataErrors.push(`version: expected semver string, got ${String(packageJson.version)}`)
+}
 
 const bridgeCount = [...files].filter((file) => file.startsWith('packages/bridge/lib/')).length
 const extensionCount = [...files].filter((file) => file.startsWith('packages/extension/src/')).length

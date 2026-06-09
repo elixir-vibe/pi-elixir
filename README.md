@@ -195,7 +195,7 @@ pi install /path/to/pi-elixir
 pi list
 ```
 
-The root `package.json` is the pi manifest. `packages/extension` is an internal workspace package for TypeScript checks; `packages/bridge` is included in the root npm package so embedded installs can use a local path dependency without custom copy scripts. `pnpm run pack:check` validates the package with pnpm's packlist API and `pnpm pack --dry-run --json`. Publishing requires an explicit version bump before tagging; `pnpm publish --dry-run` currently reports `0.4.0` as already published.
+The root `package.json` is the pi manifest. `packages/extension` is an internal workspace package for TypeScript checks; `packages/bridge` is included in the root npm package so embedded installs can use a local path dependency without custom copy scripts. `pnpm run pack:check` validates the package with pnpm's packlist API and `pnpm pack --dry-run --json`. Publishing requires an explicit version bump before tagging.
 
 ## Protocol contracts
 
