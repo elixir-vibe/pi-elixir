@@ -1,0 +1,52 @@
+defmodule Pi.Session.SessionTest do
+  use ExUnit.Case, async: false
+
+  alias Pi.Protocol.LLM.Message
+  alias Pi.Session
+  alias Pi.Session.State
+  alias Pi.Session.Supervisor, as: SessionSupervisor
+
+  setup do
+    if pid = Process.whereis(SessionSupervisor), do: GenServer.stop(pid)
+    :ok
+  end
+
+  test "starts, lists, and looks up server-owned sessions" do
+    assert {:ok, pid} = Session.start(name: :reviewer)
+    assert %State{id: id, name: :reviewer, status: :idle} = Session.state(pid)
+
+    assert {:ok, ^pid} = Session.lookup(id)
+    assert [%State{id: ^id}] = Session.list()
+  end
+
+  test "runs prompts through injectable ask function and records messages" do
+    ask = fn [%Message{role: :user, content: "review"}], _opts -> {:ok, "done"} end
+    assert {:ok, pid} = Session.start(ask_fun: ask)
+
+    assert {:ok, "done"} = Session.run(pid, "review")
+
+    assert %State{status: :done, result: "done", messages: messages, events: events} =
+             Session.state(pid)
+
+    assert Enum.map(messages, & &1.role) == [:user, :assistant]
+    assert Enum.map(events, & &1.type) == [:started, :llm, :done]
+  end
+
+  test "subscribers receive state updates" do
+    ask = fn _messages, _opts -> {:ok, "ok"} end
+    assert {:ok, pid} = Session.start(ask_fun: ask)
+    assert {:ok, %State{}} = Session.subscribe(pid)
+
+    assert {:ok, "ok"} = Session.run(pid, "ping")
+
+    assert_receive {:pi_session, _id, %State{status: :running}}
+    assert_receive {:pi_session, _id, %State{status: :done, result: "ok"}}
+  end
+
+  test "creates child sessions" do
+    assert {:ok, parent} = Session.start(name: :root)
+    assert {:ok, child} = Session.child(parent, name: :reviewer)
+
+    assert Session.state(child).parent_id == Session.state(parent).id
+  end
+end

@@ -19,7 +19,8 @@ end
 The public API intentionally separates single-call and orchestration shapes:
 
 - `Pi.LLM.complete/2` and `Pi.LLM.stream/2` are low-level model calls over the active pi session.
-- `Pi.Agent.run/2` returns a single `%Pi.Agent.Result{}`.
+- `Pi.Session.start/1` creates a server-owned BEAM session process for OTP-backed agent/subagent work.
+- `Pi.Agent.run/2` returns a single `%Pi.Agent.Result{}` and is backed by `Pi.Session` workers.
 - `Pi.Agent.chain/2`, `Pi.Agent.parallel/2`, and `Pi.Agent.fanout/2` return `%Pi.Agent.Run{}` so partial results, kind, status, and errors are explicit.
 - `Pi.Plugin` modules expose optional `init/1`, `handle_event/2`, `commands/0`, `handle_command/3`, `tool_call/3`, `tool_result/3`, `apis/0`, and `shutdown/1`; plugin process lifecycle is handled by `Pi.Plugin.Manager` and `Pi.Plugin.Supervisor`.
 - `Pi.Plugin.api/1` registers API metadata at compile time and fills a default alias from the module name.
@@ -64,7 +65,30 @@ ReqLLM.generate_text("pi:current", "Summarize the current project")
 
 ReqLLM may warn that `pi:current` is not in its public model catalog. That is expected: `pi:current` is a local provider/model route into the active pi session, not a hosted catalog model.
 
-## Agents
+## Sessions and agents
+
+The bridge keeps one pi Node.js/TUI process and one embedded BEAM process. Subagents are not extra pi processes; they are lightweight OTP session workers supervised inside BEAM:
+
+```text
+pi Node.js/TUI
+  └─ embedded BEAM
+       ├─ Pi.LLM.Broker
+       └─ Pi.Session.Supervisor
+            ├─ Pi.Session.Worker
+            └─ Pi.Session.Worker
+```
+
+Use `Pi.Session` when you need attachable, subscribable session state:
+
+```elixir
+{:ok, root} = Pi.Session.start(name: :root)
+{:ok, reviewer} = Pi.Session.child(root, name: :reviewer)
+{:ok, "done"} = Pi.Session.run(reviewer, "Review this change")
+
+{:ok, state} = Pi.Session.subscribe(reviewer)
+```
+
+Use `Pi.Agent` for convenience orchestration over those sessions:
 
 ```elixir
 {:ok, result} = Pi.Agent.run("Review this change", name: :reviewer)

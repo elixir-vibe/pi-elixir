@@ -6,20 +6,21 @@ defmodule Pi.Agent do
   alias Pi.Agent.Run
   alias Pi.Agent.Session
   alias Pi.Agent.Step
-  alias Pi.LLM
   alias Pi.Protocol.LLM.Message
+  alias Pi.Session, as: RuntimeSession
 
   def run(prompt_or_opts, opts \\ []) do
     session = prompt_or_opts |> session(opts) |> Registry.put()
-    messages = messages(session)
 
-    case LLM.complete(messages, Keyword.put(opts, :agent, session.id)) do
-      {:ok, result} ->
-        Registry.append(session.id, %Message{role: :assistant, content: result})
-        {:ok, Result.ok(session, result)}
+    with {:ok, runtime} <- start_runtime_session(session, opts) do
+      case RuntimeSession.complete(runtime, Keyword.put(opts, :agent, session.id)) do
+        {:ok, result} ->
+          Registry.append(session.id, %Message{role: :assistant, content: result})
+          {:ok, Result.ok(session, result)}
 
-      {:error, reason} ->
-        {:error, Result.error(session, reason)}
+        {:error, reason} ->
+          {:error, Result.error(session, reason)}
+      end
     end
   end
 
@@ -90,10 +91,16 @@ defmodule Pi.Agent do
 
   def session(%Session{} = session, _opts), do: session
 
-  defp messages(%Session{system: nil, messages: messages}), do: messages
-
-  defp messages(%Session{system: system, messages: messages}),
-    do: [%Message{role: :system, content: system} | messages]
+  defp start_runtime_session(%Session{} = session, opts) do
+    RuntimeSession.start(
+      id: session.id,
+      parent_id: session.parent_id,
+      name: session.name,
+      system: session.system,
+      messages: session.messages,
+      metadata: Map.merge(session.metadata, Map.new(Keyword.get(opts, :metadata, %{})))
+    )
+  end
 
   defp reduce_chain([], _opts, _previous, results), do: {:ok, results}
 

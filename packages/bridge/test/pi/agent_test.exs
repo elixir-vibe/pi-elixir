@@ -6,12 +6,14 @@ defmodule Pi.AgentTest do
   alias Pi.Agent.Run
   alias Pi.Agent.Session
   alias Pi.LLM.Broker
+  alias Pi.Session.Supervisor, as: SessionSupervisor
   alias Pi.Protocol.LLM.Message
   alias Pi.Protocol.Response
 
   setup do
     if pid = Process.whereis(Registry), do: GenServer.stop(pid)
     if pid = Process.whereis(Broker), do: GenServer.stop(pid)
+    if pid = Process.whereis(SessionSupervisor), do: GenServer.stop(pid)
     :persistent_term.put({Pi.Transport.Stdio, :pid}, self())
     on_exit(fn -> :persistent_term.erase({Pi.Transport.Stdio, :pid}) end)
     :ok
@@ -67,11 +69,14 @@ defmodule Pi.AgentTest do
     expected_op = Atom.to_string(op)
 
     receive do
+      {:pi_transport_emit, %{type: "request", id: id, op: ^expected_op, payload: payload}} ->
+        %{id: id, payload: payload}
+
       {:pi_transport_emit,
        %{"type" => "request", "id" => id, "op" => ^expected_op, "payload" => payload}} ->
         %{id: id, payload: payload}
     after
-      500 -> flunk("expected #{op} bridge request")
+      1_000 -> flunk("expected #{op} bridge request")
     end
   end
 end
