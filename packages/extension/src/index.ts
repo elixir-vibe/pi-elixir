@@ -397,6 +397,14 @@ async function loadSessionSnapshots(ctx: StatusContext, cwd: string, connUrl: st
   }
 }
 
+async function refreshSessionSnapshots(ctx: ExtensionContext) {
+  const beamCwd = resolveElixirCwd(ctx.cwd)
+  if (!beamCwd) return
+  const conn = await resolveUrl(beamCwd)
+  if (!conn) return
+  await loadSessionSnapshots(ctx as StatusContext, beamCwd, conn.url)
+}
+
 async function handleBridgeRequest(
   message: StdioMessage,
   ctx: ExtensionContext,
@@ -546,6 +554,8 @@ export default function (pi: ExtensionAPI) {
   pi.on('tool_result', async (event, ctx) => {
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return undefined
+
+    if (event.toolName?.startsWith('elixir_')) await refreshSessionSnapshots(ctx)
 
     await sendBridgeEvent(beamCwd, {
       type: 'tool_result',

@@ -224,6 +224,28 @@ describe('extension status lifecycle', () => {
     })
   })
 
+  it('refreshes BEAM session snapshots after Elixir tool results', async () => {
+    const projectA = makeProject('project-a')
+    vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({
+        sessions: [{ id: 'root', name: 'tool-result-root', status: 'done', latest: 'ok' }]
+      }),
+      isError: false
+    })
+
+    const { pi, handlers } = fakePi()
+    const ctx = fakeCtx(projectA)
+    extension(pi as any)
+
+    await handlers.get('tool_result')!({ toolName: 'elixir_eval' }, ctx)
+
+    expect(callTool).toHaveBeenCalledWith('stdio:test', 'pi_session_snapshots', {})
+    expect(ctx.ui.setWidget).toHaveBeenCalledWith('elixir-sessions', expect.any(Function), {
+      placement: 'belowEditor'
+    })
+  })
+
   it('registers private session control commands', async () => {
     const projectA = makeProject('project-a')
     vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
