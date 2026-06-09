@@ -1,12 +1,15 @@
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
 import type { StdioMessage } from '../protocol/types.ts'
+import { handleLLMComplete } from './llm.ts'
 
 export async function handleBridgeRequest(
   message: StdioMessage,
   ctx: ExtensionContext,
   pi: ExtensionAPI
 ): Promise<Record<string, unknown> | undefined> {
+  if (message.op === 'llm_complete') return await handleLLMComplete(message, ctx, pi)
+
   if (message.op === 'session_info') {
     return {
       ok: true,
