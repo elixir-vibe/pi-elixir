@@ -73,6 +73,26 @@ describe('elixir result rendering', () => {
     expect(narrow).toContain('to expand')
   })
 
+  it('shows a couple of stack frames for compact errors', () => {
+    const result = {
+      content: [
+        {
+          type: 'text' as const,
+          text: '** (RuntimeError) render smoke boom\n    (elixir 1.20.0) src/elixir.erl:382: :elixir.eval_external_handler/3\n    (stdlib 8.0) erl_eval.erl:1048: :erl_eval.do_apply/7\n    (pi_bridge 0.6.0) lib/pi/eval/evaluator.ex:142: anonymous fn/2 in Pi.Eval.Evaluator.eval_code/2'
+        }
+      ],
+      isError: true
+    } as AgentToolResult<unknown>
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+
+    expect(compact).toContain('✗ RuntimeError: render smoke boom')
+    expect(compact).toContain('(elixir 1.20.0) src/elixir.erl:382')
+    expect(compact).toContain('(stdlib 8.0) erl_eval.erl:1048')
+    expect(compact).toContain('to expand')
+    expect(compact).not.toContain('pi_bridge 0.6.0')
+  })
+
   it('shows the expand hint when the compact preview is semantically lossy', () => {
     const result = evalResult({
       result: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',

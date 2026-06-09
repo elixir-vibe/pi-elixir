@@ -167,13 +167,18 @@ function evalPayload(result: AgentToolResult<unknown>): EvalPayload | null {
 
 function renderErrorBlock(message: string, expanded: boolean, theme: Theme) {
   const title = errorTitle(message)
-  if (!expanded)
+  const frames = stackFrames(message)
+  if (!expanded) {
+    const visibleFrames = frames.slice(0, 2)
+    const hidden =
+      frames.length > visibleFrames.length || compactText(message) !== compactText(title)
     return renderLines([
       `${icon(false, theme)} ${theme.fg('error', oneLine(title))}`,
-      expandHint(theme)
+      ...visibleFrames.map((frame) => `  ${theme.fg('muted', frame)}`),
+      ...(hidden ? [expandHint(theme)] : [])
     ])
+  }
 
-  const frames = stackFrames(message)
   return renderLines([
     `${icon(false, theme)} ${theme.fg('error', title)}`,
     ...frames.map((frame) => `  ${theme.fg('muted', frame)}`)
