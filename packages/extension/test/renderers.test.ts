@@ -26,7 +26,7 @@ function evalResult(evalPayload: unknown): AgentToolResult<unknown> {
 }
 
 describe('elixir result rendering', () => {
-  it('uses structured compact inspect previews instead of the first pretty line', () => {
+  it('uses structured compact inspect previews without expansion noise when they fit', () => {
     const result = evalResult({
       result: '%{\n  bridge: "0.6.0",\n  app: :pi_bridge\n}',
       parts: [
@@ -41,12 +41,12 @@ describe('elixir result rendering', () => {
 
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
-    expect(compact).toContain('✓ %{bridge: "0.6.0", app: :pi_bridge}')
-    expect(compact).toContain('to expand')
+    expect(compact).toBe('✓ %{bridge: "0.6.0", app: :pi_bridge}')
+    expect(compact).not.toContain('to expand')
     expect(compact).not.toBe('✓ %{')
   })
 
-  it('keeps the expand hint inline while truncating to terminal width', () => {
+  it('recomputes compact hints when the terminal width changes', () => {
     const result = evalResult({
       result:
         '%{\n  bridge: "0.6.0",\n  cwd: "/Users/dannote/Development/pi-elixir/packages/bridge",\n  app: :pi_bridge,\n  transport: :stdio\n}',
@@ -61,14 +61,34 @@ describe('elixir result rendering', () => {
         }
       ]
     })
+    const component = renderElixirResult(result, { expanded: false, isPartial: false }, theme)
 
-    const compact = textOf(
-      renderElixirResult(result, { expanded: false, isPartial: false }, theme),
-      88
-    )
+    const wide = textOf(component, 160)
+    const narrow = textOf(component, 88)
 
-    expect(compact.split('\n')).toHaveLength(1)
-    expect(compact).toContain('✓ %{bridge: "0.6.0"')
+    expect(wide).toContain('transport: :stdio}')
+    expect(wide).not.toContain('to expand')
+    expect(narrow.split('\n')).toHaveLength(1)
+    expect(narrow).toContain('✓ %{bridge: "0.6.0"')
+    expect(narrow).toContain('to expand')
+  })
+
+  it('shows the expand hint when the compact preview is semantically lossy', () => {
+    const result = evalResult({
+      result: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',
+      parts: [
+        {
+          format: 'inspect',
+          output: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',
+          preview: '[1, 2, 3, 4, 5, ...]',
+          language: 'elixir'
+        }
+      ]
+    })
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+
+    expect(compact).toContain('[1, 2, 3, 4, 5, ...]')
     expect(compact).toContain('to expand')
   })
 })

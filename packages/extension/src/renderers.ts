@@ -33,6 +33,14 @@ function compactText(text: string): string {
   return text.replace(/\s+/g, ' ').trim()
 }
 
+function comparableInspectText(text: string): string {
+  return compactText(text)
+    .replace(/%\{\s+/g, '%{')
+    .replace(/\[\s+/g, '[')
+    .replace(/\{\s+/g, '{')
+    .replace(/\s+([}\]])/g, '$1')
+}
+
 function oneLine(text: string, limit = 120): string {
   const compact = compactText(text)
   return compact.length > limit ? compact.slice(0, limit - 1) + '…' : compact
@@ -85,18 +93,22 @@ function inlineExpandHint(theme: Theme) {
 function renderCompactLine(
   prefix: string,
   preview: string,
-  hidden: boolean,
+  semanticHidden: boolean,
   theme: Theme
 ): Component {
   return {
     render: (width) => {
-      if (!hidden) return [truncateLine(prefix + preview, width)]
+      const line = prefix + preview
+      if (!semanticHidden && visibleWidth(line) <= width) return [line]
 
       const hint = inlineExpandHint(theme)
+      const lineWithHint = line + hint
+      if (semanticHidden && visibleWidth(lineWithHint) <= width) return [lineWithHint]
+
       const reserve = visibleWidth(prefix) + visibleWidth(hint)
       if (width > reserve + 4) return [prefix + truncateLine(preview, width - reserve) + hint]
 
-      return [truncateLine(prefix + preview, width)]
+      return [truncateLine(line, width)]
     },
     invalidate: () => undefined
   }
@@ -221,10 +233,10 @@ function partPreview(part: OutputPart) {
   return part.preview ?? compactText(part.output ?? '')
 }
 
-function partHasHiddenOutput(part: OutputPart) {
+function partHasSemanticHiddenOutput(part: OutputPart) {
   const output = part.output ?? ''
   const preview = partPreview(part)
-  return output.includes('\n') || compactText(output) !== preview
+  return comparableInspectText(output) !== comparableInspectText(preview)
 }
 
 function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
@@ -239,8 +251,8 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
         return index === 0 ? styled : theme.fg('muted', ` ↳ ${text}`)
       })
       .join('')
-    const hidden = visibleParts.length > 1 || visibleParts.some(partHasHiddenOutput)
-    return renderCompactLine(`${icon(true, theme)} `, preview, hidden, theme)
+    const semanticHidden = visibleParts.some(partHasSemanticHiddenOutput)
+    return renderCompactLine(`${icon(true, theme)} `, preview, semanticHidden, theme)
   }
 
   const lines: string[] = []
