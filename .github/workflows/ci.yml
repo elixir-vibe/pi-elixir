@@ -16,39 +16,35 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - uses: oven-sh/setup-bun@v2
-
-      - uses: actions/cache@v4
+      - uses: pnpm/action-setup@v4
         with:
-          path: ~/.bun/install/cache
-          key: bun-${{ runner.os }}-${{ hashFiles('bun.lock') }}
-          restore-keys: bun-${{ runner.os }}-
+          version: 10.26.1
+          run_install: false
 
-      - run: bun install --frozen-lockfile
-
-      - name: Lint
-        run: bun run lint
-
-      - name: Format
-        run: bun run fmt:check
-
-      - name: Unit tests
-        run: bun run test
-
-  beam:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 25.x
+          cache: pnpm
+          cache-dependency-path: pnpm-lock.yaml
 
       - uses: erlef/setup-beam@v1
         with:
-          elixir-version: "1.18"
-          otp-version: "27"
+          elixir-version: "1.20.0"
+          otp-version: "29.0"
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            packages/bridge/deps
+            packages/bridge/_build
+          key: beam-${{ runner.os }}-${{ hashFiles('packages/bridge/mix.lock') }}
+          restore-keys: beam-${{ runner.os }}-
+
+      - run: pnpm install --frozen-lockfile
 
       - name: Install Elixir deps
         run: mix deps.get
-        working-directory: packages/pi-beam
+        working-directory: packages/bridge
 
-      - name: Elixir CI
-        run: mix ci
-        working-directory: packages/pi-beam
+      - name: Strict checks
+        run: pnpm run check

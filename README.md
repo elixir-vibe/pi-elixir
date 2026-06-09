@@ -175,11 +175,13 @@ pnpm run test:integration
 pnpm run pack:check
 ```
 
+`pnpm run check` is the strict release-readiness gate. It runs JS lint/typecheck/format/tests/duplication, BEAM compile/test/Credo/Dialyzer/ExDNA, Reach architecture + smell checks in strict mode, and package pack validation.
+
 Package-specific checks:
 
 ```sh
 cd packages/extension
-bun run check
+pnpm run check
 
 cd ../bridge
 mix ci

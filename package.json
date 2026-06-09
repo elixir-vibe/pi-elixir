@@ -34,11 +34,11 @@
     "test:beam": "cd packages/bridge && mix test",
     "test:integration": "pnpm --dir packages/extension run test:integration",
     "test:dupes": "pnpm --dir packages/extension run test:dupes",
-    "check": "pnpm run check:js && pnpm run check:beam",
+    "check": "pnpm run check:js && pnpm run check:beam && pnpm run pack:check",
     "check:js": "pnpm --dir packages/extension run check",
     "check:beam": "cd packages/bridge && mix ci",
     "ci": "pnpm run check",
-    "pack:check": "node scripts/check-pack.ts && pnpm pack --dry-run --json"
+    "pack:check": "node scripts/check-pack.ts && pnpm pack --dry-run --json > /dev/null"
   },
   "dependencies": {
     "@earendil-works/pi-coding-agent": "*",
