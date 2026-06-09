@@ -1,8 +1,8 @@
+import type * as PiAI from '@earendil-works/pi-ai'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
 vi.mock('@earendil-works/pi-ai', async () => {
-  const actual =
-    await vi.importActual<typeof import('@earendil-works/pi-ai')>('@earendil-works/pi-ai')
+  const actual = await vi.importActual<typeof PiAI>('@earendil-works/pi-ai')
   return {
     ...actual,
     complete: vi.fn(),

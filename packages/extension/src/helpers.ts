@@ -12,7 +12,7 @@ import {
   type Theme
 } from '@earendil-works/pi-coding-agent'
 import { visibleWidth, type Component } from '@earendil-works/pi-tui'
-import { Type } from 'typebox'
+import type { TObject } from 'typebox'
 
 import {
   callTool,
@@ -99,8 +99,8 @@ export function truncated(text: string) {
   )
 }
 
-type ToolParameters = ReturnType<typeof Type.Object>
-type RenderCall = (args: ToolArgs, theme: Theme) => Component
+type ToolParameters = TObject
+type RenderCall = (args: ToolArgs, theme: Theme, context?: unknown) => Component
 
 export interface BridgeToolOpts {
   transformResult?: (text: string) => string
@@ -209,16 +209,16 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       })
       if (!conn) return connectionError(beamCwd)
 
-      let { text, isError } = await tool.executeToolCall(params, conn.url, signal)
-      const extraDetails = tool.opts?.resultDetails?.(text, params) ?? {}
-      if (tool.opts?.transformResult) text = tool.opts.transformResult(text)
+      const { text: rawText, isError } = await tool.executeToolCall(params, conn.url, signal)
+      const extraDetails = tool.opts?.resultDetails?.(rawText, params) ?? {}
+      const text = tool.opts?.transformResult ? tool.opts.transformResult(rawText) : rawText
       return {
         content: [{ type: 'text' as const, text: truncated(text) }],
         isError,
         details: { args: params, mcpName: tool.name, ...extraDetails }
       }
     },
-    renderCall: tool.renderCall,
+    renderCall: (args, theme, context) => tool.renderCall(args as ToolArgs, theme, context),
     renderResult: tool.opts?.renderResult
   })
 }

@@ -71,8 +71,8 @@ export function hasPiDependency(mixExs: string): boolean {
 
 export function addPiDependency(mixExs: string, dependency: string): string | null {
   const match = mixExs.match(/defp deps do\s*\n(?<indent>\s*)\[/)
-  if (!match?.groups) return null
+  if (!match?.groups || match.index === undefined) return null
   const indent = `${match.groups.indent}  `
-  const insertAt = match.index! + match[0].length
+  const insertAt = match.index + match[0].length
   return `${mixExs.slice(0, insertAt)}\n${indent}${dependency},${mixExs.slice(insertAt)}`
 }

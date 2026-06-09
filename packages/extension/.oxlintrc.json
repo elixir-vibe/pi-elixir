@@ -5,26 +5,108 @@
     "suspicious": "error",
     "perf": "warn"
   },
-  "plugins": ["typescript", "unicorn"],
+  "plugins": ["typescript", "import", "unicorn", "promise", "node"],
   "rules": {
     "no-console": "warn",
     "no-debugger": "error",
     "no-unused-vars": "error",
     "eqeqeq": "error",
+    "array-callback-return": "error",
+    "block-scoped-var": "error",
+    "complexity": ["error", { "max": 25 }],
+    "default-case-last": "error",
+    "default-param-last": "error",
+    "no-array-constructor": "error",
+    "no-case-declarations": "error",
+    "no-constructor-return": "error",
+    "no-else-return": "error",
+    "no-empty-function": "error",
+    "no-empty-pattern": "error",
+    "no-eval": "error",
+    "no-extra-bind": "error",
+    "no-extra-label": "error",
+    "no-implied-eval": "error",
+    "no-labels": "error",
+    "no-lone-blocks": "error",
+    "no-multi-str": "error",
+    "no-new": "error",
+    "no-new-wrappers": "error",
+    "no-object-constructor": "error",
+    "no-proto": "error",
+    "no-restricted-imports": [
+      "error",
+      {
+        "patterns": [
+          {
+            "group": [
+              "../../src/*",
+              "../src/*",
+              "../connection/*",
+              "../embedded/*",
+              "../mix/*",
+              "../protocol/*",
+              "../sessions/*",
+              "../tools/*",
+              "../transport/*"
+            ],
+            "message": "Use #src/* package imports instead of parent-relative extension imports."
+          }
+        ]
+      }
+    ],
+    "no-return-assign": "error",
+    "no-script-url": "error",
+    "no-self-compare": "error",
+    "no-sequences": "error",
+    "no-template-curly-in-string": "error",
+    "no-unmodified-loop-condition": "error",
+    "no-unneeded-ternary": "error",
+    "no-unused-expressions": "error",
+    "no-useless-call": "error",
+    "no-useless-computed-key": "error",
+    "no-useless-concat": "error",
+    "no-useless-constructor": "error",
+    "no-useless-rename": "error",
+    "no-useless-return": "error",
+    "prefer-const": "error",
+    "prefer-numeric-literals": "error",
+    "prefer-object-has-own": "error",
+    "prefer-promise-reject-errors": "error",
+    "prefer-regex-literals": "error",
+    "prefer-rest-params": "error",
+    "prefer-spread": "error",
+    "radix": "error",
+    "symbol-description": "error",
+    "unicode-bom": "error",
+    "yoda": "error",
+    "typescript/consistent-type-imports": "error",
     "typescript/no-explicit-any": "warn",
     "typescript/no-floating-promises": "error",
+    "typescript/no-misused-promises": "error",
+    "typescript/no-non-null-assertion": "error",
     "typescript/no-unsafe-type-assertion": "off",
     "typescript/no-base-to-string": "off",
     "typescript/restrict-template-expressions": "off",
     "typescript/no-unnecessary-type-assertion": "off",
-    "unicorn/prefer-node-protocol": "error"
+    "typescript/prefer-for-of": "error",
+    "typescript/prefer-optional-chain": "error",
+    "import/no-cycle": "error",
+    "import/no-duplicates": "error",
+    "import/no-mutable-exports": "error",
+    "import/no-self-import": "error",
+    "unicorn/no-nested-ternary": "error",
+    "unicorn/no-unnecessary-await": "error",
+    "unicorn/prefer-node-protocol": "error",
+    "unicorn/prefer-string-starts-ends-with": "error"
   },
   "overrides": [
     {
       "files": ["test/**/*.ts"],
       "rules": {
         "typescript/no-explicit-any": "off",
-        "typescript/no-floating-promises": "off"
+        "typescript/no-floating-promises": "off",
+        "typescript/no-non-null-assertion": "off",
+        "unicorn/no-nested-ternary": "off"
       }
     }
   ]

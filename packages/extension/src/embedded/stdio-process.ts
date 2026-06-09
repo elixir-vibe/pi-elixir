@@ -419,6 +419,7 @@ export function callEmbeddedTool(
     return Promise.resolve({ text: 'Embedded BEAM is not ready.', isError: true })
   }
 
+  const stdin = entry.proc.stdin
   const id = ++entry.nextId
   const payload = JSON.stringify({ type: 'call', id, name, arguments: args }) + '\n'
 
@@ -437,7 +438,7 @@ export function callEmbeddedTool(
 
         entry.pending.set(id, { resolve, reject })
         signal?.addEventListener('abort', abort, { once: true })
-        entry.proc.stdin!.write(payload, (error) => {
+        stdin.write(payload, (error) => {
           if (!error) return
           entry.pending.delete(id)
           reject(error)
