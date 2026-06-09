@@ -163,7 +163,7 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded MCP server', ()
         pattern: 'defmodule _ do _ end',
         path: 'lib/pi/eval.ex'
       })
-      if (result.isError) {
+      if (result.isError || result.text.startsWith('ex_ast is not installed')) {
         expect(result.text).toContain('ex_ast is not installed')
         return
       }

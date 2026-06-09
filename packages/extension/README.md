@@ -70,6 +70,40 @@ end
 
 Executable skills are trusted local code. The bridge exposes their markdown as pi skill context; callable APIs are recorded in the generated skill document and stay available through Elixir eval for now.
 
+## OTP sessions and subagents
+
+`pi-elixir` keeps one pi Node/TUI process and one embedded BEAM process. Subagents are OTP sessions inside that BEAM, not extra pi processes:
+
+```text
+pi Node/TUI
+  └─ embedded BEAM
+       ├─ Pi.LLM.Broker
+       └─ Pi.Session.Supervisor
+            ├─ Pi.Session.Worker
+            └─ Pi.Session.Worker
+```
+
+`Pi.Agent.parallel/2` and `fanout/2` run through child `Pi.Session` workers. Sessions emit `pi_session` snapshots over stdio; the extension renders them as a compact widget below the editor.
+
+Widget rows are intentionally minimal:
+
+```text
+● review running · llm  Checking tests
+  1 done · 1 running
+  └─ ✓ tests done · done
+```
+
+The widget uses pi keybinding hints from core helpers; it does not hardcode shortcuts like `Ctrl+O`.
+
+Private control commands are available for active sessions without adding model-facing tools:
+
+```text
+/elixir:sessions.cancel id=session_123
+/elixir:sessions.rerun id=session_123
+```
+
+Snapshots are also saved as pi custom entries named `elixir-sessions`, so the latest session tree can survive ordinary pi session history operations. Active BEAM snapshots are reloaded when the extension reconnects.
+
 ## Bidirectional UI bridge
 
 BEAM code can emit renderer-neutral UI events through the stdio transport:
