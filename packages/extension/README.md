@@ -21,7 +21,7 @@ pi install npm:pi-elixir
 Works with Phoenix apps, libraries, monorepos with a nested Mix project, and other Mix projects. When a pi tool needs the embedded server and the project does not have Pi BEAM tools installed, pi asks for confirmation, adds a dev-only exact `:pi_bridge` dependency to `mix.exs`, runs `mix deps.get`, then starts the server:
 
 ```elixir
-{:pi_bridge, "== 0.5.3", only: :dev}
+{:pi_bridge, "== 0.5.4", only: :dev}
 ```
 
 The exact version is deliberate: the TypeScript extension and BEAM bridge are released together and must speak the same stdio protocol. If the installed `pi_bridge` version differs from the extension version, pi reports the mismatch and asks you to update the Mix dependency.

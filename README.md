@@ -43,7 +43,7 @@ pi install "$PWD"
 When the embedded BEAM side is needed and the target project lacks `:pi_bridge`, pi asks before editing `mix.exs` or running `mix deps.get`. The dependency is intentionally exact-versioned so the npm extension and Hex bridge speak the same protocol:
 
 ```elixir
-{:pi_bridge, "== 0.5.3", only: :dev}
+{:pi_bridge, "== 0.5.4", only: :dev}
 ```
 
 If an existing project has an older `pi_bridge`, the extension refuses the embedded connection and tells you which exact version to install.

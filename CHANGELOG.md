@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.5.4 - 2026-06-09
+
+### Added
+
+- BEAM session snapshots now carry activity metadata including last activity time, current activity start time, and turn count.
+- BEAM session trees now show token/cost usage summaries and recursive nested child status aggregation.
+- Added TUI/session debugging workflow notes for monitored tmux/asciinema playground runs.
+
+### Changed
+
+- Elixir tool call previews normalize multiline arguments into a single pi-style preview line.
+- Completed BEAM session trees remain transcript-first while live/running snapshots stay widget-only.
+
+### Fixed
+
+- Removed repeated live `elixir-sessions` transcript entries that caused TUI artifacts during subagent startup.
+- Fixed nested BEAM session summary branch alignment in compact trees.
+
 ## 0.5.3 - 2026-06-09
 
 ### Changed
