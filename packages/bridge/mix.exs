@@ -53,7 +53,7 @@ defmodule PiBridge.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-      {:json_codec, "~> 0.1.1"},
+      {:json_codec, "~> 0.1.2"},
       {:req_llm, "~> 1.6", optional: true},
       {:dune, "~> 0.3", optional: true},
       {:bandit, "~> 1.8"},

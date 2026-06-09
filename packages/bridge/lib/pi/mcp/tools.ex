@@ -69,16 +69,8 @@ defmodule Pi.MCP.Tools do
   end
 
   defp normalize(map) when is_map(map) do
-    Map.new(map, fn
-      {"dry_run", value} -> {"dry_run", normalize_boolean(value)}
-      {key, value} -> {key, normalize_value(value)}
-    end)
+    Map.new(map, fn {key, value} -> {key, normalize_value(value)} end)
   end
-
-  defp normalize_boolean(value) when is_boolean(value), do: value
-  defp normalize_boolean("true"), do: true
-  defp normalize_boolean("false"), do: false
-  defp normalize_boolean(value), do: value
 
   defp normalize_value(%module{} = value) do
     if function_exported?(module, :to_map, 1),

@@ -7,6 +7,6 @@ defmodule Pi.Protocol.ResultTest do
     result = Result.to_map(%Result{type: :result, id: 1, text: "ok", is_error: false})
 
     assert result["type"] == "result"
-    assert result["is_error"] == "false"
+    assert result["is_error"] == false
   end
 end
