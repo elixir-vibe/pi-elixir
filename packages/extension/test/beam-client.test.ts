@@ -26,6 +26,11 @@ function invalidResponse(text: string, status = 200): Response {
   return new Response(text, { status })
 }
 
+function emitStdout(proc: childProcess.ChildProcess, text: string): void {
+  const stdout = proc.stdout as EventEmitter
+  stdout.emit('data', Buffer.from(text))
+}
+
 // Reset module-level state between tests by clearing internal Maps/Sets.
 // We access them indirectly through the public API.
 function resetModuleState() {
@@ -351,10 +356,7 @@ end`)
     expect(first).toBeNull()
 
     // Simulate readiness
-    ;(fakeProc.stdout as EventEmitter).emit(
-      'data',
-      Buffer.from('PI_MCP_READY port=4041 server=bandit')
-    )
+    emitStdout(fakeProc, 'PI_MCP_READY port=4041 server=bandit')
 
     // Second call should find the ready embedded process
     const second = await resolveUrl('/ready-project')
@@ -454,7 +456,7 @@ describe('getConnectionKind', () => {
     vi.mocked(childProcess.spawn).mockReturnValue(fakeProc)
 
     await resolveUrl('/embedded-kind-project')
-    ;(fakeProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY'))
+    emitStdout(fakeProc, 'PI_MCP_READY')
 
     expect(getConnectionKind('/embedded-kind-project')).toBe('embedded')
   })
@@ -525,7 +527,7 @@ describe('onStatusChange', () => {
     vi.mocked(childProcess.spawn).mockReturnValue(fakeProc)
 
     await resolveUrl('/cb-project')
-    ;(fakeProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY'))
+    emitStdout(fakeProc, 'PI_MCP_READY')
 
     expect(cb).toHaveBeenCalledWith('/cb-project', 'embedded')
     unsubscribe()
@@ -600,7 +602,7 @@ describe('onStatusChange', () => {
     await resolveUrl('/isolated-cb-project')
 
     expect(() => {
-      ;(fakeProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY'))
+      emitStdout(fakeProc, 'PI_MCP_READY')
     }).not.toThrow()
 
     expect(throwing).toHaveBeenCalledWith('/isolated-cb-project', 'embedded')
@@ -630,7 +632,7 @@ describe('onStatusChange', () => {
     vi.mocked(childProcess.spawn).mockReturnValueOnce(firstProc).mockReturnValueOnce(secondProc)
 
     await resolveUrl('/cached-stop-project')
-    ;(firstProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY port=3333'))
+    emitStdout(firstProc, 'PI_MCP_READY port=3333')
 
     const cached = await resolveUrl('/cached-stop-project')
     expect(cached).toEqual({ url: 'http://127.0.0.1:3333/mcp', kind: 'embedded' })
@@ -669,13 +671,13 @@ describe('onStatusChange', () => {
     await resolveUrl('/restart-project')
     stopAllEmbedded()
     await resolveUrl('/restart-project')
-    ;(firstProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY port=3333'))
+    emitStdout(firstProc, 'PI_MCP_READY port=3333')
     firstProc.emit('exit')
 
     expect(getConnectionKind('/restart-project')).toBe('starting')
     expect(cb).not.toHaveBeenCalled()
 
-    ;(secondProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY port=4444'))
+    emitStdout(secondProc, 'PI_MCP_READY port=4444')
 
     expect(getConnectionKind('/restart-project')).toBe('embedded')
     expect(await resolveUrl('/restart-project')).toEqual({
@@ -685,7 +687,7 @@ describe('onStatusChange', () => {
 
     vi.mocked(fetch).mockClear()
     vi.mocked(childProcess.spawn).mockClear()
-    ;(firstProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY port=3333'))
+    emitStdout(firstProc, 'PI_MCP_READY port=3333')
 
     expect(await resolveUrl('/restart-project')).toEqual({
       url: 'http://127.0.0.1:4444/mcp',
@@ -726,7 +728,7 @@ describe('onStatusChange', () => {
     stopAllEmbedded()
     await resolveUrl('/stale-error-project')
     firstProc.emit('error', new Error('stale process error'))
-    ;(secondProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY port=5555'))
+    emitStdout(secondProc, 'PI_MCP_READY port=5555')
 
     expect(getConnectionKind('/stale-error-project')).toBe('embedded')
     expect(cb).not.toHaveBeenCalledWith('/stale-error-project', null)
@@ -756,14 +758,12 @@ describe('onStatusChange', () => {
     vi.mocked(childProcess.spawn).mockReturnValue(fakeProc)
 
     await resolveUrl('/old-bridge-project')
-    ;(fakeProc.stdout as EventEmitter).emit(
-      'data',
-      Buffer.from(
-        JSON.stringify({
-          type: 'ready',
-          info: { project: 'old_app', version: '0.5.2', transport: 'stdio' }
-        }) + '\n'
-      )
+    emitStdout(
+      fakeProc,
+      JSON.stringify({
+        type: 'ready',
+        info: { project: 'old_app', version: '0.5.2', transport: 'stdio' }
+      }) + '\n'
     )
 
     expect(getConnectionKind('/old-bridge-project')).toBe('incompatible')
@@ -792,7 +792,7 @@ describe('onStatusChange', () => {
 
     await resolveUrl('/multi-cb-project')
     unsubscribeFirst()
-    ;(fakeProc.stdout as EventEmitter).emit('data', Buffer.from('PI_MCP_READY'))
+    emitStdout(fakeProc, 'PI_MCP_READY')
 
     expect(first).not.toHaveBeenCalled()
     expect(second).toHaveBeenCalledWith('/multi-cb-project', 'embedded')
