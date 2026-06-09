@@ -72,10 +72,6 @@ function resultArg(result: AgentToolResult<unknown>, key: string): string | unde
   return typeof value === 'string' && value ? value : undefined
 }
 
-function icon(ok: boolean, theme: Theme) {
-  return theme.fg(ok ? 'success' : 'error', ok ? '✓' : '✗')
-}
-
 function hiddenLine(count: number, theme: Theme) {
   return count > 0 ? theme.fg('muted', `  … ${count} more`) : undefined
 }
@@ -173,14 +169,14 @@ function renderErrorBlock(message: string, expanded: boolean, theme: Theme) {
     const hidden =
       frames.length > visibleFrames.length || compactText(message) !== compactText(title)
     return renderLines([
-      `${icon(false, theme)} ${theme.fg('error', oneLine(title))}`,
+      theme.fg('error', oneLine(title)),
       ...visibleFrames.map((frame) => `  ${theme.fg('muted', frame)}`),
       ...(hidden ? [expandHint(theme)] : [])
     ])
   }
 
   return renderLines([
-    `${icon(false, theme)} ${theme.fg('error', title)}`,
+    theme.fg('error', title),
     ...frames.map((frame) => `  ${theme.fg('muted', frame)}`)
   ])
 }
@@ -189,17 +185,12 @@ function renderEvalValue(value: string, expanded: boolean, theme: Theme) {
   if (!value) return renderLines([theme.fg('muted', '(no output)')])
   if (!expanded) {
     const hidden = value.includes('\n')
-    return renderCompactLine(
-      `${icon(true, theme)} `,
-      theme.fg('toolOutput', compactText(value)),
-      hidden,
-      theme
-    )
+    return renderCompactLine('', theme.fg('toolOutput', compactText(value)), hidden, theme)
   }
 
   const lines = codeLines(value, 'elixir', theme)
   const [firstLine, ...rest] = lines
-  return renderLines([`${icon(true, theme)} ${firstLine?.trimStart() ?? ''}`, ...rest])
+  return renderLines([firstLine?.trimStart() ?? '', ...rest])
 }
 
 function renderIoAndValue(io: string, value: string, expanded: boolean, theme: Theme) {
@@ -208,7 +199,7 @@ function renderIoAndValue(io: string, value: string, expanded: boolean, theme: T
   if (!expanded) {
     const suffix = value ? theme.fg('muted', ` ↳ ${compactText(value)}`) : ''
     return renderCompactLine(
-      `${icon(true, theme)} `,
+      '',
       theme.fg('toolOutput', compactText(ioPreview)) + suffix,
       true,
       theme
@@ -216,7 +207,7 @@ function renderIoAndValue(io: string, value: string, expanded: boolean, theme: T
   }
 
   return renderLines([
-    `${icon(true, theme)} ${theme.fg('toolOutput', firstContentLine(cleanIo))}`,
+    theme.fg('toolOutput', firstContentLine(cleanIo)),
     ...cleanIo
       .split('\n')
       .slice(1)
@@ -257,7 +248,7 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
       })
       .join('')
     const semanticHidden = visibleParts.some(partHasSemanticHiddenOutput)
-    return renderCompactLine(`${icon(true, theme)} `, preview, semanticHidden, theme)
+    return renderCompactLine('', preview, semanticHidden, theme)
   }
 
   const lines: string[] = []
@@ -269,17 +260,17 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
       const code = codeLines(output, part.language ?? 'elixir', theme)
       if (index === 0) {
         const [first, ...rest] = code
-        lines.push(`${icon(true, theme)} ${first?.trimStart() ?? ''}`, ...rest)
+        lines.push(first?.trimStart() ?? '', ...rest)
       } else {
         lines.push(...code)
       }
     } else if (format === 'error') {
-      lines.push(`${index === 0 ? icon(false, theme) + ' ' : ''}${theme.fg('error', output)}`)
+      lines.push(theme.fg('error', output))
     } else {
       const rendered = output.split('\n').map((line) => `  ${theme.fg('toolOutput', line)}`)
       if (index === 0) {
         const [first, ...rest] = rendered
-        lines.push(`${icon(true, theme)} ${first?.trimStart() ?? ''}`, ...rest)
+        lines.push(first?.trimStart() ?? '', ...rest)
       } else {
         lines.push(...rendered)
       }
@@ -380,7 +371,7 @@ function codeLanguage(path: string) {
 function searchHeader(count: number, pattern: string | undefined, theme: Theme) {
   const noun = count === 1 ? 'match' : 'matches'
   const patternText = pattern ? `  ${theme.fg('muted', oneLine(pattern, 60))}` : ''
-  return `${icon(true, theme)} ${theme.fg('accent', `${count} ${noun}`)}${patternText}`
+  return `${theme.fg('accent', `${count} ${noun}`)}${patternText}`
 }
 
 function matchLine(match: AstMatch, theme: Theme) {
@@ -397,13 +388,13 @@ function renderToolUnavailableOrError(
 ) {
   if (!text) return renderLines([theme.fg('muted', emptyMessage)])
   if (resultIsError(result) || text.startsWith('ex_ast is not installed')) {
-    return renderLines([`${icon(false, theme)} ${theme.fg('error', oneLine(text))}`])
+    return renderLines([theme.fg('error', oneLine(text))])
   }
   return null
 }
 
 function renderFallback(text: string, theme: Theme) {
-  return renderLines([`${icon(true, theme)} ${theme.fg('muted', oneLine(text))}`])
+  return renderLines([theme.fg('muted', oneLine(text))])
 }
 
 export function renderAstSearchResult(
@@ -491,13 +482,13 @@ export function renderAstReplaceResult(
 
   if (!expanded) {
     return renderLines([
-      `${icon(true, theme)} ${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements in ${replacements.length} files`)}`,
+      `${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements in ${replacements.length} files`)}`,
       expandHint(theme)
     ])
   }
 
   const lines = [
-    `${icon(true, theme)} ${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements`)}`
+    `${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements`)}`
   ]
   for (const replacement of replacements.slice(0, 20)) {
     lines.push(

@@ -41,9 +41,9 @@ describe('elixir result rendering', () => {
 
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
-    expect(compact).toBe('✓ %{bridge: "0.6.0", app: :pi_bridge}')
+    expect(compact).toBe('%{bridge: "0.6.0", app: :pi_bridge}')
     expect(compact).not.toContain('to expand')
-    expect(compact).not.toBe('✓ %{')
+    expect(compact).not.toContain('✓')
   })
 
   it('recomputes compact hints when the terminal width changes', () => {
@@ -69,8 +69,9 @@ describe('elixir result rendering', () => {
     expect(wide).toContain('transport: :stdio}')
     expect(wide).not.toContain('to expand')
     expect(narrow.split('\n')).toHaveLength(1)
-    expect(narrow).toContain('✓ %{bridge: "0.6.0"')
+    expect(narrow).toContain('%{bridge: "0.6.0"')
     expect(narrow).toContain('to expand')
+    expect(narrow).not.toContain('✓')
   })
 
   it('shows a couple of stack frames for compact errors', () => {
@@ -86,7 +87,8 @@ describe('elixir result rendering', () => {
 
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
-    expect(compact).toContain('✗ RuntimeError: render smoke boom')
+    expect(compact).toContain('RuntimeError: render smoke boom')
+    expect(compact).not.toContain('✗')
     expect(compact).toContain('(elixir 1.20.0) src/elixir.erl:382')
     expect(compact).toContain('(stdlib 8.0) erl_eval.erl:1048')
     expect(compact).toContain('to expand')
