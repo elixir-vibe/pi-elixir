@@ -75,6 +75,7 @@ interface SessionSnapshot {
   prompt?: string | null
   response?: string | null
   result?: unknown
+  error?: string | null
   startedAt?: string | null
   updatedAt?: string | null
   durationMs?: number | null
@@ -309,10 +310,12 @@ function synthesis(
   const done = childSessions.filter((child) => child.status === 'done').length
   const running = childSessions.filter((child) => child.status === 'running').length
   const failed = childSessions.filter((child) => child.status === 'failed').length
+  const cancelled = childSessions.filter((child) => child.status === 'cancelled').length
   const parts = [
     done > 0 ? `${done} done` : undefined,
     running > 0 ? `${running} running` : undefined,
-    failed > 0 ? `${failed} failed` : undefined
+    failed > 0 ? `${failed} failed` : undefined,
+    cancelled > 0 ? `${cancelled} cancelled` : undefined
   ].filter(Boolean)
 
   return parts.length > 0 ? theme.fg('muted', `  ${parts.join(' · ')}`) : undefined
@@ -332,6 +335,31 @@ function sessionChildren(sessions: SessionSnapshot[]) {
 
 function isTerminalSession(session: SessionSnapshot) {
   return session.status === 'done' || session.status === 'failed' || session.status === 'cancelled'
+}
+
+function aggregateStatus(
+  session: SessionSnapshot,
+  children: Map<string, SessionSnapshot[]>
+): string | undefined {
+  const childSessions = children.get(session.id ?? '') ?? []
+  if (childSessions.length === 0) return session.status
+  if (childSessions.some((child) => aggregateStatus(child, children) === 'running'))
+    return 'running'
+  if (childSessions.some((child) => aggregateStatus(child, children) === 'failed')) return 'failed'
+  if (childSessions.every((child) => aggregateStatus(child, children) === 'cancelled'))
+    return 'cancelled'
+  if (
+    childSessions.every((child) => isTerminalSession({ status: aggregateStatus(child, children) }))
+  )
+    return session.status === 'idle' ? 'done' : session.status
+  return session.status
+}
+
+function sessionPreview(session: SessionSnapshot) {
+  if (session.status === 'failed')
+    return compact(session.error ?? session.response ?? session.latest)
+  if (session.status === 'cancelled') return compact(session.latest ?? session.prompt)
+  return compact(session.response ?? session.latest)
 }
 
 function hasActiveSession(
@@ -374,6 +402,16 @@ function activeSessionTree(sessions: SessionSnapshot[]) {
     .flatMap((root) => collectSessionTree(root, children, []))
 }
 
+function completionSignature(tree: SessionSnapshot[]) {
+  return tree
+    .map((session) =>
+      [session.id, session.status, session.updatedAt, session.result, session.error]
+        .map((part) => (typeof part === 'string' ? part : JSON.stringify(part ?? null)))
+        .join(':')
+    )
+    .join('|')
+}
+
 function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded = false) {
   const roots = sessions.filter((session) => !session.parentId)
   const children = sessionChildren(sessions)
@@ -381,12 +419,13 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded
   const lines: string[] = []
   const render = (session: SessionSnapshot, depth: number) => {
     const label = session.name || session.id || 'session'
-    const latest = compact(session.response ?? session.latest)
+    const effectiveStatus = aggregateStatus(session, children)
+    const latest = sessionPreview(session)
     const status =
       session.status === 'failed' || session.status === 'cancelled' ? ` ${session.status}` : ''
     const prefix = depth > 0 ? `${'  '.repeat(depth - 1)}  └─ ` : ''
     lines.push(
-      `${prefix}${sessionIcon(session.status, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
+      `${prefix}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
     )
 
     const summary = synthesis(session, children, theme)
@@ -400,6 +439,9 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded
       const response = compact(session.response)
       if (response && response !== latest)
         lines.push(`${detailPrefix}${theme.fg('muted', `→ ${response}`)}`)
+
+      const error = compact(session.error)
+      if (error && error !== latest) lines.push(`${detailPrefix}${theme.fg('error', `✗ ${error}`)}`)
 
       const timeline = session.events
         ?.map((sessionEvent) => sessionEvent.type)
@@ -461,8 +503,10 @@ function emitCompletedSessionMessages(pi: ExtensionAPI, cwd: string) {
   for (const tree of completedRootTrees(snapshots)) {
     const root = tree[0]
     const rootId = root?.id
-    if (!rootId || emitted.has(rootId)) continue
-    emitted.add(rootId)
+    if (!rootId) continue
+    const signature = `${rootId}:${completionSignature(tree)}`
+    if (emitted.has(signature)) continue
+    emitted.add(signature)
     pi.sendMessage({
       customType: 'elixir-sessions',
       content: '',

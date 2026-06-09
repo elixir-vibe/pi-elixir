@@ -148,6 +148,42 @@ defmodule Pi.Session.SessionTest do
     assert is_integer(encoded["durationMs"])
   end
 
+  test "snapshots include failed prompt and error previews" do
+    assert {:ok, pid} = Session.start(ask_fun: fn _messages, _opts -> {:error, "boom"} end)
+    assert {:error, "boom"} = Session.run(pid, "ping")
+
+    snapshot = Pi.Session.Worker.snapshot(pid)
+    encoded = JSONCodec.dump(snapshot)
+
+    assert snapshot.status == "failed"
+    assert snapshot.prompt == "ping"
+    assert snapshot.error == "boom"
+    assert encoded["prompt"] == "ping"
+    assert encoded["error"] == "boom"
+  end
+
+  test "snapshots include cancelled prompt previews" do
+    assert {:ok, pid} =
+             Session.start(
+               ask_fun: fn _messages, _opts ->
+                 Process.sleep(1_000)
+                 {:ok, "late"}
+               end
+             )
+
+    task = Task.async(fn -> Session.run(pid, "slow", timeout: 2_000) end)
+    Process.sleep(20)
+    assert :ok = Session.cancel(pid)
+    assert {:error, :cancelled} = Task.await(task)
+
+    snapshot = Pi.Session.Worker.snapshot(pid)
+    encoded = JSONCodec.dump(snapshot)
+
+    assert snapshot.status == "cancelled"
+    assert snapshot.prompt == "slow"
+    assert encoded["prompt"] == "slow"
+  end
+
   test "creates child sessions" do
     assert {:ok, parent} = Session.start(name: :root)
     assert {:ok, child} = Session.child(parent, name: :reviewer)
