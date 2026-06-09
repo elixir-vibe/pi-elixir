@@ -72,7 +72,12 @@ interface SessionSnapshot {
   name?: string | null
   status?: string
   latest?: string | null
+  prompt?: string | null
+  response?: string | null
   result?: unknown
+  startedAt?: string | null
+  updatedAt?: string | null
+  durationMs?: number | null
   messageCount?: number
   events?: Array<{ type?: string; at?: string | null }>
 }
@@ -263,6 +268,21 @@ function compact(text: string | null | undefined, limit = 72) {
   return value.length > limit ? value.slice(0, limit - 1) + '…' : value
 }
 
+function quotePreview(text: string | null | undefined, limit = 92) {
+  const value = compact(text, limit)
+  return value ? `“${value}”` : ''
+}
+
+function formatDurationMs(ms: number | null | undefined) {
+  if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return ''
+  if (ms < 1_000) return `${Math.round(ms)}ms`
+  const seconds = ms / 1_000
+  if (seconds < 60) return `${seconds.toFixed(seconds < 10 ? 1 : 0)}s`
+  const minutes = Math.floor(seconds / 60)
+  const remainder = Math.round(seconds % 60)
+  return `${minutes}m${remainder ? ` ${remainder}s` : ''}`
+}
+
 function sessionIcon(status: string | undefined, theme: Theme) {
   switch (status) {
     case 'done':
@@ -296,11 +316,6 @@ function synthesis(
   ].filter(Boolean)
 
   return parts.length > 0 ? theme.fg('muted', `  ${parts.join(' · ')}`) : undefined
-}
-
-function lastEvent(session: SessionSnapshot) {
-  const event = session.events?.at(-1)
-  return event?.type ? event.type : undefined
 }
 
 function sessionChildren(sessions: SessionSnapshot[]) {
@@ -366,24 +381,33 @@ function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded
   const lines: string[] = []
   const render = (session: SessionSnapshot, depth: number) => {
     const label = session.name || session.id || 'session'
-    const latest = compact(session.latest)
-    const event = lastEvent(session)
-    const status = session.status && session.status !== 'idle' ? ` ${session.status}` : ''
+    const latest = compact(session.response ?? session.latest)
+    const status =
+      session.status === 'failed' || session.status === 'cancelled' ? ` ${session.status}` : ''
     const prefix = depth > 0 ? `${'  '.repeat(depth - 1)}  └─ ` : ''
     lines.push(
-      `${prefix}${sessionIcon(session.status, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${event ? theme.fg('muted', ` · ${event}`) : ''}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
+      `${prefix}${sessionIcon(session.status, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
     )
 
     const summary = synthesis(session, children, theme)
     if (summary) lines.push(`${prefix}${summary}`)
 
-    if (expanded && session.events && session.events.length > 0) {
+    if (expanded) {
+      const detailPrefix = depth > 0 ? `${'  '.repeat(depth - 1)}     ` : '    '
+      const prompt = quotePreview(session.prompt)
+      if (prompt) lines.push(`${detailPrefix}${theme.fg('muted', prompt)}`)
+
+      const response = compact(session.response)
+      if (response && response !== latest)
+        lines.push(`${detailPrefix}${theme.fg('muted', `→ ${response}`)}`)
+
       const timeline = session.events
-        .map((sessionEvent) => sessionEvent.type)
+        ?.map((sessionEvent) => sessionEvent.type)
         .filter((type): type is string => typeof type === 'string' && type.length > 0)
         .join(' → ')
-      const eventPrefix = depth > 0 ? `${'  '.repeat(depth - 1)}     ` : '    '
-      if (timeline) lines.push(`${eventPrefix}${theme.fg('muted', timeline)}`)
+      const duration = formatDurationMs(session.durationMs)
+      const trail = [timeline, timeline ? duration : undefined].filter(Boolean).join(' · ')
+      if (trail) lines.push(`${detailPrefix}${theme.fg('muted', trail)}`)
     }
 
     for (const child of children.get(session.id ?? '') ?? []) render(child, depth + 1)

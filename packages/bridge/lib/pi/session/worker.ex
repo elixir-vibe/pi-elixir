@@ -276,7 +276,11 @@ defmodule Pi.Session.Worker do
       status: Atom.to_string(state.status),
       result: state.result,
       error: error(state.error),
+      started_at: datetime(state.started_at),
       updated_at: datetime(state.updated_at),
+      duration_ms: duration_ms(state),
+      prompt: prompt_text(state),
+      response: response_text(state),
       message_count: length(state.messages),
       latest: latest_text(state),
       events: Enum.map(state.events, &event/1)
@@ -293,6 +297,18 @@ defmodule Pi.Session.Worker do
   defp datetime(nil), do: nil
   defp datetime(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
 
+  defp duration_ms(%State{
+         started_at: %DateTime{} = started_at,
+         updated_at: %DateTime{} = updated_at
+       }) do
+    DateTime.diff(updated_at, started_at, :millisecond)
+  end
+
+  defp duration_ms(_state), do: nil
+
+  defp prompt_text(%State{messages: messages}), do: last_text_for_role(messages, :user)
+  defp response_text(%State{messages: messages}), do: last_text_for_role(messages, :assistant)
+
   defp latest_text(%State{result: result}) when is_binary(result) and result != "", do: result
 
   defp latest_text(%State{messages: messages}) do
@@ -300,6 +316,15 @@ defmodule Pi.Session.Worker do
     |> Enum.reverse()
     |> Enum.find_value(fn
       %Message{content: content} when is_binary(content) and content != "" -> content
+      _message -> nil
+    end)
+  end
+
+  defp last_text_for_role(messages, role) do
+    messages
+    |> Enum.reverse()
+    |> Enum.find_value(fn
+      %Message{role: ^role, content: content} when is_binary(content) and content != "" -> content
       _message -> nil
     end)
   end

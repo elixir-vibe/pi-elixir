@@ -123,11 +123,29 @@ defmodule Pi.Session.SessionTest do
 
     encoded = JSONCodec.dump(snapshot)
     assert encoded["messageCount"] == 0
+    assert encoded["durationMs"] == 0
     assert Map.has_key?(encoded, "parentId")
+    assert Map.has_key?(encoded, "startedAt")
     assert Map.has_key?(encoded, "updatedAt")
     refute Map.has_key?(encoded, "message_count")
+    refute Map.has_key?(encoded, "duration_ms")
     refute Map.has_key?(encoded, "parent_id")
+    refute Map.has_key?(encoded, "started_at")
     refute Map.has_key?(encoded, "updated_at")
+  end
+
+  test "snapshots include prompt and response previews" do
+    assert {:ok, pid} = Session.start(ask_fun: fn _messages, _opts -> {:ok, "pong"} end)
+    assert {:ok, "pong"} = Session.run(pid, "ping")
+
+    snapshot = Pi.Session.Worker.snapshot(pid)
+    encoded = JSONCodec.dump(snapshot)
+
+    assert snapshot.prompt == "ping"
+    assert snapshot.response == "pong"
+    assert encoded["prompt"] == "ping"
+    assert encoded["response"] == "pong"
+    assert is_integer(encoded["durationMs"])
   end
 
   test "creates child sessions" do
