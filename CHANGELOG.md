@@ -2,6 +2,29 @@
 
 ## Unreleased
 
+## 0.6.0 - 2026-06-10
+
+### Added
+
+- Stateful Livebook-style `elixir_eval` sessions with persisted sidecar snapshots for bindings and eval environment across pi resume/branch navigation.
+- Eval state helpers: `Pi.Eval.bindings/0,1`, `Pi.Eval.reset/0,1`, and `Pi.Eval.forget/1,2`.
+- First-class ExAST dependency for structural Elixir search and rewrite tools.
+- BEAM/extension feature flags for stateful eval, eval sidecars, LLM bridge requests, BEAM sessions, plugins, executable skills, and compact eval previews.
+- `Pi.Features.gate/2` DSL for BEAM-side feature-gated code paths.
+
+### Changed
+
+- README and package docs now position stdio as the default transport and `PI_MCP_URL` as an advanced/debug escape hatch.
+- Docs now explicitly describe pi-owned LLM handling with `Pi.ReqLLM` as an adapter over pi's active model path.
+- Normal JS unit tests exclude integration tests; `pnpm --dir packages/extension run test:integration` runs embedded stdio/MCP integration tests explicitly.
+- Repository metadata and docs now point to `elixir-vibe/pi-elixir`.
+- Elixir development skill guidance now strongly prefers ExAST for Elixir code-shape search/refactors and BEAM docs APIs for installed module/function docs.
+
+### Fixed
+
+- Eval sidecar restore now uses safe binary decoding with a reduced safe snapshot representation instead of deserializing raw `Macro.Env` terms.
+- Added regression coverage for restoring eval sidecar snapshots after evaluator restart.
+
 ## 0.5.4 - 2026-06-09
 
 ### Added

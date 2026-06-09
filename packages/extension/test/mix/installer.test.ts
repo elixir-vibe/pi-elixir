@@ -52,7 +52,7 @@ describe('ensurePiBeamDependency', () => {
     })
 
     expect(ok).toBe(false)
-    expect(dependency).toBe('{:pi_bridge, "== 0.5.4", only: :dev}')
+    expect(dependency).toBe('{:pi_bridge, "== 0.6.0", only: :dev}')
   })
 
   it('allows an explicit local path dependency for development', async () => {
