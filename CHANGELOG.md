@@ -32,6 +32,7 @@
 - Integration tests default to `packages/fixtures/demo_project` instead of the bridge package itself.
 - Elixir skills are organized under `skills/elixir/*` while keeping stable skill names.
 - `Pi.Protocol.Session.Snapshot` now includes prompt/response previews, run count, completion time, current activity, and recent output fields.
+- `Pi.Session.append_entry/3` and `send_message/3` now accept keyword data for ergonomic Elixir call sites.
 
 ### Fixed
 

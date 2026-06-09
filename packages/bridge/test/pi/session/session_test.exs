@@ -1,7 +1,9 @@
 defmodule Pi.Session.SessionTest do
   use ExUnit.Case, async: false
 
+  alias Pi.LLM.Broker
   alias Pi.Protocol.LLM.Message
+  alias Pi.Protocol.Response
   alias Pi.Session
   alias Pi.Session.State
   alias Pi.Session.Supervisor, as: SessionSupervisor
@@ -81,6 +83,20 @@ defmodule Pi.Session.SessionTest do
     end
   end
 
+  defp assert_request(op, custom_type, data) do
+    receive do
+      {:pi_transport_emit, payload} ->
+        assert field(payload, :type) == "request"
+        assert field(payload, :op) == Atom.to_string(op)
+        request_payload = field(payload, :payload)
+        assert field(request_payload, :customType) == custom_type
+        assert field(request_payload, :data) == data
+        Broker.deliver(field(payload, :id), %Response{ok: true, result: "ok"})
+    after
+      1_000 -> flunk("expected #{op} request")
+    end
+  end
+
   defp field(nil, _key), do: nil
 
   defp field(map, key) when is_map(map),
@@ -110,6 +126,27 @@ defmodule Pi.Session.SessionTest do
 
     assert_receive {:messages, ["ping"]}
     assert_receive {:messages, ["ping", "ok", "ping"]}
+
+    snapshot = Pi.Session.Worker.snapshot(pid)
+    encoded = JSONCodec.dump(snapshot)
+
+    assert snapshot.run_count == 2
+    assert encoded["runCount"] == 2
+    assert is_binary(encoded["completedAt"])
+  end
+
+  test "host session helpers accept keyword custom data" do
+    :persistent_term.put({Pi.Transport.Stdio, :pid}, self())
+
+    append_task = Task.async(fn -> Session.append_entry("demo-state", count: 1) end)
+    assert_request(:append_entry, "demo-state", %{"count" => 1})
+    assert {:ok, "ok"} = Task.await(append_task)
+
+    message_task = Task.async(fn -> Session.send_message("demo-message", count: 2) end)
+    assert_request(:send_message, "demo-message", %{"count" => 2})
+    assert {:ok, "ok"} = Task.await(message_task)
+  after
+    :persistent_term.erase({Pi.Transport.Stdio, :pid})
   end
 
   test "returns camelCase protocol snapshots" do
@@ -202,7 +239,11 @@ defmodule Pi.Session.SessionTest do
 
     assert snapshot.status == "cancelled"
     assert snapshot.prompt == "slow"
+    assert snapshot.current == nil
+    assert is_binary(snapshot.completed_at)
     assert encoded["prompt"] == "slow"
+    assert encoded["current"] == nil
+    assert is_binary(encoded["completedAt"])
   end
 
   test "creates child sessions" do

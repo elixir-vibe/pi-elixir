@@ -261,20 +261,37 @@ describe('extension status lifecycle', () => {
   it('registers private session control commands', async () => {
     const projectA = makeProject('project-a')
     vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
-    vi.mocked(callTool).mockResolvedValue({ text: 'ok', isError: false })
+    vi.mocked(callTool)
+      .mockResolvedValueOnce({ text: 'ok', isError: false })
+      .mockResolvedValueOnce({ text: 'ok', isError: false })
+      .mockResolvedValueOnce({ text: 'boom', isError: true })
 
     const { pi } = fakePi()
     const ctx = fakeCtx(projectA)
     extension(pi as any)
 
-    const command = pi.registerCommand.mock.calls.find(
-      ([name]) => name === 'elixir:sessions.cancel'
-    )
-    expect(command).toBeTruthy()
-    await command?.[1].handler({ id: 'session_1' }, ctx)
+    const cancel = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:sessions.cancel')
+    const rerun = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:sessions.rerun')
+    expect(cancel).toBeTruthy()
+    expect(rerun).toBeTruthy()
 
-    expect(callTool).toHaveBeenCalledWith('stdio:test', 'pi_session_cancel', { id: 'session_1' })
+    await cancel?.[1].handler({ id: 'session_1' }, ctx)
+    await rerun?.[1].handler('session_2', ctx)
+    await cancel?.[1].handler({ id: 'session_3' }, ctx)
+    await rerun?.[1].handler({}, ctx)
+
+    expect(callTool).toHaveBeenNthCalledWith(1, 'stdio:test', 'pi_session_cancel', {
+      id: 'session_1'
+    })
+    expect(callTool).toHaveBeenNthCalledWith(2, 'stdio:test', 'pi_session_rerun', {
+      id: 'session_2'
+    })
+    expect(callTool).toHaveBeenNthCalledWith(3, 'stdio:test', 'pi_session_cancel', {
+      id: 'session_3'
+    })
     expect(ctx.ui.notify).toHaveBeenCalledWith('ok', 'info')
+    expect(ctx.ui.notify).toHaveBeenCalledWith('boom', 'error')
+    expect(ctx.ui.notify).toHaveBeenCalledWith('Session id is required.', 'error')
   })
 
   it('handles BEAM session request APIs', async () => {

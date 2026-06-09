@@ -82,6 +82,56 @@ Cancellation from BEAM to pi:
 { "type": "llm_cancel", "id": "llm_456_2", "reason": "closed" }
 ```
 
+## BEAM session snapshot event
+
+`Pi.Session` workers emit renderer-neutral snapshots as `pi_session` events. Field names are camelCase at the JSON boundary via `JSONCodec`.
+
+```json
+{
+  "type": "event",
+  "name": "pi_session",
+  "data": {
+    "session": {
+      "id": "session_1",
+      "parentId": null,
+      "name": "reviewer",
+      "status": "done",
+      "result": "passed",
+      "error": null,
+      "startedAt": "2026-06-09T09:00:00Z",
+      "updatedAt": "2026-06-09T09:00:01Z",
+      "completedAt": "2026-06-09T09:00:01Z",
+      "durationMs": 1000,
+      "prompt": "review this change",
+      "response": "passed",
+      "latest": "passed",
+      "current": null,
+      "runCount": 1,
+      "messageCount": 2,
+      "recentOutput": [],
+      "events": [
+        { "type": "started", "at": "2026-06-09T09:00:00Z", "data": {} },
+        { "type": "llm", "at": "2026-06-09T09:00:00Z", "data": {} },
+        { "type": "done", "at": "2026-06-09T09:00:01Z", "data": {} }
+      ]
+    }
+  }
+}
+```
+
+Running or streaming sessions may include live activity and recent output without requiring TS renderers to parse event blobs:
+
+```json
+{
+  "status": "running",
+  "current": "llm",
+  "recentOutput": ["first ", "second"],
+  "runCount": 1
+}
+```
+
+Reruns increment `runCount` and update `completedAt`. Cancelled sessions also set `completedAt` and clear `current` before the terminal snapshot is emitted.
+
 ## UI status event
 
 ```json
