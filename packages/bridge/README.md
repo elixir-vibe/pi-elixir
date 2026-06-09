@@ -1,18 +1,20 @@
 # pi_bridge
 
-BEAM runtime bridge for [pi](https://github.com/earendil-works/pi-coding-agent). It provides the Elixir-side `Pi.*` modules used by the pi-elixir extension for runtime eval, stdio transport, executable Elixir skills, LLM calls, logical agents, and bidirectional plugin UI events.
+BEAM runtime bridge for [pi](https://github.com/earendil-works/pi-coding-agent) and the [`pi-elixir`](https://github.com/elixir-vibe/pi-elixir) package. It provides the Elixir-side `Pi.*` modules used for Livebook-style stateful eval, ExAST-backed structural tools, stdio transport, executable Elixir skills, LLM calls through pi's active model, OTP-backed logical agents, and bidirectional plugin UI events.
+
+`pi_bridge` is inspired by [Vibe](https://github.com/elixir-vibe/vibe): keep the model-facing surface small, but let trusted Elixir code operate from inside the running BEAM.
 
 ## Installation
 
 ```elixir
 def deps do
   [
-    {:pi_bridge, "~> 0.1", only: :dev}
+    {:pi_bridge, "== 0.5.4", only: :dev}
   ]
 end
 ```
 
-`pi_bridge` is intended for development-time agent tooling.
+`pi_bridge` is intended for development-time agent tooling. The dependency is exact-versioned because the npm extension and Hex bridge are released together and share a stdio protocol.
 
 ## Public API ergonomics
 
@@ -34,7 +36,17 @@ Boundary JSON examples are documented in [`docs/protocol.md`](docs/protocol.md).
 
 ## Eval
 
-`Pi.Eval.run/2` is the trusted project introspection path. It evaluates inside the project BEAM with project modules and aliases available.
+`Pi.Eval.run/2` is the trusted project introspection path. It evaluates inside the project BEAM with project modules, aliases, application config, OTP processes, Repo modules, and IEx helpers available.
+
+Structured eval from the pi tool is stateful: bindings and `Macro.Env` are kept in a supervised evaluator and persisted as sidecar snapshots next to the pi session. That gives IEx/Livebook-like continuity across eval calls and resume/branch navigation without inlining large state into JSONL transcripts.
+
+Useful eval helpers:
+
+```elixir
+Pi.Eval.bindings()
+Pi.Eval.forget(:large_result)
+Pi.Eval.reset()
+```
 
 For untrusted snippets, use the Dune-backed sandbox:
 

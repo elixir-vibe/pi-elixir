@@ -161,7 +161,7 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded MCP server', ()
     it('finds Elixir syntax structurally', async () => {
       const result = await mcpCall(baseUrl, 'ex_ast_search', {
         pattern: 'defmodule _ do _ end',
-        path: 'lib/pi/eval.ex'
+        path: 'lib/pi_demo_project.ex'
       })
       if (result.isError || result.text.startsWith('ex_ast is not installed')) {
         expect(result.text).toContain('ex_ast is not installed')
@@ -170,7 +170,7 @@ describe.skipIf(!elixirAvailable || !projectAvailable)('embedded MCP server', ()
 
       const payload = JSON.parse(result.text)
       expect(payload.kind).toBe('ast_search')
-      expect(payload.matches[0].source).toContain('defmodule Pi.Eval do')
+      expect(payload.matches[0].source).toContain('defmodule PiDemoProject do')
     })
   })
 })

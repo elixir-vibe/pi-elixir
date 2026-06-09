@@ -5,13 +5,15 @@ description: Develop existing Elixir/Phoenix applications through a minimal BEAM
 
 # Elixir Development with BEAM Runtime Access
 
-Use the BEAM as the primary control plane. Keep the model-facing Elixir tool surface small:
+Use the BEAM as the primary control plane. Keep the model-facing Elixir tool surface small, but use the available tools aggressively:
 
 - `elixir_eval` — runtime introspection, helper calls, docs, profiling, filesystem inspection through Elixir stdlib, OTP state, database checks, and small experiments inside the loaded app.
-- `elixir_ast_search` — structural Elixir search. Use it instead of text search when matching code shape.
-- `elixir_ast_replace` — structural Elixir rewrites. Use it instead of regex/text replacement for syntax-aware changes.
-- LSP, when available — diagnostics, definitions, references, hover, symbols, and code actions.
-- Host file/shell tools — file edits, `git`, and `mix` build/test/format commands.
+- `elixir_ast_search` — default choice for Elixir code search when the target is syntax/code shape. Prefer this over `rg`/grep for functions, callbacks, pipelines, structs, maps, tuples, calls, macros, and refactor candidates.
+- `elixir_ast_replace` — default choice for Elixir refactors and syntax-aware rewrites. Prefer this over regex/text replacement unless the change is purely textual.
+- LSP, when available — diagnostics, definitions, references, hover/type info, workspace/file symbols, and code actions.
+- Host file/shell tools — file edits, `git`, package managers, and `mix` build/test/format commands.
+
+Use Elixir docs APIs from `elixir_eval` before guessing framework/library behavior. Prefer `Code.fetch_docs/1`, `h(Module.fun/arity)`, `exports(Module)`, and `i(term)` over web search for installed modules. Web search is for missing or external docs, not the first step for code that is already loaded in the project.
 
 Use Elixir/OTP stdlib directly from `elixir_eval` for ordinary runtime, file, and process work. Reach for `Pi.*` shortcuts only when they provide bounded summaries or remove repetitive boilerplate.
 

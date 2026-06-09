@@ -43,6 +43,7 @@ defmodule Pi.Transport.Stdio do
     Manager.install()
     Broker.install()
     AgentRegistry.install()
+    Pi.Eval.Supervisor.install()
     ready()
     emit_integration_statuses()
 

@@ -80,12 +80,19 @@ defmodule Pi.MCP.Tools do
     code |> Pi.Eval.sandbox(timeout: timeout) |> sandbox_result()
   end
 
-  defp run_eval(%EvalRequest{code: code}, timeout, true) do
-    code |> Pi.Eval.run_structured(timeout: timeout) |> encode_result()
+  defp run_eval(%EvalRequest{code: code} = request, timeout, true) do
+    code |> Pi.Eval.run_structured(eval_opts(request, timeout)) |> encode_result()
   end
 
-  defp run_eval(%EvalRequest{code: code}, timeout, false) do
-    Pi.Eval.run(code, timeout: timeout)
+  defp run_eval(%EvalRequest{code: code} = request, timeout, false) do
+    Pi.Eval.run(code, eval_opts(request, timeout))
+  end
+
+  defp eval_opts(request, timeout) do
+    [timeout: timeout]
+    |> maybe_put(:session_id, request.session_id)
+    |> maybe_put(:state_path, request.state_path)
+    |> maybe_put(:restore_path, request.restore_path)
   end
 
   defp eval_timeout(:sandbox), do: 5_000

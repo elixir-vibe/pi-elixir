@@ -8,6 +8,7 @@ import {
   truncateHead,
   type AgentToolResult,
   type ExtensionAPI,
+  type ExtensionContext,
   type ToolRenderResultOptions,
   type Theme
 } from '@earendil-works/pi-coding-agent'
@@ -108,6 +109,12 @@ type RenderCall = (args: ToolArgs, theme: Theme, context?: unknown) => Component
 
 export interface BridgeToolOpts {
   transformResult?: (text: string) => string
+  prepareParams?: (
+    params: ToolArgs,
+    ctx: ExtensionContext,
+    beamCwd: string,
+    toolCallId: string
+  ) => ToolArgs
   resultDetails?: (text: string, params: ToolArgs) => Record<string, unknown>
   renderResult?: (
     result: AgentToolResult<unknown>,
@@ -213,7 +220,8 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       })
       if (!conn) return connectionError(beamCwd)
 
-      const { text: rawText, isError } = await tool.executeToolCall(params, conn.url, signal)
+      const bridgeParams = tool.opts?.prepareParams?.(params, ctx, beamCwd, _id) ?? params
+      const { text: rawText, isError } = await tool.executeToolCall(bridgeParams, conn.url, signal)
       const extraDetails = tool.opts?.resultDetails?.(rawText, params) ?? {}
       const text = tool.opts?.transformResult ? tool.opts.transformResult(rawText) : rawText
       return {

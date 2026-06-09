@@ -223,6 +223,72 @@ describe('extension status lifecycle', () => {
     expect(pi.appendEntry).not.toHaveBeenCalledWith('elixir-sessions', expect.any(Object))
   })
 
+  it('passes sidecar eval state refs based on the current session tree leaf', async () => {
+    const projectA = makeProject('project-a')
+    const sessionFile = path.join(tempRoot, 'session.jsonl')
+    const stateDir = path.join(`${sessionFile}.pi-elixir`, 'eval-state')
+    fs.mkdirSync(stateDir, { recursive: true })
+    fs.writeFileSync(path.join(stateDir, 'parent.term'), 'state')
+
+    vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({ kind: 'eval', text: '42' }),
+      isError: false
+    })
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+    const ctx = fakeCtx(projectA, sessionFile)
+    ctx.sessionManager.getLeafId = () => 'child'
+    const sessionManager = ctx.sessionManager as any
+    sessionManager.getBranch = () => [
+      { id: 'parent', parentId: null },
+      { id: 'child', parentId: 'parent' }
+    ]
+
+    await tool.execute('tool-1', { code: 'x + 1' }, undefined, undefined, ctx)
+
+    expect(callTool).toHaveBeenCalledWith(
+      'stdio:test',
+      'project_eval_structured',
+      expect.objectContaining({
+        code: 'x + 1',
+        sessionId: 'tool-1',
+        statePath: path.join(stateDir, 'tool-1.term'),
+        restorePath: path.join(stateDir, 'parent.term')
+      }),
+      undefined
+    )
+  })
+
+  it('does not attach sidecar eval state refs to sandbox eval', async () => {
+    const projectA = makeProject('project-a')
+    vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({ kind: 'eval', text: '42' }),
+      isError: false
+    })
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+    const ctx = fakeCtx(projectA)
+
+    await tool.execute('tool-1', { code: '1 + 1', mode: 'sandbox' }, undefined, undefined, ctx)
+
+    expect(callTool).toHaveBeenCalledWith(
+      'stdio:test',
+      'project_eval_structured',
+      { code: '1 + 1', mode: 'sandbox' },
+      undefined
+    )
+  })
+
   it('refreshes BEAM session snapshots after Elixir tool results', async () => {
     const projectA = makeProject('project-a')
     vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })

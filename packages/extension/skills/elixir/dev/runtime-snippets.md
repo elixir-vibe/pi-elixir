@@ -2,11 +2,41 @@
 
 ## Module and docs discovery
 
+Prefer docs from the loaded BEAM before web search:
+
 ```elixir
 Code.ensure_loaded?(MyApp.Context)
 MyApp.Context.module_info(:exports)
+exports(MyApp.Context)
+h(Ecto.Changeset.cast/4)
 Code.fetch_docs(MyApp.Context)
 Code.fetch_docs(Ecto.Changeset)
+```
+
+Structured function docs helper:
+
+```elixir
+doc = fn module, name, arity ->
+  with {:docs_v1, _, _, _, _moduledoc, _meta, docs} <- Code.fetch_docs(module),
+       {{kind, ^name, ^arity}, _anno, signatures, doc, metadata} <-
+         Enum.find(docs, fn
+           {{kind, ^name, ^arity}, _, _, _, _} when kind in [:function, :macro] -> true
+           _ -> false
+         end) do
+    %{
+      kind: kind,
+      signatures: signatures,
+      doc: case doc do
+        %{"en" => text} -> text
+        :hidden -> :hidden
+        :none -> nil
+      end,
+      metadata: metadata
+    }
+  end
+end
+
+doc.(Ecto.Changeset, :cast, 4)
 ```
 
 ## Source locations

@@ -2,7 +2,7 @@ defmodule Pi.Eval do
   @moduledoc "Runs bounded Elixir evals inside the project BEAM."
 
   alias Pi.Bridge.Info
-  alias Pi.Eval.Sandbox
+  alias Pi.Eval.{Evaluator, Sandbox, Supervisor}
   alias Pi.Protocol.Tool.Eval, as: EvalPayload
   alias Pi.Protocol.Tool.OutputPart
   alias Pi.Protocol.UI.Block
@@ -20,15 +20,74 @@ defmodule Pi.Eval do
     run_eval(code, opts, :text)
   end
 
+  @doc "Returns binding metadata for the current eval process."
+  def bindings, do: Evaluator.current_binding_info()
+
+  @doc "Returns binding metadata for a stateful eval session."
+  def bindings(session_id) when is_binary(session_id) do
+    with {:ok, evaluator} <- Supervisor.evaluator(session_id) do
+      Evaluator.bindings(evaluator)
+    end
+  end
+
+  @doc "Schedules reset when called from inside eval."
+  def reset, do: Evaluator.put_control(:reset)
+
+  @doc "Clears a stateful eval session."
+  def reset(session_id) when is_binary(session_id) do
+    with {:ok, evaluator} <- Supervisor.evaluator(session_id), do: Evaluator.reset(evaluator)
+  end
+
+  @doc "Schedules forget when called from inside eval."
+  def forget(names), do: Evaluator.put_control({:forget, normalize_names!(names)})
+
+  @doc "Forgets bindings in a stateful eval session."
+  def forget(names, session_id) when is_binary(session_id) do
+    with {:ok, evaluator} <- Supervisor.evaluator(session_id) do
+      Evaluator.forget(evaluator, normalize_names!(names))
+    end
+  end
+
   defp run_eval(code, opts, mode) do
     timeout = Keyword.get(opts, :timeout, 30_000)
-    parent = self()
 
     reload_project()
-    code = prepend_aliases(code)
 
-    {pid, ref} =
-      spawn_monitor(fn -> send(parent, {:result, eval_with_captured_io(code, mode)}) end)
+    case {mode, Keyword.get(opts, :session_id)} do
+      {:structured, session_id} when is_binary(session_id) ->
+        run_stateful_eval(code, opts, timeout, session_id)
+
+      _other ->
+        run_stateless_eval(code, timeout, mode)
+    end
+  end
+
+  defp run_stateful_eval(code, opts, timeout, session_id) do
+    case Supervisor.evaluator(session_id,
+           state_path: Keyword.get(opts, :state_path),
+           restore_path: Keyword.get(opts, :restore_path)
+         ) do
+      {:ok, evaluator} ->
+        await_eval(timeout, fn ->
+          Evaluator.evaluate(evaluator, code,
+            state_path: Keyword.get(opts, :state_path),
+            restore_path: Keyword.get(opts, :restore_path)
+          )
+        end)
+
+      {:error, reason} ->
+        {:error, inspect(reason)}
+    end
+  end
+
+  defp run_stateless_eval(code, timeout, mode) do
+    code = prepend_aliases(code)
+    await_eval(timeout, fn -> eval_with_captured_io(code, mode) end)
+  end
+
+  defp await_eval(timeout, fun) when is_function(fun, 0) do
+    parent = self()
+    {pid, ref} = spawn_monitor(fn -> send(parent, {:result, fun.()}) end)
 
     receive do
       {:result, result} ->
@@ -133,6 +192,17 @@ defmodule Pi.Eval do
 
   defp part_block(%OutputPart{format: format, output: output, language: language}) do
     %Block{type: format, text: output, language: language}
+  end
+
+  defp normalize_names!(name) when is_atom(name), do: [name]
+
+  defp normalize_names!(name) when is_binary(name), do: [String.to_existing_atom(name)]
+
+  defp normalize_names!(names) when is_list(names) do
+    Enum.map(names, fn
+      name when is_atom(name) -> name
+      name when is_binary(name) -> String.to_existing_atom(name)
+    end)
   end
 
   defp env do

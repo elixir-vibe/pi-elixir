@@ -1,6 +1,6 @@
 # pi-elixir
 
-BEAM runtime tools for [pi](https://github.com/badlogic/pi-mono). `pi-elixir` connects pi to the running Elixir application for live eval, runtime inspection, and structural Elixir code operations.
+BEAM runtime tools for [pi](https://github.com/earendil-works/pi-coding-agent). `pi-elixir` connects pi to the running Elixir application for live eval, runtime inspection, and structural Elixir code operations. It brings ideas from [Vibe](https://github.com/elixir-vibe/vibe) into pi: compact tools, BEAM runtime truth, executable Elixir skills, project-local plugins, and OTP-backed subagents.
 
 ## Repository shape
 

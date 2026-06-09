@@ -9,7 +9,7 @@ defmodule PiBridge.MixProject do
       start_permanent: Mix.env() == :prod,
       description: "BEAM runtime bridge for pi development agents",
       package: package(),
-      source_url: "https://github.com/dannote/pi-elixir",
+      source_url: "https://github.com/elixir-vibe/pi-elixir",
       docs: [main: "readme", extras: ["README.md", "docs/protocol.md"]],
       elixirc_options: [
         no_warn_undefined: [
@@ -51,7 +51,7 @@ defmodule PiBridge.MixProject do
   defp package do
     [
       licenses: ["MIT"],
-      links: %{"GitHub" => "https://github.com/dannote/pi-elixir"},
+      links: %{"GitHub" => "https://github.com/elixir-vibe/pi-elixir"},
       files: ~w[lib docs mix.exs README.md]
     ]
   end
@@ -60,6 +60,7 @@ defmodule PiBridge.MixProject do
     [
       {:jason, "~> 1.4"},
       {:json_codec, "~> 0.1.3"},
+      {:ex_ast, "~> 0.12"},
       {:req_llm, "~> 1.6", optional: true},
       {:dune, "~> 0.3", optional: true},
       {:bandit, "~> 1.8"},
