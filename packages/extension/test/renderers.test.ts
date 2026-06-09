@@ -79,6 +79,28 @@ describe('elixir result rendering', () => {
     expect(narrow).not.toContain('✓')
   })
 
+  it('appends eval duration when timing context is available', () => {
+    vi.useFakeTimers()
+    try {
+      vi.setSystemTime(new Date('2026-06-10T00:00:01.200Z'))
+      const result = evalResult({
+        result: '42',
+        parts: [{ format: 'inspect', output: '42', preview: '42', language: 'elixir' }]
+      })
+
+      const compact = textOf(
+        renderElixirResult(result, { expanded: false, isPartial: false }, theme, {
+          state: { startedAt: Date.parse('2026-06-10T00:00:00.000Z') },
+          isPartial: false
+        })
+      )
+
+      expect(compact).toBe('\n42\nTook 1.2s')
+    } finally {
+      vi.useRealTimers()
+    }
+  })
+
   it('shows a couple of stack frames for compact errors', () => {
     const result = {
       content: [

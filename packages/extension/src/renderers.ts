@@ -59,6 +59,39 @@ function renderLines(lines: string[]) {
   return new Text(['', ...lines].join('\n'), 0, 0)
 }
 
+interface TimedToolRenderContext {
+  state?: { startedAt?: number; endedAt?: number }
+  isPartial?: boolean
+  isError?: boolean
+}
+
+function timedContext(context: unknown): TimedToolRenderContext | undefined {
+  return typeof context === 'object' && context !== null
+    ? (context as TimedToolRenderContext)
+    : undefined
+}
+
+function formatDuration(ms: number): string {
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+function withTiming(component: Component, theme: Theme, context: unknown): Component {
+  const ctx = timedContext(context)
+  if (!ctx?.state || ctx.state.startedAt === undefined) return component
+
+  const state = ctx.state
+  const startedAt = state.startedAt as number
+  if (!ctx.isPartial || ctx.isError) state.endedAt ??= Date.now()
+  const endTime = state.endedAt ?? Date.now()
+  const label = ctx.isPartial ? 'Elapsed' : 'Took'
+  const timing = theme.fg('muted', `${label} ${formatDuration(endTime - startedAt)}`)
+
+  return {
+    render: (width) => [...component.render(width), timing],
+    invalidate: () => component.invalidate?.()
+  }
+}
+
 function resultIsError(result: AgentToolResult<unknown>): boolean {
   return (result as { isError?: unknown }).isError === true
 }
@@ -293,24 +326,24 @@ function parseIoResult(text: string): { io: string; result: string } | null {
 export function renderEvalResult(
   result: AgentToolResult<unknown>,
   { expanded }: ToolRenderResultOptions,
-  theme: Theme
+  theme: Theme,
+  context?: unknown
 ) {
   const payload = evalPayload(result)
   const text = decodeInspectedString(resultText(result)).trim()
-  if (!text && !payload) return renderLines([theme.fg('muted', '(no output)')])
-
-  if (payload?.error) return renderErrorBlock(payload.error, expanded, theme)
-
-  if (payload) {
-    return renderStructuredEval(payload, expanded, theme)
+  let component: Component
+  if (!text && !payload) component = renderLines([theme.fg('muted', '(no output)')])
+  else if (payload?.error) component = renderErrorBlock(payload.error, expanded, theme)
+  else if (payload) component = renderStructuredEval(payload, expanded, theme)
+  else if (resultIsError(result)) component = renderErrorBlock(text, expanded, theme)
+  else {
+    const ioResult = parseIoResult(text)
+    component = ioResult
+      ? renderIoAndValue(ioResult.io, ioResult.result, expanded, theme)
+      : renderEvalValue(text, expanded, theme)
   }
 
-  if (resultIsError(result)) return renderErrorBlock(text, expanded, theme)
-
-  const ioResult = parseIoResult(text)
-  if (ioResult) return renderIoAndValue(ioResult.io, ioResult.result, expanded, theme)
-
-  return renderEvalValue(text, expanded, theme)
+  return withTiming(component, theme, context)
 }
 
 interface AstMatch {
@@ -511,7 +544,8 @@ export function renderAstReplaceResult(
 export function renderElixirResult(
   result: AgentToolResult<unknown>,
   options: ToolRenderResultOptions,
-  theme: Theme
+  theme: Theme,
+  context?: unknown
 ) {
-  return renderEvalResult(result, options, theme)
+  return renderEvalResult(result, options, theme, context)
 }

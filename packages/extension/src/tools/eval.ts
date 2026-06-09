@@ -144,8 +144,25 @@ function evalPreview(code: unknown) {
   return `${preview.slice(0, 95)}…`
 }
 
+interface EvalRenderContext {
+  executionStarted?: boolean
+  state?: { startedAt?: number; endedAt?: number }
+}
+
+function evalRenderContext(context: unknown): EvalRenderContext | undefined {
+  return typeof context === 'object' && context !== null
+    ? (context as EvalRenderContext)
+    : undefined
+}
+
 function renderEvalCall(toolName: string) {
-  return (args: ToolArgs, theme: Theme) => {
+  return (args: ToolArgs, theme: Theme, context?: unknown) => {
+    const ctx = evalRenderContext(context)
+    if (ctx?.executionStarted && ctx.state && ctx.state.startedAt === undefined) {
+      ctx.state.startedAt = Date.now()
+      ctx.state.endedAt = undefined
+    }
+
     const code = evalPreview(args.code)
     return renderSingleLine(
       theme.fg('toolTitle', theme.bold(`${toolName} `)) +

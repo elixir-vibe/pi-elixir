@@ -119,7 +119,8 @@ export interface BridgeToolOpts {
   renderResult?: (
     result: AgentToolResult<unknown>,
     options: ToolRenderResultOptions,
-    theme: Theme
+    theme: Theme,
+    context?: unknown
   ) => Component
 }
 
