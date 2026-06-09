@@ -3,7 +3,7 @@ import {
   DEFAULT_MAX_LINES,
   formatSize,
   DEFAULT_MAX_BYTES,
-  displayString,
+  displaySingleLine,
   renderSingleLine
 } from '#src/helpers.ts'
 import type { ToolArgs } from '#src/protocol/types.ts'
@@ -49,7 +49,7 @@ function optionSuffix(args: ToolArgs, theme: Theme) {
 
 function renderEvalCall(toolName: string) {
   return (args: ToolArgs, theme: Theme) => {
-    const code = displayString(args.code)
+    const code = displaySingleLine(args.code)
     return renderSingleLine(
       theme.fg('toolTitle', theme.bold(`${toolName} `)) +
         theme.fg('accent', code) +

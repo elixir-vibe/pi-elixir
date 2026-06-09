@@ -12,10 +12,16 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 vi.mock('../src/beam-client.ts', () => ({}))
 
-import { truncated } from '#src/helpers.ts'
+import { displaySingleLine, truncated } from '#src/helpers.ts'
 import { truncateHead } from '@earendil-works/pi-coding-agent'
 
 const mockTruncateHead = vi.mocked(truncateHead)
+
+describe('displaySingleLine', () => {
+  it('normalizes multiline tool arguments for one-line call previews', () => {
+    expect(displaySingleLine('foo\n  bar\t baz')).toBe('foo bar baz')
+  })
+})
 
 describe('truncated', () => {
   beforeEach(() => {

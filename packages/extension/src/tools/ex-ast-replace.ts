@@ -1,4 +1,4 @@
-import { astOptionSuffix, bridgeTool, displayString, renderSingleLine } from '#src/helpers.ts'
+import { astOptionSuffix, bridgeTool, displaySingleLine, renderSingleLine } from '#src/helpers.ts'
 import { renderAstReplaceResult } from '#src/renderers.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
@@ -73,9 +73,9 @@ Examples:
     }),
     (args, theme) => {
       let text = theme.fg('toolTitle', theme.bold('ast edit '))
-      text += theme.fg('accent', displayString(args.pattern))
+      text += theme.fg('accent', displaySingleLine(args.pattern))
       text += theme.fg('muted', ' → ')
-      text += theme.fg('accent', displayString(args.replacement))
+      text += theme.fg('accent', displaySingleLine(args.replacement))
       return renderSingleLine(text + astOptionSuffix(args, theme))
     },
     {

@@ -1,4 +1,4 @@
-import { astOptionSuffix, bridgeTool, displayString, renderSingleLine } from '#src/helpers.ts'
+import { astOptionSuffix, bridgeTool, displaySingleLine, renderSingleLine } from '#src/helpers.ts'
 import { renderAstSearchResult } from '#src/renderers.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
@@ -50,7 +50,7 @@ function astSearchText(text: string) {
 }
 
 function patternSummary(args: Record<string, unknown>) {
-  const pattern = displayString(args.pattern)
+  const pattern = displaySingleLine(args.pattern)
   if (pattern) return pattern
 
   if (typeof args.patterns === 'object' && args.patterns !== null) {

@@ -33,6 +33,10 @@ export function displayString(value: unknown) {
   return typeof value === 'string' ? value : ''
 }
 
+export function displaySingleLine(value: unknown) {
+  return displayString(value).replace(/\s+/gu, ' ').trim()
+}
+
 export function truncateLine(text: string, maxWidth: number): string {
   if (maxWidth <= 0) return ''
   if (visibleWidth(text) <= maxWidth) return text
