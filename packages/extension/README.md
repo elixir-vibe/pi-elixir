@@ -114,7 +114,7 @@ Expanded rows show useful semantic previews without redundant labels:
 
 The renderer uses pi keybinding hints from core helpers; it does not hardcode shortcuts like `Ctrl+O`.
 
-Private control commands are available for active sessions without adding model-facing tools:
+Private control commands are available for active sessions without adding model-facing tools. The TUI accepts either `id=session_123` or the raw `session_123` as the command argument:
 
 ```text
 /elixir:sessions.cancel id=session_123

@@ -2,6 +2,7 @@ defmodule Pi.Docs.ProtocolExamplesTest do
   use ExUnit.Case, async: true
 
   alias Pi.Bridge.Info
+  alias Pi.Protocol.Call
   alias Pi.Protocol.LLM.Cancel
   alias Pi.Protocol.LLM.Chunk
   alias Pi.Protocol.LLM.Done
@@ -14,6 +15,7 @@ defmodule Pi.Docs.ProtocolExamplesTest do
   alias Pi.Protocol.Request
   alias Pi.Protocol.Response
   alias Pi.Protocol.Result
+  alias Pi.Protocol.Session.Snapshot
   alias Pi.Protocol.UIEvent
   alias Pi.Transport.Stdio
 
@@ -59,6 +61,51 @@ defmodule Pi.Docs.ProtocolExamplesTest do
                "type" => "llm_cancel",
                "id" => "llm_456_2",
                "reason" => "closed"
+             })
+  end
+
+  test "BEAM session snapshot and private control examples use protocol structs" do
+    snapshot =
+      Stdio.__test_payload__(%PluginEvent{
+        type: :event,
+        name: "pi_session",
+        data: %{
+          session: %Snapshot{
+            id: "session_1",
+            name: "reviewer",
+            status: "done",
+            result: "passed",
+            started_at: "2026-06-09T09:00:00Z",
+            updated_at: "2026-06-09T09:00:01Z",
+            completed_at: "2026-06-09T09:00:01Z",
+            duration_ms: 1000,
+            prompt: "review this change",
+            response: "passed",
+            latest: "passed",
+            run_count: 1,
+            message_count: 2
+          }
+        }
+      })
+
+    assert snapshot["data"]["session"]["runCount"] == 1
+    assert snapshot["data"]["session"]["completedAt"] == "2026-06-09T09:00:01Z"
+    refute Map.has_key?(snapshot["data"]["session"], "run_count")
+
+    assert %Call{name: "pi_session_rerun", arguments: %{"id" => "session_131"}} =
+             Call.from_map!(%{
+               "type" => "call",
+               "id" => 10,
+               "name" => "pi_session_rerun",
+               "arguments" => %{"id" => "session_131"}
+             })
+
+    assert %Call{name: "pi_session_cancel", arguments: %{"id" => "session_163"}} =
+             Call.from_map!(%{
+               "type" => "call",
+               "id" => 11,
+               "name" => "pi_session_cancel",
+               "arguments" => %{"id" => "session_163"}
              })
   end
 

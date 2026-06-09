@@ -3,8 +3,9 @@ import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-cod
 import { registerBridgeCommands } from './bridge/plugin-commands.ts'
 import { handleBridgeRequest } from './bridge/requests.ts'
 import { showStartupInfo } from './bridge/startup-info.ts'
+import { registerBridgeToolHooks } from './bridge/tool-hooks.ts'
 import { applyBridgeUIEvent, updateStatus } from './bridge/ui-events.ts'
-import { callTool, resolveUrl, getConnectionKind, sendBridgeEvent } from './connection/resolver.ts'
+import { resolveUrl, getConnectionKind, sendBridgeEvent } from './connection/resolver.ts'
 import { onStatusChange } from './connection/status.ts'
 import {
   getBridgeInfo,
@@ -14,14 +15,12 @@ import {
   stopEmbedded
 } from './embedded/stdio-process.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
-import type { ToolArgs } from './protocol/types.ts'
 import { registerSessionCommands } from './sessions/commands.ts'
 import { renderSessionMessage } from './sessions/render.ts'
 import {
   clearSessionSnapshots,
   handleSessionEvent,
-  loadSessionSnapshots,
-  refreshSessionSnapshots
+  loadSessionSnapshots
 } from './sessions/state.ts'
 import { discoverExecutableSkillPath } from './skills/executable-skills.ts'
 import { register as registerEval } from './tools/eval.ts'
@@ -36,14 +35,6 @@ interface StatusSubscription {
   unsubscribeRequests: () => void
 }
 
-interface PluginHookResponse {
-  0?: string
-  1?: string | ToolArgs
-  block?: string
-  ok?: ToolArgs
-  error?: string
-}
-
 function resolveElixirCwd(cwd: string): string | null {
   return resolveMixProjectCwd(cwd)
 }
@@ -56,30 +47,12 @@ function hasBridgePlugins(cwd: string): boolean {
   return (getBridgeInfo(cwd)?.plugins?.length ?? 0) > 0
 }
 
-function parsePluginHookResponse(text: string): PluginHookResponse {
-  try {
-    return JSON.parse(text) as PluginHookResponse
-  } catch {
-    return {}
-  }
-}
-
-function textFromContent(content: unknown): string {
-  if (!Array.isArray(content)) return ''
-  return content
-    .map((part) => {
-      if (typeof part !== 'object' || part === null) return ''
-      const maybeText = (part as { text?: unknown }).text
-      return typeof maybeText === 'string' ? maybeText : ''
-    })
-    .join('\n')
-}
-
 export default function (pi: ExtensionAPI) {
   const statusSubscriptions = new Map<string, StatusSubscription>()
   const registeredCommands = new Set<string>()
   pi.registerMessageRenderer('elixir-sessions', renderSessionMessage)
   registerSessionCommands(pi, registeredCommands, resolveElixirCwd)
+  registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
 
   function clearStatusSubscription(key: string) {
     const subscription = statusSubscriptions.get(key)
@@ -155,75 +128,6 @@ export default function (pi: ExtensionAPI) {
     if (!beamCwd) return
 
     await sendBridgeEvent(beamCwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
-  })
-
-  pi.on('tool_call', async (event, ctx) => {
-    const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (!beamCwd) return undefined
-
-    await sendBridgeEvent(beamCwd, {
-      type: 'tool_call',
-      cwd: ctx.cwd,
-      name: event.toolName
-    })
-
-    if (!hasBridgePlugins(beamCwd)) return undefined
-
-    const conn = await resolveUrl(beamCwd)
-    if (!conn) return undefined
-
-    const result = await callTool(conn.url, 'pi_plugin_tool_call', {
-      toolName: event.toolName,
-      toolCallId: event.toolCallId,
-      input: event.input
-    })
-    const payload = parsePluginHookResponse(result.text)
-
-    if (payload.block) return { block: true, reason: payload.block }
-    if (payload.ok && typeof payload.ok === 'object') Object.assign(event.input, payload.ok)
-    return undefined
-  })
-
-  pi.on('tool_result', async (event, ctx) => {
-    const beamCwd = resolveElixirCwd(ctx.cwd)
-    if (!beamCwd) return undefined
-
-    if (event.toolName?.startsWith('elixir_'))
-      await refreshSessionSnapshots(pi, ctx, resolveElixirCwd)
-
-    await sendBridgeEvent(beamCwd, {
-      type: 'tool_result',
-      cwd: ctx.cwd,
-      name: event.toolName,
-      isError: event.isError
-    })
-
-    if (!hasBridgePlugins(beamCwd)) return undefined
-
-    const conn = await resolveUrl(beamCwd)
-    if (!conn) return undefined
-
-    const result = await callTool(conn.url, 'pi_plugin_tool_result', {
-      toolName: event.toolName,
-      toolCallId: event.toolCallId,
-      input: event.input,
-      content: textFromContent(event.content),
-      isError: event.isError
-    })
-    const payload = parsePluginHookResponse(result.text)
-
-    if (payload.ok && typeof payload.ok === 'object') {
-      const patch = payload.ok
-      return {
-        content:
-          typeof patch.content === 'string'
-            ? [{ type: 'text' as const, text: patch.content }]
-            : undefined,
-        isError: typeof patch.isError === 'boolean' ? patch.isError : undefined
-      }
-    }
-
-    return undefined
   })
 
   pi.on('resources_discover', async (_event, ctx) => {

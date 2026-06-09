@@ -28,10 +28,10 @@
 - Bridge internals now prefer structs over ad-hoc protocol maps.
 - Tests now mirror source tree structure more closely.
 - Extension TypeScript protocol shapes now live in `src/protocol/types.ts`.
-- Extension session code is split under `src/sessions/*` and bridge helpers under `src/bridge/*`.
+- Extension session code is split under `src/sessions/*` and bridge helpers under `src/bridge/*`, including plugin tool hook handling.
 - Integration tests default to `packages/fixtures/demo_project` instead of the bridge package itself.
 - Elixir skills are organized under `skills/elixir/*` while keeping stable skill names.
-- `Pi.Protocol.Session.Snapshot` now includes prompt/response previews, run count, completion time, current activity, and recent output fields.
+- `Pi.Protocol.Session.Snapshot` now includes prompt/response previews, run count, completion time, current activity, and recent output fields; streaming snapshots report `current: "streaming"` while output is arriving.
 - `Pi.Session.append_entry/3` and `send_message/3` now accept keyword data for ergonomic Elixir call sites.
 
 ### Fixed

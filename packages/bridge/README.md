@@ -88,7 +88,7 @@ Use `Pi.Session` when you need attachable, subscribable session state:
 {:ok, state} = Pi.Session.subscribe(reviewer)
 ```
 
-Session snapshots are emitted as `pi_session` events. The extension renders active/running work as a compact live widget, then emits completed root session trees as inline transcript entries. The extension persists the latest snapshot set into pi custom entries (`elixir-sessions`) and reloads active BEAM snapshots on session start. Private slash commands control active sessions without adding model-facing tools:
+Session snapshots are emitted as `pi_session` events. The extension renders active/running work as a compact live widget, then emits completed root session trees as inline transcript entries. The extension persists the latest snapshot set into pi custom entries (`elixir-sessions`) and reloads active BEAM snapshots on session start. Private slash commands control active sessions without adding model-facing tools. The TUI accepts either `id=session_123` or the raw `session_123` as the command argument:
 
 ```text
 /elixir:sessions.cancel id=session_123

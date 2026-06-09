@@ -83,6 +83,19 @@ defmodule Pi.Session.SessionTest do
     end
   end
 
+  defp wait_for(fun, attempts \\ 50)
+
+  defp wait_for(fun, attempts) when attempts > 0 do
+    if fun.() do
+      :ok
+    else
+      Process.sleep(10)
+      wait_for(fun, attempts - 1)
+    end
+  end
+
+  defp wait_for(_fun, 0), do: flunk("timed out waiting for condition")
+
   defp assert_request(op, custom_type, data) do
     receive do
       {:pi_transport_emit, payload} ->
@@ -204,6 +217,48 @@ defmodule Pi.Session.SessionTest do
     assert snapshot.recent_output == ["one", "two"]
     assert encoded["recentOutput"] == ["one", "two"]
     assert encoded["runCount"] == 1
+  end
+
+  test "running streaming snapshots expose current streaming activity" do
+    {:ok, gate} = Agent.start_link(fn -> :open end)
+
+    stream_fun = fn _messages, _opts ->
+      stream =
+        Stream.resource(
+          fn -> :first end,
+          fn
+            :first ->
+              {["one"], :wait}
+
+            :wait ->
+              Agent.update(gate, fn _ -> :waiting end)
+              wait_for(fn -> Agent.get(gate, & &1) == :finish end)
+              {["two"], :done}
+
+            :done ->
+              {:halt, :done}
+          end,
+          fn _state -> :ok end
+        )
+
+      %{stream: stream}
+    end
+
+    assert {:ok, pid} = Session.start(stream_fun: stream_fun)
+    task = Task.async(fn -> Session.run(pid, "stream", stream: true) end)
+
+    wait_for(fn -> Agent.get(gate, & &1) == :waiting end)
+    wait_for(fn -> Pi.Session.Worker.snapshot(pid).current == "streaming" end)
+
+    snapshot = Pi.Session.Worker.snapshot(pid)
+    encoded = JSONCodec.dump(snapshot)
+
+    assert snapshot.recent_output == ["one"]
+    assert encoded["current"] == "streaming"
+    assert encoded["recentOutput"] == ["one"]
+
+    Agent.update(gate, fn _ -> :finish end)
+    assert {:ok, "onetwo"} = Task.await(task)
   end
 
   test "snapshots include failed prompt and error previews" do

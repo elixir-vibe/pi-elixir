@@ -124,13 +124,45 @@ Running or streaming sessions may include live activity and recent output withou
 ```json
 {
   "status": "running",
-  "current": "llm",
+  "current": "streaming",
   "recentOutput": ["first ", "second"],
   "runCount": 1
 }
 ```
 
 Reruns increment `runCount` and update `completedAt`. Cancelled sessions also set `completedAt` and clear `current` before the terminal snapshot is emitted.
+
+## Private BEAM session controls
+
+The extension exposes session control through private bridge-native MCP tools and slash commands, not model-facing tools. The slash commands dispatch to these calls:
+
+```json
+{
+  "type": "call",
+  "id": 10,
+  "name": "pi_session_rerun",
+  "arguments": { "id": "session_131" }
+}
+```
+
+```json
+{ "type": "result", "id": 10, "text": "ok", "isError": false }
+```
+
+```json
+{
+  "type": "call",
+  "id": 11,
+  "name": "pi_session_cancel",
+  "arguments": { "id": "session_163" }
+}
+```
+
+```json
+{ "type": "result", "id": 11, "text": "ok", "isError": false }
+```
+
+A rerun emits fresh `pi_session` snapshots for the same session id with an incremented `runCount`. A cancel emits one terminal cancelled snapshot.
 
 ## UI status event
 

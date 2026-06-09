@@ -265,7 +265,11 @@ defmodule Pi.Session.Worker do
       |> Kernel.++([delta])
       |> Enum.take(-5)
 
-    %{state | metadata: Map.put(metadata, :recent_output, recent_output)}
+    %{
+      state
+      | metadata:
+          metadata |> Map.put(:recent_output, recent_output) |> Map.put(:current, "streaming")
+    }
   end
 
   defp transition(data, status, event) do
