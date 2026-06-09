@@ -11,13 +11,13 @@
   "scripts": {
     "lint": "pnpm run lint:guard && pnpm run lint:structure && oxlint -c .oxlintrc.json --type-aware --type-check src/",
     "lint:guard": "node scripts/check-oxlint-rules.mjs",
-    "lint:structure": "oxlint -c .oxlintrc.json src/ test/ vitest.config.ts",
-    "fmt": "oxfmt --write .oxfmtrc.json .oxlintrc.json package.json tsconfig.json vitest.config.ts src/ test/",
-    "fmt:check": "oxfmt --check .oxfmtrc.json .oxlintrc.json package.json tsconfig.json vitest.config.ts src/ test/",
+    "lint:structure": "oxlint -c .oxlintrc.json src/ test/ vitest.config.ts vitest.integration.config.ts",
+    "fmt": "oxfmt --write .oxfmtrc.json .oxlintrc.json package.json tsconfig.json vitest.config.ts vitest.integration.config.ts src/ test/",
+    "fmt:check": "oxfmt --check .oxfmtrc.json .oxlintrc.json package.json tsconfig.json vitest.config.ts vitest.integration.config.ts src/ test/",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
-    "test:integration": "vitest run test/integration/",
+    "test:integration": "vitest run --config vitest.integration.config.ts",
     "test:dupes": "jscpd src --min-lines 5 --min-tokens 50 --format typescript --threshold 0",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run fmt:check && pnpm run test && pnpm run test:dupes"
   },

@@ -1,5 +1,6 @@
 import { callTool, resolveUrl } from '#src/connection/resolver.ts'
 import { recordDiagnostic } from '#src/diagnostics.ts'
+import { flags } from '#src/flags.ts'
 import type { BridgeBusEvent } from '#src/protocol/types.ts'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
@@ -64,6 +65,8 @@ export function handleSessionEvent(
   cwd: string,
   event: BridgeBusEvent
 ) {
+  if (!flags.sessions()) return
+
   const data = event.data
   if (typeof data !== 'object' || data === null || Array.isArray(data)) return
   const session = (data as { session?: unknown }).session
@@ -85,6 +88,8 @@ function timeoutSignal(ms: number): AbortSignal {
 }
 
 export async function loadSessionSnapshots(ctx: StatusContext, cwd: string, connUrl: string) {
+  if (!flags.sessions()) return
+
   try {
     recordDiagnostic('session_snapshots_start', cwd)
     const result = await callTool(
@@ -116,6 +121,8 @@ export async function refreshSessionSnapshots(
   ctx: ExtensionContext,
   resolveElixirCwd: (cwd: string) => string | null
 ) {
+  if (!flags.sessions()) return
+
   const beamCwd = resolveElixirCwd(ctx.cwd)
   if (!beamCwd) return
   recordDiagnostic('session_snapshots_refresh_start', beamCwd)

@@ -43,7 +43,9 @@ defmodule Pi.Bridge.Info do
   end
 
   def runtime_apis do
-    Enum.map(@runtime_api_modules, fn {name, module} ->
+    @runtime_api_modules
+    |> Enum.reject(&runtime_api_disabled?/1)
+    |> Enum.map(fn {name, module} ->
       %APIModule{name: name, module: module, functions: runtime_functions(module)}
     end)
   end
@@ -51,7 +53,7 @@ defmodule Pi.Bridge.Info do
   def apis, do: extension_apis()
 
   def extension_apis do
-    (Manager.apis() ++ skill_apis())
+    (plugin_apis() ++ skill_apis())
     |> Enum.map(&Extension.from_api/1)
     |> Enum.uniq_by(&{&1.alias, &1.module})
   end
@@ -61,6 +63,16 @@ defmodule Pi.Bridge.Info do
     |> Enum.filter(& &1.alias)
     |> Enum.map_join("\n", fn api -> "alias #{inspect(api.module)}, as: #{api.alias}" end)
   end
+
+  defp runtime_api_disabled?({name, _module}) when name in [:agent, :session],
+    do: not Pi.Features.sessions?()
+
+  defp runtime_api_disabled?({:llm, _module}), do: not Pi.Features.llm?()
+
+  defp runtime_api_disabled?({name, _module}) when name in [:plugin_ui, :plugin_events],
+    do: not Pi.Features.plugins?()
+
+  defp runtime_api_disabled?(_api), do: false
 
   defp bridge_version do
     :pi_bridge
@@ -75,18 +87,30 @@ defmodule Pi.Bridge.Info do
   end
 
   defp skills do
-    Loader.serializable()
-    |> Enum.map(&normalize_skill/1)
+    if Pi.Features.skills?() do
+      Loader.serializable()
+      |> Enum.map(&normalize_skill/1)
+    else
+      []
+    end
   end
 
   defp plugins do
-    Manager.plugins()
-    |> Enum.map(&normalize_plugin/1)
+    if Pi.Features.plugins?() do
+      Manager.plugins()
+      |> Enum.map(&normalize_plugin/1)
+    else
+      []
+    end
   end
 
   defp commands do
-    Manager.commands()
-    |> Enum.map(&PluginCommand.from_command/1)
+    if Pi.Features.plugins?() do
+      Manager.commands()
+      |> Enum.map(&PluginCommand.from_command/1)
+    else
+      []
+    end
   end
 
   defp endpoints do
@@ -100,8 +124,16 @@ defmodule Pi.Bridge.Info do
   defp normalize_plugin(%PluginInfo{} = plugin), do: plugin
   defp normalize_plugin(%{} = plugin), do: PluginInfo.from_map!(plugin)
 
+  defp plugin_apis do
+    if Pi.Features.plugins?(), do: Manager.apis(), else: []
+  end
+
   defp skill_apis do
-    Loader.discover()
-    |> Enum.flat_map(& &1.apis)
+    if Pi.Features.skills?() do
+      Loader.discover()
+      |> Enum.flat_map(& &1.apis)
+    else
+      []
+    end
   end
 end

@@ -1,6 +1,8 @@
 defmodule Pi.LLM do
   @moduledoc "BEAM API for model calls backed by the active pi session."
 
+  require Pi.Features
+
   alias Pi.LLM.Broker
   alias Pi.Protocol.LLM.Message
 
@@ -11,16 +13,20 @@ defmodule Pi.LLM do
   end
 
   def complete_with_usage(messages, opts \\ []) do
-    messages
-    |> normalize_messages()
-    |> Broker.complete(opts)
-    |> normalize_completion_result()
+    Pi.Features.gate :llm do
+      messages
+      |> normalize_messages()
+      |> Broker.complete(opts)
+      |> normalize_completion_result()
+    end
   end
 
   def stream(messages, opts \\ []) do
-    messages
-    |> normalize_messages()
-    |> Broker.stream(opts)
+    Pi.Features.gate :llm do
+      messages
+      |> normalize_messages()
+      |> Broker.stream(opts)
+    end
   end
 
   def complete!(messages, opts \\ []) do

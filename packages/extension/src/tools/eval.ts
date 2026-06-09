@@ -1,6 +1,7 @@
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
+import { flags } from '#src/flags.ts'
 import {
   bridgeTool,
   DEFAULT_MAX_LINES,
@@ -114,7 +115,7 @@ function prepareEvalParams(
   beamCwd: string,
   toolCallId: string
 ): ToolArgs {
-  if (params.mode === 'sandbox') return params
+  if (params.mode === 'sandbox' || !flags.statefulEval()) return params
 
   const manager = ctx.sessionManager as SessionManagerLike | undefined
   if (!manager) return { ...params, sessionId: `ephemeral:${beamCwd}` }
@@ -122,6 +123,8 @@ function prepareEvalParams(
   const sessionFile = manager.getSessionFile?.()
   const leafId = manager.getLeafId?.()
   if (!sessionFile || !leafId) return { ...params, sessionId: `ephemeral:${beamCwd}` }
+
+  if (!flags.evalSidecar()) return { ...params, sessionId: `memory:${sessionFile}` }
 
   const root = stateRoot(sessionFile)
   const statePath = statePathFor(root, toolCallId)
@@ -135,9 +138,15 @@ function prepareEvalParams(
   }
 }
 
+function evalPreview(code: unknown) {
+  const preview = displaySingleLine(code)
+  if (!flags.compactEvalPreview() || preview.length <= 96) return preview
+  return `${preview.slice(0, 95)}…`
+}
+
 function renderEvalCall(toolName: string) {
   return (args: ToolArgs, theme: Theme) => {
-    const code = displaySingleLine(args.code)
+    const code = evalPreview(args.code)
     return renderSingleLine(
       theme.fg('toolTitle', theme.bold(`${toolName} `)) +
         theme.fg('accent', code) +

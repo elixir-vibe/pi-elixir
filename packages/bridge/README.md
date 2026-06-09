@@ -79,6 +79,8 @@ ReqLLM.generate_text("pi:current", "Summarize the current project")
 
 ReqLLM may warn that `pi:current` is not in its public model catalog. That is expected: `pi:current` is a local provider/model route into the active pi session, not a hosted catalog model.
 
+> **Feature flag:** `PI_ELIXIR_LLM=0` disables BEAM-initiated LLM requests.
+
 ## Sessions and agents
 
 The bridge keeps one pi Node.js/TUI process and one embedded BEAM process. Subagents are not extra pi processes; they are lightweight OTP session workers supervised inside BEAM:
@@ -114,6 +116,8 @@ Snapshots carry structured fields such as prompt/response previews, current acti
 ```elixir
 {:ok, text} = Pi.Session.run(session, "Draft notes", stream: true)
 ```
+
+> **Feature flag:** `PI_ELIXIR_SESSIONS=0` disables session snapshot/control affordances.
 
 Use `Pi.Agent` for convenience orchestration over those sessions:
 
@@ -153,6 +157,8 @@ BEAM code can ask the pi extension for small session-state snapshots, persist br
 ```
 
 ## Plugins
+
+> **Feature flags:** `PI_ELIXIR_PLUGINS=0` disables project-local plugins, hooks, UI events, and plugin commands. `PI_ELIXIR_SKILLS=0` disables executable skill discovery.
 
 Project-local plugins live in `priv/pi_plugins`, `.pi/plugins`, or `pi_plugins`. Each plugin is isolated behind a `Pi.Plugin.Worker` process.
 

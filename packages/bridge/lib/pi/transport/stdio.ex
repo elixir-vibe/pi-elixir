@@ -1,6 +1,8 @@
 defmodule Pi.Transport.Stdio do
   @moduledoc "Line-delimited JSON transport for extension-owned BEAM sessions."
 
+  require Pi.Features
+
   alias Pi.Agent.Registry, as: AgentRegistry
   alias Pi.Bridge.Info
   alias Pi.Integrations
@@ -40,7 +42,7 @@ defmodule Pi.Transport.Stdio do
   def start do
     :persistent_term.put({__MODULE__, :pid}, self())
     Event.install()
-    Manager.install()
+    if Pi.Features.plugins?(), do: Manager.install()
     Broker.install()
     AgentRegistry.install()
     Pi.Eval.Supervisor.install()
@@ -103,51 +105,62 @@ defmodule Pi.Transport.Stdio do
   defp handle_payload(%Error{} = error), do: Broker.deliver_stream(error.id, :error, error.error)
 
   defp dispatch("pi_skills_list", _args) do
-    {:ok, encode_structs(Loader.serializable())}
+    if Pi.Features.skills?(),
+      do: {:ok, encode_structs(Loader.serializable())},
+      else: {:ok, "[]"}
   end
 
   defp dispatch("pi_event", args) do
     Event.push(args)
-    Manager.dispatch_event(args)
+    if Pi.Features.plugins?(), do: Manager.dispatch_event(args)
     {:ok, "ok"}
   end
 
   defp dispatch("pi_plugin_command", %{"name" => name, "args" => args}) when is_binary(name) do
-    case existing_atom(name) do
-      {:ok, name} ->
-        name
-        |> Manager.run_command(to_string(args || ""))
-        |> encode_reply()
+    Pi.Features.gate :plugins do
+      case existing_atom(name) do
+        {:ok, name} ->
+          name
+          |> Manager.run_command(to_string(args || ""))
+          |> encode_reply()
 
-      :error ->
-        encode_reply({:error, "Unknown plugin command: #{name}"})
+        :error ->
+          encode_reply({:error, "Unknown plugin command: #{name}"})
+      end
     end
+    |> encode_plugin_command_reply()
   end
 
   defp dispatch("pi_plugin_tool_call", args) do
-    case PluginHook.from_wire(args) do
-      {:ok, hook} ->
-        hook
-        |> plugin_hook_payload()
-        |> Manager.tool_call(%{})
-        |> encode_hook_reply()
+    Pi.Features.gate :plugins do
+      case PluginHook.from_wire(args) do
+        {:ok, hook} ->
+          hook
+          |> plugin_hook_payload()
+          |> Manager.tool_call(%{})
+          |> encode_hook_reply()
 
-      {:error, _reason} ->
-        encode_hook_reply({:error, "Invalid plugin hook payload"})
+        {:error, _reason} ->
+          encode_hook_reply({:error, "Invalid plugin hook payload"})
+      end
     end
+    |> encode_plugin_hook_reply()
   end
 
   defp dispatch("pi_plugin_tool_result", args) do
-    case PluginHook.from_wire(args) do
-      {:ok, hook} ->
-        hook
-        |> plugin_hook_payload()
-        |> Manager.tool_result(%{})
-        |> encode_hook_reply()
+    Pi.Features.gate :plugins do
+      case PluginHook.from_wire(args) do
+        {:ok, hook} ->
+          hook
+          |> plugin_hook_payload()
+          |> Manager.tool_result(%{})
+          |> encode_hook_reply()
 
-      {:error, _reason} ->
-        encode_hook_reply({:error, "Invalid plugin hook payload"})
+        {:error, _reason} ->
+          encode_hook_reply({:error, "Invalid plugin hook payload"})
+      end
     end
+    |> encode_plugin_hook_reply()
   end
 
   defp dispatch("pi_bridge_info", _args) do
@@ -179,6 +192,12 @@ defmodule Pi.Transport.Stdio do
   rescue
     ArgumentError -> :error
   end
+
+  defp encode_plugin_command_reply({:error, message}), do: encode_reply({:error, message})
+  defp encode_plugin_command_reply(reply), do: reply
+
+  defp encode_plugin_hook_reply({:error, message}), do: encode_hook_reply({:error, message})
+  defp encode_plugin_hook_reply(reply), do: reply
 
   defp encode_hook_reply({:ok, value}) when is_map(value) do
     encode_reply(PluginHookResponse.ok(value))

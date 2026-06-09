@@ -1,6 +1,8 @@
 defmodule Pi.MCP.Tools do
   @moduledoc "MCP tool dispatch for the embedded server."
 
+  require Pi.Features
+
   alias Pi.Protocol.Tool.AST.ReplaceRequest
   alias Pi.Protocol.Tool.AST.SearchRequest
   alias Pi.Protocol.Tool.EvalRequest
@@ -43,24 +45,32 @@ defmodule Pi.MCP.Tools do
   end
 
   def dispatch("pi_session_cancel", %{"id" => id}) when is_binary(id) do
-    with {:ok, pid} <- Pi.Session.lookup(id), :ok <- Pi.Session.cancel(pid) do
-      {:ok, "ok"}
-    else
-      {:error, reason} -> {:error, inspect(reason)}
+    Pi.Features.gate :sessions do
+      with {:ok, pid} <- Pi.Session.lookup(id), :ok <- Pi.Session.cancel(pid) do
+        {:ok, "ok"}
+      else
+        {:error, reason} -> {:error, inspect(reason)}
+      end
     end
   end
 
   def dispatch("pi_session_rerun", %{"id" => id} = args) when is_binary(id) do
-    timeout = Map.get(args, "timeout", 60_000)
+    Pi.Features.gate :sessions do
+      timeout = Map.get(args, "timeout", 60_000)
 
-    case Pi.Session.lookup(id) do
-      {:ok, pid} -> Pi.Session.rerun(pid, timeout: timeout)
-      {:error, reason} -> {:error, inspect(reason)}
+      case Pi.Session.lookup(id) do
+        {:ok, pid} -> Pi.Session.rerun(pid, timeout: timeout)
+        {:error, reason} -> {:error, inspect(reason)}
+      end
     end
   end
 
   def dispatch("pi_session_snapshots", _args) do
-    {:ok, encode_payload(%{sessions: Pi.Session.snapshots()})}
+    if Pi.Features.sessions?() do
+      {:ok, encode_payload(%{sessions: Pi.Session.snapshots()})}
+    else
+      {:ok, encode_payload(%{sessions: []})}
+    end
   end
 
   def dispatch(name, _args), do: {:error, "Unknown tool: #{name}"}

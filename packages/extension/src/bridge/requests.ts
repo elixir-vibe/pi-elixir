@@ -1,4 +1,5 @@
 import type { BridgeRequestResponder } from '#src/embedded/stdio-process.ts'
+import { flags } from '#src/flags.ts'
 import type { StdioMessage } from '#src/protocol/types.ts'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
@@ -10,8 +11,14 @@ export async function handleBridgeRequest(
   pi: ExtensionAPI,
   responder?: BridgeRequestResponder
 ): Promise<Record<string, unknown> | null | undefined> {
-  if (message.op === 'llm_complete') return await handleLLMComplete(message, ctx, pi)
-  if (message.op === 'llm_stream') return await handleLLMStream(message, ctx, pi, responder)
+  if (message.op === 'llm_complete') {
+    if (!flags.llm()) return { ok: false, error: 'BEAM-initiated LLM is disabled.' }
+    return await handleLLMComplete(message, ctx, pi)
+  }
+  if (message.op === 'llm_stream') {
+    if (!flags.llm()) return { ok: false, error: 'BEAM-initiated LLM is disabled.' }
+    return await handleLLMStream(message, ctx, pi, responder)
+  }
 
   if (message.op === 'session_info') {
     return {

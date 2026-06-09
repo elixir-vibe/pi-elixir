@@ -22,6 +22,7 @@ import {
   onBridgeUIEvent,
   stopEmbedded
 } from './embedded/stdio-process.ts'
+import { flags } from './flags.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
 import { registerSessionCommands } from './sessions/commands.ts'
 import { renderSessionMessage } from './sessions/render.ts'
@@ -60,9 +61,11 @@ export default function (pi: ExtensionAPI) {
 
   const statusSubscriptions = new Map<string, StatusSubscription>()
   const registeredCommands = new Set<string>()
-  pi.registerMessageRenderer('elixir-sessions', renderSessionMessage)
-  registerSessionCommands(pi, registeredCommands, resolveElixirCwd)
-  registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
+  if (flags.sessions()) {
+    pi.registerMessageRenderer('elixir-sessions', renderSessionMessage)
+    registerSessionCommands(pi, registeredCommands, resolveElixirCwd)
+  }
+  if (flags.plugins()) registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
 
   if (!registeredCommands.has('elixir:debug')) {
     registeredCommands.add('elixir:debug')
@@ -101,12 +104,12 @@ export default function (pi: ExtensionAPI) {
         if (cwd === sessionCwd) updateStatus(ctx, kind)
       })
       const unsubscribeUI = onBridgeUIEvent((cwd, event) => {
-        if (cwd === sessionCwd) applyBridgeUIEvent(ctx, event)
+        if (flags.plugins() && cwd === sessionCwd) applyBridgeUIEvent(ctx, event)
       })
       const unsubscribeBus = onBridgeBusEvent((cwd, event) => {
         if (cwd !== sessionCwd) return
-        if (event.name === 'pi_session') handleSessionEvent(pi, ctx, cwd, event)
-        if (event.name) pi.events.emit(event.name, event.data)
+        if (flags.sessions() && event.name === 'pi_session') handleSessionEvent(pi, ctx, cwd, event)
+        if (flags.plugins() && event.name) pi.events.emit(event.name, event.data)
       })
       const unsubscribeRequests = onBridgeRequest(async (cwd, message, responder) => {
         if (cwd !== sessionCwd) return undefined
@@ -129,8 +132,9 @@ export default function (pi: ExtensionAPI) {
         if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
         const info = getBridgeInfo(sessionCwd)
         showStartupInfo(ctx, info)
-        registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
-        await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
+        if (flags.plugins()) registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
+        if (flags.plugins())
+          await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
         recordDiagnostic('bridge_resolve_done', sessionCwd, { kind: conn?.kind ?? null })
       })().catch((error) => {
         recordDiagnostic('bridge_resolve_error', sessionCwd, {
@@ -146,6 +150,8 @@ export default function (pi: ExtensionAPI) {
       if (!beamCwd) return
 
       recordDiagnostic('before_agent_start', beamCwd, { promptBytes: event.prompt?.length ?? 0 })
+      if (!flags.plugins()) return
+
       await sendBridgeEvent(beamCwd, {
         type: 'before_agent_start',
         cwd: ctx.cwd,
@@ -166,6 +172,8 @@ export default function (pi: ExtensionAPI) {
         markTurnStart(beamCwd, ctx.sessionManager?.getSessionFile?.(), {
           turnIndex: event.turnIndex
         })
+        if (!flags.plugins()) return
+
         await sendBridgeEvent(beamCwd, {
           type: 'turn_start',
           cwd: ctx.cwd,
@@ -181,6 +189,8 @@ export default function (pi: ExtensionAPI) {
       if (!beamCwd) return
 
       markTurnEnd(beamCwd, ctx.sessionManager?.getSessionFile?.(), { turnIndex: event.turnIndex })
+      if (!flags.plugins()) return
+
       await sendBridgeEvent(beamCwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
     })
   })
@@ -193,6 +203,7 @@ export default function (pi: ExtensionAPI) {
       recordDiagnostic('resources_discover', beamCwd)
       const kind = getConnectionKind(beamCwd)
       if (kind !== 'embedded' && kind !== 'external') return {}
+      if (!flags.skills()) return {}
 
       const skillPath = await discoverExecutableSkillPath(beamCwd)
       return skillPath ? { skillPaths: [skillPath] } : {}
@@ -207,9 +218,10 @@ export default function (pi: ExtensionAPI) {
 
       const beamCwd = resolveElixirCwd(ctx.cwd)
       if (beamCwd) {
-        await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
+        if (flags.plugins())
+          await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
         clearSessionSnapshots(beamCwd)
-        ctx.ui.setWidget('elixir-sessions', undefined)
+        if (flags.sessions()) ctx.ui.setWidget('elixir-sessions', undefined)
       }
 
       if (beamCwd && !hasStatusSubscriptionForCwd(beamCwd)) {

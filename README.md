@@ -273,6 +273,18 @@ export PI_DISABLE_EMBEDDED=1
 
 Status is actionable: external/embedded/starting/missing/incompatible/offline plus integration-specific status such as Phoenix endpoints.
 
+Feature flags are escape hatches for noisy, sensitive, or experimental environments:
+
+| Capability | Default | Escape hatch |
+|---|---:|---|
+| Stateful `elixir_eval` | on | `PI_ELIXIR_STATEFUL_EVAL=0` |
+| Eval sidecar snapshots | on | `PI_ELIXIR_EVAL_SIDECAR=0` |
+| BEAM LLM / ReqLLM | on | `PI_ELIXIR_LLM=0` |
+| BEAM sessions/widgets/control | on | `PI_ELIXIR_SESSIONS=0` |
+| Project plugins/hooks/UI/commands | on | `PI_ELIXIR_PLUGINS=0` |
+| Executable Elixir skills | on | `PI_ELIXIR_SKILLS=0` |
+| Extra-short eval previews | off | `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` |
+
 ## Included Elixir development skill
 
 The package ships pi skills for Elixir work:

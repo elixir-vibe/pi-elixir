@@ -60,6 +60,18 @@ Disable the embedded fallback:
 export PI_DISABLE_EMBEDDED=1
 ```
 
+Feature flags are escape hatches:
+
+| Capability | Default | Escape hatch |
+|---|---:|---|
+| Stateful `elixir_eval` | on | `PI_ELIXIR_STATEFUL_EVAL=0` |
+| Eval sidecar snapshots | on | `PI_ELIXIR_EVAL_SIDECAR=0` |
+| BEAM LLM / ReqLLM | on | `PI_ELIXIR_LLM=0` |
+| BEAM sessions/widgets/control | on | `PI_ELIXIR_SESSIONS=0` |
+| Project plugins/hooks/UI/commands | on | `PI_ELIXIR_PLUGINS=0` |
+| Executable Elixir skills | on | `PI_ELIXIR_SKILLS=0` |
+| Extra-short eval previews | off | `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` |
+
 ### Debugging
 
 `pi-elixir` follows pi core's snapshot-first debugging style. Run this hidden slash command from pi to write the current in-memory extension diagnostics:
