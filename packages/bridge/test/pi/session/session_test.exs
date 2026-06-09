@@ -124,9 +124,12 @@ defmodule Pi.Session.SessionTest do
     encoded = JSONCodec.dump(snapshot)
     assert encoded["messageCount"] == 0
     assert encoded["durationMs"] == 0
+    assert encoded["runCount"] == 0
+    assert encoded["recentOutput"] == []
     assert Map.has_key?(encoded, "parentId")
     assert Map.has_key?(encoded, "startedAt")
     assert Map.has_key?(encoded, "updatedAt")
+    assert Map.has_key?(encoded, "completedAt")
     refute Map.has_key?(encoded, "message_count")
     refute Map.has_key?(encoded, "duration_ms")
     refute Map.has_key?(encoded, "parent_id")
@@ -145,7 +148,25 @@ defmodule Pi.Session.SessionTest do
     assert snapshot.response == "pong"
     assert encoded["prompt"] == "ping"
     assert encoded["response"] == "pong"
+    assert encoded["runCount"] == 1
+    assert is_binary(encoded["completedAt"])
     assert is_integer(encoded["durationMs"])
+  end
+
+  test "snapshots include streaming live previews" do
+    stream_fun = fn _messages, _opts ->
+      %{stream: ["one", "two"]}
+    end
+
+    assert {:ok, pid} = Session.start(stream_fun: stream_fun)
+    assert {:ok, "onetwo"} = Session.run(pid, "stream", stream: true)
+
+    snapshot = Pi.Session.Worker.snapshot(pid)
+    encoded = JSONCodec.dump(snapshot)
+
+    assert snapshot.recent_output == ["one", "two"]
+    assert encoded["recentOutput"] == ["one", "two"]
+    assert encoded["runCount"] == 1
   end
 
   test "snapshots include failed prompt and error previews" do

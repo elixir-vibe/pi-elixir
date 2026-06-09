@@ -83,17 +83,36 @@ pi Node/TUI
             └─ Pi.Session.Worker
 ```
 
-`Pi.Agent.parallel/2` and `fanout/2` run through child `Pi.Session` workers. Sessions emit `pi_session` snapshots over stdio; the extension renders them as a compact widget below the editor.
+`Pi.Agent.parallel/2` and `fanout/2` run through child `Pi.Session` workers. Sessions emit `pi_session` snapshots over stdio. Active/running work appears in a compact below-editor widget; completed root session trees are rendered inline in the transcript so the result is part of conversation history rather than a permanent footer.
 
-Widget rows are intentionally minimal:
+Rows are intentionally minimal and label-light:
 
 ```text
-● review running · llm  Checking tests
-  1 done · 1 running
-  └─ ✓ tests done · done
+✗ edge_showcase
+  1 done · 1 failed · 1 cancelled
+  ├─ ✓ ok  passed
+  ├─ ✗ fail failed  boom
+  └─ ○ slow cancelled  wait forever
+  (ctrl+o to expand)
 ```
 
-The widget uses pi keybinding hints from core helpers; it does not hardcode shortcuts like `Ctrl+O`.
+Expanded rows show useful semantic previews without redundant labels:
+
+```text
+✗ edge_showcase
+  1 done · 1 failed · 1 cancelled
+  ├─ ✓ ok  passed
+  │  “happy path”
+  │  started → llm → done · 0ms
+  ├─ ✗ fail failed  boom
+  │  “explode”
+  │  started → llm → failed · 0ms
+  └─ ○ slow cancelled  wait forever
+     “wait forever”
+     started → llm → cancelled · 20ms
+```
+
+The renderer uses pi keybinding hints from core helpers; it does not hardcode shortcuts like `Ctrl+O`.
 
 Private control commands are available for active sessions without adding model-facing tools:
 
@@ -102,7 +121,7 @@ Private control commands are available for active sessions without adding model-
 /elixir:sessions.rerun id=session_123
 ```
 
-Snapshots are also saved as pi custom entries named `elixir-sessions`, so the latest session tree can survive ordinary pi session history operations. Active BEAM snapshots are reloaded when the extension reconnects.
+Snapshots are also saved as pi custom entries named `elixir-sessions`, so the latest session tree can survive ordinary pi session history operations. Active BEAM snapshots are reloaded when the extension reconnects. Snapshot payloads include prompt/response previews, timing, run count/version fields, live current activity, and recent streaming output so compact and expanded renderers do not parse text blobs.
 
 ## Bidirectional UI bridge
 

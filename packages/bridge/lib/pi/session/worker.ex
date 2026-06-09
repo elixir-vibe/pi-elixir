@@ -78,10 +78,12 @@ defmodule Pi.Session.Worker do
   def handle_call(:cancel, _from, %{task: task} = data) do
     Task.shutdown(task, :brutal_kill)
 
+    event = Event.new(:cancelled)
+
     data =
       data
       |> Map.merge(%{task: nil, task_ref: nil})
-      |> transition(:cancelled, Event.new(:cancelled))
+      |> finish(:cancelled, nil, nil, event)
       |> reply({:error, :cancelled})
 
     {:reply, :ok, data}
@@ -117,7 +119,11 @@ defmodule Pi.Session.Worker do
 
   @impl true
   def handle_info({:session_delta, delta}, data) when is_binary(delta) do
-    data = transition(data, :running, Event.new(:delta, %{delta: delta}))
+    data =
+      data
+      |> update_state(&put_recent_output(&1, delta))
+      |> transition(:running, Event.new(:delta, %{delta: delta}))
+
     {:noreply, data}
   end
 
@@ -158,7 +164,11 @@ defmodule Pi.Session.Worker do
   end
 
   defp start_completion(data, from, opts) do
-    data = transition(data, :running, Event.new(:started))
+    data =
+      data
+      |> update_state(&begin_run/1)
+      |> transition(:running, Event.new(:started))
+
     messages = messages(data.state)
     ask_fun = data.ask_fun
     stream_fun = data.stream_fun
@@ -237,6 +247,27 @@ defmodule Pi.Session.Worker do
     }
   end
 
+  defp begin_run(%State{metadata: metadata} = state) do
+    metadata =
+      metadata
+      |> Map.update(:run_count, 1, &(&1 + 1))
+      |> Map.put(:recent_output, [])
+      |> Map.put(:current, "llm")
+      |> Map.delete(:completed_at)
+
+    %{state | metadata: metadata}
+  end
+
+  defp put_recent_output(%State{metadata: metadata} = state, delta) do
+    recent_output =
+      metadata
+      |> Map.get(:recent_output, [])
+      |> Kernel.++([delta])
+      |> Enum.take(-5)
+
+    %{state | metadata: Map.put(metadata, :recent_output, recent_output)}
+  end
+
   defp transition(data, status, event) do
     update_state(data, fn state ->
       %{state | status: status, events: state.events ++ [event], updated_at: event.at}
@@ -245,9 +276,27 @@ defmodule Pi.Session.Worker do
 
   defp complete(data, status, result, error, event) do
     data
-    |> transition(status, event)
     |> Map.merge(%{task: nil, task_ref: nil})
-    |> update_state(fn state -> %{state | result: result, error: error} end)
+    |> finish(status, result, error, event)
+  end
+
+  defp finish(data, status, result, error, event) do
+    update_state(data, fn state ->
+      metadata =
+        state.metadata
+        |> Map.put(:completed_at, event.at)
+        |> Map.delete(:current)
+
+      %{
+        state
+        | status: status,
+          result: result,
+          error: error,
+          events: state.events ++ [event],
+          updated_at: event.at,
+          metadata: metadata
+      }
+    end)
   end
 
   defp reply(%{caller: nil} = data, _result), do: data
@@ -278,11 +327,15 @@ defmodule Pi.Session.Worker do
       error: error(state.error),
       started_at: datetime(state.started_at),
       updated_at: datetime(state.updated_at),
+      completed_at: datetime(Map.get(state.metadata, :completed_at)),
       duration_ms: duration_ms(state),
       prompt: prompt_text(state),
       response: response_text(state),
       message_count: length(state.messages),
       latest: latest_text(state),
+      current: Map.get(state.metadata, :current),
+      run_count: Map.get(state.metadata, :run_count, 0),
+      recent_output: Map.get(state.metadata, :recent_output, []),
       events: Enum.map(state.events, &event/1)
     }
   end

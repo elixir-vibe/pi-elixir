@@ -23,6 +23,14 @@ function formatDurationMs(ms: number | null | undefined) {
   return `${minutes}m${remainder ? ` ${remainder}s` : ''}`
 }
 
+function expansionHint() {
+  try {
+    return keyHint('app.tools.expand', 'to expand')
+  } catch {
+    return 'ctrl+o to expand'
+  }
+}
+
 function sessionIcon(status: string | undefined, theme: Theme) {
   switch (status) {
     case 'done':
@@ -102,7 +110,12 @@ function aggregateStatus(
   return session.status
 }
 
+function livePreview(session: SessionSnapshot) {
+  return session.recentOutput?.at(-1) ?? session.latest
+}
+
 function sessionPreview(session: SessionSnapshot) {
+  if (session.status === 'running') return compact(livePreview(session))
   if (session.status === 'failed')
     return compact(session.error ?? session.response ?? session.latest)
   if (session.status === 'cancelled') return compact(session.latest ?? session.prompt)
@@ -152,7 +165,15 @@ export function activeSessionTree(sessions: SessionSnapshot[]) {
 export function completionSignature(tree: SessionSnapshot[]) {
   return tree
     .map((session) =>
-      [session.id, session.status, session.updatedAt, session.result, session.error]
+      [
+        session.id,
+        session.runCount,
+        session.status,
+        session.completedAt,
+        session.updatedAt,
+        session.result,
+        session.error
+      ]
         .map((part) => (typeof part === 'string' ? part : JSON.stringify(part ?? null)))
         .join(':')
     )
@@ -196,6 +217,14 @@ function sessionDetailLines(session: SessionSnapshot, latest: string, theme: The
   const prompt = quotePreview(session.prompt)
   if (prompt) lines.push(theme.fg('muted', prompt))
 
+  const current = compact(session.current)
+  if (current) lines.push(theme.fg('warning', `… ${current}`))
+
+  for (const output of session.recentOutput?.slice(-3) ?? []) {
+    const preview = compact(output)
+    if (preview && preview !== latest) lines.push(theme.fg('muted', `… ${preview}`))
+  }
+
   const response = compact(session.response)
   if (response && response !== latest) lines.push(theme.fg('muted', `→ ${response}`))
 
@@ -234,8 +263,7 @@ export function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, e
 
   roots.slice(0, 8).forEach((root) => render(root, '', true, true))
   if (sessions.length > 8) lines.push(theme.fg('muted', `… ${sessions.length - 8} more`))
-  if (!expanded && sessions.length > 1)
-    lines.push(theme.fg('muted', `  (${keyHint('app.tools.expand', 'to expand')})`))
+  if (!expanded && sessions.length > 1) lines.push(theme.fg('muted', `  (${expansionHint()})`))
   return new Text(lines.join('\n'), 0, 0)
 }
 

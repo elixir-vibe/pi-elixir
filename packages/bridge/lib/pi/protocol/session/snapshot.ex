@@ -14,11 +14,15 @@ defmodule Pi.Protocol.Session.Snapshot do
     :error,
     :started_at,
     :updated_at,
+    :completed_at,
     :duration_ms,
     :prompt,
     :response,
     :latest,
+    :current,
+    run_count: 0,
     message_count: 0,
+    recent_output: [],
     events: []
   ]
 
@@ -31,17 +35,24 @@ defmodule Pi.Protocol.Session.Snapshot do
           error: String.t() | nil,
           started_at: String.t() | nil,
           updated_at: String.t() | nil,
+          completed_at: String.t() | nil,
           duration_ms: non_neg_integer() | nil,
           prompt: String.t() | nil,
           response: String.t() | nil,
           latest: String.t() | nil,
+          current: String.t() | nil,
+          run_count: non_neg_integer(),
           message_count: non_neg_integer(),
+          recent_output: [String.t()],
           events: [Event.t()]
         }
 
   codec(:parent_id, as: "parentId")
   codec(:started_at, as: "startedAt")
   codec(:updated_at, as: "updatedAt")
+  codec(:completed_at, as: "completedAt")
   codec(:duration_ms, as: "durationMs")
+  codec(:run_count, as: "runCount")
   codec(:message_count, as: "messageCount")
+  codec(:recent_output, as: "recentOutput")
 end

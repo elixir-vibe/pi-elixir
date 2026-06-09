@@ -28,7 +28,7 @@ The public API intentionally separates single-call and orchestration shapes:
 - `Pi.Plugin.Manager.load/2` and `unload/1` support dynamic plugin lifecycle changes.
 - `Pi.Plugin.Waiters` provides an ETS-backed waiter registry for interactive plugins.
 - `Pi.Plugin.Event.emit/2` publishes BEAM events onto pi's TypeScript extension event bus.
-- `Pi.Session.info/1`, `active_tools/1`, and `append_entry/3` expose small session-state APIs back to BEAM code.
+- `Pi.Session.info/1`, `active_tools/1`, `append_entry/3`, and `send_message/3` expose small host-session APIs back to BEAM code.
 
 Boundary JSON examples are documented in [`docs/protocol.md`](docs/protocol.md).
 
@@ -88,14 +88,14 @@ Use `Pi.Session` when you need attachable, subscribable session state:
 {:ok, state} = Pi.Session.subscribe(reviewer)
 ```
 
-Session snapshots are emitted as `pi_session` events and rendered by the extension as a compact live widget. The extension persists the latest snapshot set into pi custom entries (`elixir-sessions`) and reloads active BEAM snapshots on session start. Private slash commands control active sessions without adding model-facing tools:
+Session snapshots are emitted as `pi_session` events. The extension renders active/running work as a compact live widget, then emits completed root session trees as inline transcript entries. The extension persists the latest snapshot set into pi custom entries (`elixir-sessions`) and reloads active BEAM snapshots on session start. Private slash commands control active sessions without adding model-facing tools:
 
 ```text
 /elixir:sessions.cancel id=session_123
 /elixir:sessions.rerun id=session_123
 ```
 
-Streaming session runs can emit `:delta` events before the final assistant message:
+Snapshots carry renderer-neutral semantic fields such as prompt/response previews, current activity, recent streaming output, `run_count`, `completed_at`, and timing. Streaming session runs can emit `:delta` events before the final assistant message:
 
 ```elixir
 {:ok, text} = Pi.Session.run(session, "Draft notes", stream: true)
@@ -129,12 +129,13 @@ Use `Pi.Agent` for convenience orchestration over those sessions:
 
 ## Session bridge APIs
 
-BEAM code can ask the pi extension for small session-state snapshots and persist branch-aware custom entries:
+BEAM code can ask the pi extension for small session-state snapshots, persist branch-aware custom entries, or emit a visible custom transcript message:
 
 ```elixir
 {:ok, info} = Pi.Session.info()
 {:ok, %{tools: tools}} = Pi.Session.active_tools()
 {:ok, "ok"} = Pi.Session.append_entry("demo-state", %{count: 1})
+{:ok, "ok"} = Pi.Session.send_message("demo-message", %{count: 1})
 ```
 
 ## Plugins

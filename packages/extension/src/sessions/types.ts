@@ -25,7 +25,11 @@ export interface SessionSnapshot {
   error?: string | null
   startedAt?: string | null
   updatedAt?: string | null
+  completedAt?: string | null
   durationMs?: number | null
+  current?: string | null
+  runCount?: number
   messageCount?: number
+  recentOutput?: string[]
   events?: SessionEventSnapshot[]
 }

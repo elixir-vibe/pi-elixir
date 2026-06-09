@@ -1,28 +1,20 @@
-import {
-  type ExtensionAPI,
-  type ExtensionContext,
-  type Theme
-} from '@earendil-works/pi-coding-agent'
+import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent'
 
+import { registerBridgeCommands } from './bridge/plugin-commands.ts'
+import { handleBridgeRequest } from './bridge/requests.ts'
 import { showStartupInfo } from './bridge/startup-info.ts'
-import {
-  callTool,
-  resolveUrl,
-  getConnectionKind,
-  sendBridgeEvent,
-  type ConnectionKind
-} from './connection/resolver.ts'
+import { applyBridgeUIEvent, updateStatus } from './bridge/ui-events.ts'
+import { callTool, resolveUrl, getConnectionKind, sendBridgeEvent } from './connection/resolver.ts'
 import { onStatusChange } from './connection/status.ts'
 import {
   getBridgeInfo,
   onBridgeBusEvent,
   onBridgeRequest,
   onBridgeUIEvent,
-  stopEmbedded,
-  type BridgeUIEvent
+  stopEmbedded
 } from './embedded/stdio-process.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
-import type { BridgeInfo, BridgePluginCommand, StdioMessage, ToolArgs } from './protocol/types.ts'
+import type { ToolArgs } from './protocol/types.ts'
 import { registerSessionCommands } from './sessions/commands.ts'
 import { renderSessionMessage } from './sessions/render.ts'
 import {
@@ -35,13 +27,6 @@ import { discoverExecutableSkillPath } from './skills/executable-skills.ts'
 import { register as registerEval } from './tools/eval.ts'
 import { register as registerExAstReplace } from './tools/ex-ast-replace.ts'
 import { register as registerExAstSearch } from './tools/ex-ast-search.ts'
-
-interface StatusContext extends ExtensionContext {
-  ui: ExtensionContext['ui'] & {
-    theme: Theme
-    setStatus: (id: string, text: string | undefined) => void
-  }
-}
 
 interface StatusSubscription {
   cwd: string
@@ -59,13 +44,6 @@ interface PluginHookResponse {
   error?: string
 }
 
-interface PluginCommandResult {
-  0?: string
-  1?: string
-  ok?: string
-  error?: string
-}
-
 function resolveElixirCwd(cwd: string): string | null {
   return resolveMixProjectCwd(cwd)
 }
@@ -76,105 +54,6 @@ function subscriptionKey(ctx: ExtensionContext) {
 
 function hasBridgePlugins(cwd: string): boolean {
   return (getBridgeInfo(cwd)?.plugins?.length ?? 0) > 0
-}
-
-function updateStatus(ctx: StatusContext, kind: ConnectionKind) {
-  try {
-    const t = ctx.ui.theme
-    switch (kind) {
-      case 'external':
-        ctx.ui.setStatus('elixir', t.fg('success', '⬡') + ' ' + t.fg('muted', 'BEAM'))
-        break
-      case 'embedded':
-        ctx.ui.setStatus('elixir', t.fg('success', '⬡') + ' ' + t.fg('muted', 'BEAM (embedded)'))
-        break
-      case 'starting':
-        ctx.ui.setStatus('elixir', t.fg('warning', '⬡') + ' ' + t.fg('muted', 'BEAM starting…'))
-        break
-      case 'missing':
-        ctx.ui.setStatus('elixir', t.fg('warning', '⬡') + ' ' + t.fg('muted', 'BEAM tools missing'))
-        break
-      default:
-        ctx.ui.setStatus('elixir', t.fg('warning', '⬡') + ' ' + t.fg('muted', 'BEAM offline'))
-    }
-  } catch {
-    // Status updates are best-effort. Session replacement can stale old UI contexts while embedded process callbacks are still finishing.
-  }
-}
-
-function applyBridgeUIEvent(ctx: StatusContext, event: BridgeUIEvent) {
-  try {
-    const key = event.key ?? 'pi-bridge'
-
-    switch (event.op) {
-      case 'status':
-        ctx.ui.setStatus(key, event.text)
-        break
-      case 'progress': {
-        const title = event.title ?? key
-        const value =
-          typeof event.current === 'number' && typeof event.total === 'number'
-            ? `${title} ${event.current}/${event.total}`
-            : title
-        ctx.ui.setStatus(key, value)
-        break
-      }
-      case 'widget':
-        ctx.ui.setWidget(key, event.lines, { placement: event.placement ?? 'belowEditor' })
-        break
-      case 'notify':
-        ctx.ui.notify(event.message ?? '', event.level)
-        break
-    }
-  } catch {
-    // UI bridge events are best-effort; stale contexts can disappear during session replacement.
-  }
-}
-
-function pluginCommandName(command: BridgePluginCommand): string | null {
-  if (!command.name) return null
-  return `elixir:${command.name}`
-}
-
-function registerBridgeCommands(
-  pi: ExtensionAPI,
-  info: BridgeInfo | undefined,
-  registered: Set<string>
-) {
-  for (const command of info?.commands ?? []) {
-    const name = pluginCommandName(command)
-    if (!name || registered.has(name)) continue
-
-    registered.add(name)
-    pi.registerCommand(name, {
-      description: command.description ?? `Run BEAM plugin command ${command.name}`,
-      handler: async (args, ctx) => {
-        const beamCwd = resolveElixirCwd(ctx.cwd)
-        const conn = beamCwd ? await resolveUrl(beamCwd) : null
-        if (!conn) {
-          ctx.ui.notify('No BEAM connection for this project.', 'error')
-          return
-        }
-
-        const result = await callTool(conn.url, 'pi_plugin_command', { name: command.name, args })
-        const payload = parsePluginCommandResult(result.text)
-        if (result.isError || payload.error) {
-          ctx.ui.notify(payload.error ?? result.text, 'error')
-          return
-        }
-
-        if (payload.ok) ctx.ui.notify(payload.ok, 'info')
-      }
-    })
-  }
-}
-
-function parsePluginCommandResult(text: string): PluginCommandResult {
-  try {
-    return JSON.parse(text) as PluginCommandResult
-  } catch {
-    return { ok: text }
-  }
 }
 
 function parsePluginHookResponse(text: string): PluginHookResponse {
@@ -194,60 +73,6 @@ function textFromContent(content: unknown): string {
       return typeof maybeText === 'string' ? maybeText : ''
     })
     .join('\n')
-}
-
-async function handleBridgeRequest(
-  message: StdioMessage,
-  ctx: ExtensionContext,
-  pi: ExtensionAPI
-): Promise<Record<string, unknown> | undefined> {
-  if (message.op === 'session_info') {
-    return {
-      ok: true,
-      result: {
-        cwd: ctx.cwd,
-        mode: ctx.mode,
-        hasUI: ctx.hasUI,
-        sessionFile: ctx.sessionManager?.getSessionFile?.(),
-        sessionName: pi.getSessionName(),
-        leafId: ctx.sessionManager?.getLeafId?.(),
-        isIdle: ctx.isIdle()
-      }
-    }
-  }
-
-  if (message.op === 'active_tools') {
-    return { ok: true, result: { tools: pi.getActiveTools() } }
-  }
-
-  if (message.op === 'append_entry') {
-    const customType = message.payload?.customType
-    const data = message.payload?.data
-    if (typeof customType !== 'string' || typeof data !== 'object' || data === null) {
-      return { ok: false, error: 'append_entry requires customType and data' }
-    }
-
-    pi.appendEntry(customType, data as Record<string, unknown>)
-    return { ok: true, result: 'ok' }
-  }
-
-  if (message.op === 'send_message') {
-    const customType = message.payload?.customType
-    const data = message.payload?.data
-    if (typeof customType !== 'string' || typeof data !== 'object' || data === null) {
-      return { ok: false, error: 'send_message requires customType and data' }
-    }
-
-    pi.sendMessage({
-      customType,
-      content: '',
-      display: true,
-      details: data as Record<string, unknown>
-    })
-    return { ok: true, result: 'ok' }
-  }
-
-  return undefined
 }
 
 export default function (pi: ExtensionAPI) {
@@ -303,7 +128,7 @@ export default function (pi: ExtensionAPI) {
     if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
     const info = getBridgeInfo(sessionCwd)
     showStartupInfo(ctx, info)
-    registerBridgeCommands(pi, info, registeredCommands)
+    registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
     await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
   })
 
