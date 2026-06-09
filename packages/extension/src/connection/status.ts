@@ -1,4 +1,10 @@
-export type ConnectionKind = 'external' | 'embedded' | 'starting' | 'missing' | null
+export type ConnectionKind =
+  | 'external'
+  | 'embedded'
+  | 'starting'
+  | 'missing'
+  | 'incompatible'
+  | null
 
 export interface CachedConnection {
   url: string
@@ -10,6 +16,7 @@ type StatusListener = (cwd: string, kind: ConnectionKind) => void
 
 const statusListeners = new Set<StatusListener>()
 const missingDependency = new Set<string>()
+const incompatibleDependency = new Map<string, string>()
 export const connectionCache = new Map<string, CachedConnection>()
 
 export function onStatusChange(listener: StatusListener): () => void {
@@ -39,6 +46,18 @@ export function clearMissingDependency(cwd: string): void {
 
 export function hasMissingDependency(cwd: string): boolean {
   return missingDependency.has(cwd)
+}
+
+export function markIncompatibleDependency(cwd: string, message: string): void {
+  incompatibleDependency.set(cwd, message)
+}
+
+export function clearIncompatibleDependency(cwd: string): void {
+  incompatibleDependency.delete(cwd)
+}
+
+export function getIncompatibleDependency(cwd: string): string | undefined {
+  return incompatibleDependency.get(cwd)
 }
 
 export function invalidateCache(cwd: string): void {

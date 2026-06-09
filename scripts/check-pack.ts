@@ -10,6 +10,8 @@ const packageJson = JSON.parse(await readFile(path.join(root, 'package.json'), '
   unknown
 >
 
+const bridgeMixExs = await readFile(path.join(root, 'packages/bridge/mix.exs'), 'utf8')
+const bridgeVersion = /version:\s*"([^"]+)"/.exec(bridgeMixExs)?.[1]
 const files = new Set(await packlist(root, { manifest: packageJson }))
 
 const requiredFiles = [
@@ -62,6 +64,11 @@ const metadataErrors = requiredMetadata.flatMap(([keyPath, expected]) => {
 
 if (typeof packageJson.version !== 'string' || !/^\d+\.\d+\.\d+(?:[-+][0-9A-Za-z.-]+)?$/.test(packageJson.version)) {
   metadataErrors.push(`version: expected semver string, got ${String(packageJson.version)}`)
+}
+if (bridgeVersion !== packageJson.version) {
+  metadataErrors.push(
+    `version mismatch: package.json has ${String(packageJson.version)}, packages/bridge/mix.exs has ${String(bridgeVersion)}`
+  )
 }
 
 const bridgeCount = [...files].filter((file) => file.startsWith('packages/bridge/lib/')).length

@@ -17,7 +17,12 @@ import {
 } from '../mix/installer.ts'
 import type { BridgeEvent, ToolArgs, ToolResult } from '../protocol/types.ts'
 import { callHttpTool, discoverExternalMCP } from '../transport/http-json-rpc.ts'
-import { connectionCache, hasMissingDependency, type ConnectionKind } from './status.ts'
+import {
+  connectionCache,
+  getIncompatibleDependency,
+  hasMissingDependency,
+  type ConnectionKind
+} from './status.ts'
 
 export type { ConnectionKind, InstallPrompt }
 
@@ -88,6 +93,12 @@ export async function resolveUrl(
       return null
     }
 
+    const incompatible = getIncompatibleDependency(cwd)
+    if (incompatible) {
+      recordDiagnostic('resolve_url_phase', cwd, { phase: 'incompatible_dependency' })
+      return null
+    }
+
     const failedBeforeInstall = hasEmbeddedFailed(cwd)
     const missingBeforeInstall = hasMissingDependency(cwd)
     const dependencyReady = await withDiagnosticSpan(
@@ -122,6 +133,7 @@ export async function resolveUrl(
 export function getConnectionKind(cwd: string): ConnectionKind {
   const cached = connectionCache.get(cwd)
   if (cached) return cached.kind
+  if (getIncompatibleDependency(cwd)) return 'incompatible'
   if (hasMissingDependency(cwd)) return 'missing'
   return getEmbeddedKind(cwd)
 }

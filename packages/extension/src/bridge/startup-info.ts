@@ -1,6 +1,7 @@
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent'
 
 import type { BridgeInfo } from '../embedded/stdio-process.ts'
+import { EXTENSION_VERSION } from '../version.ts'
 
 function list<T>(value: T[] | undefined, render: (value: T) => string | undefined) {
   if (!value || value.length === 0) return 'none'
@@ -11,6 +12,7 @@ export function renderStartupInfo(info: BridgeInfo) {
   const lines = [
     'pi_bridge',
     `  project: ${info.project ?? 'unknown'}`,
+    `  pi_bridge: ${info.version ?? 'unknown'} (extension ${EXTENSION_VERSION})`,
     `  transport: ${info.transport ?? 'unknown'}`,
     `  integrations: ${list(info.integrations, (name) => name)}`,
     `  executable skills: ${info.skills?.length ?? 0}`,

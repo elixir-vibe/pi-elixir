@@ -20,6 +20,7 @@ import {
   getConnectionKind,
   type InstallPrompt
 } from './connection/resolver.ts'
+import { getIncompatibleDependency } from './connection/status.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
 import type { ToolArgs, ToolResult } from './protocol/types.ts'
 
@@ -124,6 +125,21 @@ function missingDependencyError() {
   }
 }
 
+function incompatibleDependencyError(cwd: string) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text:
+          getIncompatibleDependency(cwd) ??
+          'Installed pi_bridge version is incompatible with this pi-elixir extension.'
+      }
+    ],
+    isError: true,
+    details: {}
+  }
+}
+
 function noConnectionError() {
   return {
     content: [
@@ -151,6 +167,7 @@ function connectionError(cwd: string) {
   const kind = getConnectionKind(cwd)
   if (kind === 'starting') return stillCompilingError()
   if (kind === 'missing') return missingDependencyError()
+  if (kind === 'incompatible') return incompatibleDependencyError(cwd)
   return noConnectionError()
 }
 

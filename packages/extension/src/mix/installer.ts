@@ -2,7 +2,12 @@ import * as childProcess from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
 
-import { clearMissingDependency, markMissingDependency } from '../connection/status.ts'
+import {
+  clearIncompatibleDependency,
+  clearMissingDependency,
+  markMissingDependency
+} from '../connection/status.ts'
+import { expectedPiBridgeDependency } from '../version.ts'
 import { addPiDependency, hasPiDependency, readAppName, readMixExs } from './project.ts'
 
 const PI_BEAM_PATH = path.resolve(__dirname, '../../../bridge')
@@ -28,10 +33,10 @@ function relativePiBeamPath(cwd: string, beamPath: string): string {
 }
 
 function dependencyLine(cwd: string): string {
-  if (process.env.PI_BEAM_DEPENDENCY !== 'path') return '{:pi_bridge, "~> 0.1", only: :dev}'
+  if (process.env.PI_BEAM_DEPENDENCY !== 'path') return expectedPiBridgeDependency()
 
   const beamPath = localPiBeamPath()
-  if (!beamPath) return '{:pi_bridge, "~> 0.1", only: :dev}'
+  if (!beamPath) return expectedPiBridgeDependency()
   return `{:pi_bridge, path: "${relativePiBeamPath(cwd, beamPath)}", only: :dev}`
 }
 
@@ -68,5 +73,6 @@ export async function ensurePiBeamDependency(cwd: string, options?: InstallOptio
   fs.writeFileSync(mixExsPath, updated)
   await runMixDepsGet(cwd)
   clearMissingDependency(cwd)
+  clearIncompatibleDependency(cwd)
   return true
 }

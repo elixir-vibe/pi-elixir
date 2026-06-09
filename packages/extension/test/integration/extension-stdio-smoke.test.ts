@@ -15,7 +15,7 @@ import {
 const PROJECT_DIR =
   process.env.PI_ELIXIR_INTEGRATION_PROJECT ??
   path.resolve(__dirname, '../../../fixtures/demo_project')
-const STARTUP_TIMEOUT = 120_000
+const STARTUP_TIMEOUT = 20_000
 
 function ensureDeps(): void {
   execSync('mix deps.get', { cwd: PROJECT_DIR, stdio: 'pipe' })
@@ -41,7 +41,12 @@ function waitForReady(cwd: string, timeout = STARTUP_TIMEOUT): Promise<void> {
       }
 
       if (Date.now() >= deadline) {
-        reject(new Error('Timed out waiting for embedded stdio process'))
+        const info = getBridgeInfo(cwd)
+        reject(
+          new Error(
+            `Timed out waiting for embedded stdio process; bridge info: ${JSON.stringify(info ?? null)}`
+          )
+        )
         return
       }
 

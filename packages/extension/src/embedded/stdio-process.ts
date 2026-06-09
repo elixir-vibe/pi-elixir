@@ -1,6 +1,12 @@
 import * as childProcess from 'node:child_process'
 
-import { connectionCache, emitStatusChange, invalidateCache } from '../connection/status.ts'
+import {
+  clearIncompatibleDependency,
+  connectionCache,
+  emitStatusChange,
+  invalidateCache,
+  markIncompatibleDependency
+} from '../connection/status.ts'
 import { recordDiagnostic, withDiagnosticSpan } from '../diagnostics.ts'
 import type {
   BridgeBusEvent,
@@ -12,6 +18,7 @@ import type {
   ToolArgs,
   ToolResult
 } from '../protocol/types.ts'
+import { isPiBridgeVersionCompatible, piBridgeVersionMismatchMessage } from '../version.ts'
 
 const START_STDIO_EXPR = 'Pi.Transport.Stdio.start()'
 
@@ -137,6 +144,7 @@ function markReady(cwd: string, entry: EmbeddedProcess, url?: string): void {
     stderrBytes: entry.stderrBytes,
     stderrPreview: entry.stderrPreview.join('\n')
   })
+  clearIncompatibleDependency(cwd)
   invalidateCache(cwd)
   emitStatusChange(cwd, 'embedded')
 }
@@ -217,6 +225,20 @@ async function handleBridgeRequest(
 
 function handleMessage(cwd: string, entry: EmbeddedProcess, message: StdioMessage): void {
   if (message.type === 'ready') {
+    if (message.info && !isPiBridgeVersionCompatible(message.info.version)) {
+      const error = piBridgeVersionMismatchMessage(message.info.version)
+      bridgeInfo.set(cwd, message.info)
+      markIncompatibleDependency(cwd, error)
+      embeddedFailed.add(cwd)
+      recordDiagnostic('embedded_incompatible', cwd, {
+        version: message.info.version,
+        error
+      })
+      emitStatusChange(cwd, 'incompatible')
+      stopEmbedded(cwd)
+      return
+    }
+
     if (message.info) bridgeInfo.set(cwd, message.info)
     markReady(cwd, entry)
     return

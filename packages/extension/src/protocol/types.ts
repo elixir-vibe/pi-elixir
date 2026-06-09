@@ -20,6 +20,7 @@ export interface PendingToolCall {
 
 export interface BridgeInfo {
   project?: string
+  version?: string
   transport?: string
   integrations?: string[]
   skills?: BridgeSkillInfo[]

@@ -28,6 +28,7 @@ defmodule Pi.Bridge.Info do
   def snapshot(transport \\ :stdio) do
     %BridgeInfo{
       project: Mix.Project.config()[:app],
+      version: bridge_version(),
       transport: transport,
       integrations: Integrations.loaded(),
       skills: skills(),
@@ -59,6 +60,12 @@ defmodule Pi.Bridge.Info do
     extension_apis()
     |> Enum.filter(& &1.alias)
     |> Enum.map_join("\n", fn api -> "alias #{inspect(api.module)}, as: #{api.alias}" end)
+  end
+
+  defp bridge_version do
+    :pi_bridge
+    |> Application.spec(:vsn)
+    |> to_string()
   end
 
   defp runtime_functions(module) do
