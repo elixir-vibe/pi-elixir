@@ -197,12 +197,15 @@ defmodule Pi.SessionTest do
     assert encoded["messageCount"] == 0
     assert encoded["durationMs"] == 0
     assert encoded["runCount"] == 0
+    assert encoded["turnCount"] == 0
     assert encoded["recentOutput"] == []
     assert Map.has_key?(encoded, "usage")
     assert Map.has_key?(encoded, "parentId")
     assert Map.has_key?(encoded, "startedAt")
     assert Map.has_key?(encoded, "updatedAt")
+    assert Map.has_key?(encoded, "lastActivityAt")
     assert Map.has_key?(encoded, "completedAt")
+    assert Map.has_key?(encoded, "currentStartedAt")
     refute Map.has_key?(encoded, "message_count")
     refute Map.has_key?(encoded, "duration_ms")
     refute Map.has_key?(encoded, "parent_id")
@@ -222,7 +225,9 @@ defmodule Pi.SessionTest do
     assert encoded["prompt"] == "ping"
     assert encoded["response"] == "pong"
     assert encoded["runCount"] == 1
+    assert encoded["turnCount"] == 1
     assert is_binary(encoded["completedAt"])
+    assert is_binary(encoded["lastActivityAt"])
     assert is_integer(encoded["durationMs"])
   end
 
@@ -277,7 +282,9 @@ defmodule Pi.SessionTest do
     encoded = JSONCodec.dump(snapshot)
 
     assert snapshot.recent_output == ["one"]
+    assert is_binary(snapshot.current_started_at)
     assert encoded["current"] == "streaming"
+    assert is_binary(encoded["currentStartedAt"])
     assert encoded["recentOutput"] == ["one"]
 
     Agent.update(gate, fn _ -> :finish end)

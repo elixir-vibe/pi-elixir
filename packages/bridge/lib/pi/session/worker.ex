@@ -283,7 +283,7 @@ defmodule Pi.Session.Worker do
       metadata
       |> Map.update(:run_count, 1, &(&1 + 1))
       |> Map.put(:recent_output, [])
-      |> Map.put(:current, "llm")
+      |> put_current("llm")
       |> Map.delete(:completed_at)
 
     %{state | metadata: metadata}
@@ -298,10 +298,23 @@ defmodule Pi.Session.Worker do
 
     %{
       state
-      | metadata:
-          metadata |> Map.put(:recent_output, recent_output) |> Map.put(:current, "streaming")
+      | metadata: metadata |> Map.put(:recent_output, recent_output) |> put_current("streaming")
     }
   end
+
+  defp put_current(metadata, current) do
+    metadata
+    |> Map.put(:current, current)
+    |> Map.put(:current_started_at, current_started_at(metadata, current))
+  end
+
+  defp current_started_at(
+         %{current: current, current_started_at: %DateTime{} = started_at},
+         current
+       ),
+       do: started_at
+
+  defp current_started_at(_metadata, _current), do: DateTime.utc_now()
 
   defp transition(data, status, event) do
     update_state(data, fn state ->
@@ -321,6 +334,7 @@ defmodule Pi.Session.Worker do
         state.metadata
         |> Map.put(:completed_at, event.at)
         |> Map.delete(:current)
+        |> Map.delete(:current_started_at)
 
       %{
         state
@@ -362,7 +376,9 @@ defmodule Pi.Session.Worker do
       error: error(state.error),
       started_at: datetime(state.started_at),
       updated_at: datetime(state.updated_at),
+      last_activity_at: datetime(state.updated_at),
       completed_at: datetime(Map.get(state.metadata, :completed_at)),
+      current_started_at: datetime(Map.get(state.metadata, :current_started_at)),
       duration_ms: duration_ms(state),
       prompt: prompt_text(state),
       response: response_text(state),
@@ -371,6 +387,7 @@ defmodule Pi.Session.Worker do
       current: Map.get(state.metadata, :current),
       usage: Map.get(state.metadata, :usage),
       run_count: Map.get(state.metadata, :run_count, 0),
+      turn_count: turn_count(state.messages),
       recent_output: Map.get(state.metadata, :recent_output, []),
       events: Enum.map(state.events, &event/1)
     }
@@ -397,6 +414,8 @@ defmodule Pi.Session.Worker do
 
   defp prompt_text(%State{messages: messages}), do: last_text_for_role(messages, :user)
   defp response_text(%State{messages: messages}), do: last_text_for_role(messages, :assistant)
+
+  defp turn_count(messages), do: Enum.count(messages, &(&1.role == :assistant))
 
   defp latest_text(%State{result: result}) when is_binary(result) and result != "", do: result
 

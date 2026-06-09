@@ -2,7 +2,7 @@ import { renderSessionWidget } from '#src/sessions/render.ts'
 import type { SessionSnapshot } from '#src/sessions/types.ts'
 import type { Theme } from '@earendil-works/pi-coding-agent'
 import { visibleWidth, type Component } from '@earendil-works/pi-tui'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 const theme = {
   fg: (_name: string, text: string) => text
@@ -73,6 +73,8 @@ describe('BEAM session renderer', () => {
   })
 
   it('renders running live previews from current activity and recent output', () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(new Date('2026-01-01T00:00:10.000Z'))
     expect(
       textOf(
         renderSessionWidget(
@@ -86,6 +88,8 @@ describe('BEAM session renderer', () => {
               prompt: 'scan docs',
               latest: 'scan docs',
               current: 'llm',
+              currentStartedAt: '2026-01-01T00:00:03.000Z',
+              lastActivityAt: '2026-01-01T00:00:09.000Z',
               recentOutput: ['reading docs'],
               events: [{ type: 'started' }, { type: 'llm' }],
               durationMs: 1200
@@ -96,21 +100,24 @@ describe('BEAM session renderer', () => {
         )
       )
     ).toBe(`● live
-  └─ ● research  reading docs
+  1 running
+  └─ ● research  reading docs  llm 7.0s
      “scan docs”
-     … llm
+     … llm 7.0s
      started → llm · 1.2s`)
+    vi.useRealTimers()
   })
 
-  it('renders token usage on child rows and aggregated root summaries', () => {
+  it('renders recursive status and token usage on child rows and aggregated root summaries', () => {
     expect(
       textOf(
         renderSessionWidget(
           [
             { id: 'root', name: 'usage', status: 'idle' },
+            { id: 'group', parentId: 'root', name: 'group', status: 'idle' },
             {
               id: 'a',
-              parentId: 'root',
+              parentId: 'group',
               name: 'a',
               status: 'done',
               response: 'ok',
@@ -123,7 +130,7 @@ describe('BEAM session renderer', () => {
             },
             {
               id: 'b',
-              parentId: 'root',
+              parentId: 'group',
               name: 'b',
               status: 'done',
               response: 'ok',
@@ -141,8 +148,10 @@ describe('BEAM session renderer', () => {
       )
     ).toBe(`✓ usage
   2 done · ↑2.0k ↓400 $0.005
-  ├─ ✓ a  ok  ↑1.2k ↓340 $0.003
-  └─ ✓ b  ok  ↑800 ↓60 $0.002
+  └─ ✓ group
+     2 done · ↑2.0k ↓400 $0.005
+     ├─ ✓ a  ok  ↑1.2k ↓340 $0.003
+     └─ ✓ b  ok  ↑800 ↓60 $0.002
   (expand for details)`)
   })
 

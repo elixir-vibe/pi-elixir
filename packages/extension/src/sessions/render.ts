@@ -6,6 +6,7 @@ import type { SessionSnapshot, SessionUsage } from './types.ts'
 
 const COMPACT_MAX_LINES = 12
 const EXPANDED_MAX_LINES = 28
+const STALE_ACTIVITY_MS = 30_000
 
 function compact(text: string | null | undefined, limit = 72) {
   const value = (text ?? '').replace(/\s+/g, ' ').trim()
@@ -72,6 +73,12 @@ function aggregateUsage(sessions: SessionSnapshot[]) {
   return usageSummary(total)
 }
 
+function parseTime(value: string | null | undefined) {
+  if (!value) return undefined
+  const time = Date.parse(value)
+  return Number.isFinite(time) ? time : undefined
+}
+
 function formatDurationMs(ms: number | null | undefined) {
   if (typeof ms !== 'number' || !Number.isFinite(ms) || ms < 0) return ''
   if (ms < 1_000) return `${Math.round(ms)}ms`
@@ -114,6 +121,21 @@ function countStatuses(sessions: SessionSnapshot[]) {
   }
 }
 
+function activitySummary(session: SessionSnapshot, now = Date.now()) {
+  if (session.status !== 'running') return ''
+  const lastActivity = parseTime(session.lastActivityAt ?? session.updatedAt)
+  const currentStarted = parseTime(session.currentStartedAt)
+  if (lastActivity !== undefined && now - lastActivity >= STALE_ACTIVITY_MS) {
+    return `no activity ${formatDurationMs(now - lastActivity)}`
+  }
+  if (session.current && currentStarted !== undefined) {
+    return `${compact(session.current, 24)} ${formatDurationMs(now - currentStarted)}`
+  }
+  if (lastActivity === undefined) return 'active'
+  const age = now - lastActivity
+  return age < 1_000 ? 'active now' : `active ${formatDurationMs(age)} ago`
+}
+
 function statusSummary(counts: ReturnType<typeof countStatuses>) {
   return [
     counts.done > 0 ? `${counts.done} done` : undefined,
@@ -128,11 +150,11 @@ function synthesis(
   children: Map<string, SessionSnapshot[]>,
   theme: Theme
 ) {
-  const childSessions = children.get(session.id ?? '') ?? []
-  if (childSessions.length < 2) return undefined
+  const tree = collectSessionTree(session, children, [])
+  if (tree.length < 2) return undefined
 
-  const parts = statusSummary(countStatuses(childSessions))
-  const usage = aggregateUsage(collectSessionTree(session, children, []))
+  const parts = statusSummary(countStatuses(tree.slice(1)))
+  const usage = aggregateUsage(tree)
   if (usage) parts.push(usage)
   return parts.length > 0 ? theme.fg('muted', parts.join(' · ')) : undefined
 }
@@ -264,7 +286,9 @@ function sessionRow(
   const effectiveStatus = aggregateStatus(session, children)
   const latest = sessionPreview(session)
   const usage = usageSummary(session.usage)
-  return `${branch}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', sessionStatusSuffix(session.status))}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}${usage ? `  ${theme.fg('muted', usage)}` : ''}`
+  const activity = activitySummary(session)
+  const suffix = [usage, activity].filter(Boolean).join(' · ')
+  return `${branch}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', sessionStatusSuffix(session.status))}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}${suffix ? `  ${theme.fg('muted', suffix)}` : ''}`
 }
 
 function sessionTimeline(session: SessionSnapshot) {
@@ -279,8 +303,12 @@ function sessionDetailLines(session: SessionSnapshot, latest: string, theme: The
   const prompt = quotePreview(session.prompt)
   if (prompt) lines.push(theme.fg('muted', prompt))
 
-  const current = compact(session.current)
-  if (current) lines.push(theme.fg('warning', `… ${current}`))
+  const activity = activitySummary(session)
+  if (activity) lines.push(theme.fg('warning', `… ${activity}`))
+  else {
+    const current = compact(session.current)
+    if (current) lines.push(theme.fg('warning', `… ${current}`))
+  }
 
   for (const output of session.recentOutput?.slice(-3) ?? []) {
     const preview = compact(output)
@@ -295,7 +323,11 @@ function sessionDetailLines(session: SessionSnapshot, latest: string, theme: The
 
   const timeline = sessionTimeline(session)
   const duration = formatDurationMs(session.durationMs)
-  const trail = [timeline, timeline ? duration : undefined].filter(Boolean).join(' · ')
+  const turns =
+    session.turnCount && session.turnCount > 0
+      ? `${session.turnCount} turn${session.turnCount === 1 ? '' : 's'}`
+      : undefined
+  const trail = [timeline, timeline ? duration : undefined, turns].filter(Boolean).join(' · ')
   if (trail) lines.push(theme.fg('muted', trail))
   return lines
 }
