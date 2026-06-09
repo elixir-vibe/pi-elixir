@@ -299,6 +299,24 @@ function sessionIcon(status: string | undefined, theme: Theme) {
   }
 }
 
+function countStatuses(sessions: SessionSnapshot[]) {
+  return {
+    done: sessions.filter((session) => session.status === 'done').length,
+    running: sessions.filter((session) => session.status === 'running').length,
+    failed: sessions.filter((session) => session.status === 'failed').length,
+    cancelled: sessions.filter((session) => session.status === 'cancelled').length
+  }
+}
+
+function statusSummary(counts: ReturnType<typeof countStatuses>) {
+  return [
+    counts.done > 0 ? `${counts.done} done` : undefined,
+    counts.running > 0 ? `${counts.running} running` : undefined,
+    counts.failed > 0 ? `${counts.failed} failed` : undefined,
+    counts.cancelled > 0 ? `${counts.cancelled} cancelled` : undefined
+  ].filter(Boolean)
+}
+
 function synthesis(
   session: SessionSnapshot,
   children: Map<string, SessionSnapshot[]>,
@@ -307,17 +325,7 @@ function synthesis(
   const childSessions = children.get(session.id ?? '') ?? []
   if (childSessions.length < 2) return undefined
 
-  const done = childSessions.filter((child) => child.status === 'done').length
-  const running = childSessions.filter((child) => child.status === 'running').length
-  const failed = childSessions.filter((child) => child.status === 'failed').length
-  const cancelled = childSessions.filter((child) => child.status === 'cancelled').length
-  const parts = [
-    done > 0 ? `${done} done` : undefined,
-    running > 0 ? `${running} running` : undefined,
-    failed > 0 ? `${failed} failed` : undefined,
-    cancelled > 0 ? `${cancelled} cancelled` : undefined
-  ].filter(Boolean)
-
+  const parts = statusSummary(countStatuses(childSessions))
   return parts.length > 0 ? theme.fg('muted', `  ${parts.join(' · ')}`) : undefined
 }
 
@@ -412,49 +420,76 @@ function completionSignature(tree: SessionSnapshot[]) {
     .join('|')
 }
 
+function treePrefixes(prefix: string, isLast: boolean, isRoot: boolean) {
+  if (isRoot) return { branch: '', detail: '    ', child: '  ' }
+  return {
+    branch: `${prefix}${isLast ? '└─ ' : '├─ '}`,
+    detail: `${prefix}${isLast ? '   ' : '│  '}`,
+    child: `${prefix}${isLast ? '   ' : '│  '}`
+  }
+}
+
+function sessionStatusSuffix(status: string | undefined) {
+  return status === 'failed' || status === 'cancelled' ? ` ${status}` : ''
+}
+
+function sessionRow(
+  session: SessionSnapshot,
+  children: Map<string, SessionSnapshot[]>,
+  theme: Theme,
+  branch: string
+) {
+  const label = session.name || session.id || 'session'
+  const effectiveStatus = aggregateStatus(session, children)
+  const latest = sessionPreview(session)
+  return `${branch}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', sessionStatusSuffix(session.status))}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
+}
+
+function sessionTimeline(session: SessionSnapshot) {
+  return session.events
+    ?.map((sessionEvent) => sessionEvent.type)
+    .filter((type): type is string => typeof type === 'string' && type.length > 0)
+    .join(' → ')
+}
+
+function sessionDetailLines(session: SessionSnapshot, latest: string, theme: Theme) {
+  const lines: string[] = []
+  const prompt = quotePreview(session.prompt)
+  if (prompt) lines.push(theme.fg('muted', prompt))
+
+  const response = compact(session.response)
+  if (response && response !== latest) lines.push(theme.fg('muted', `→ ${response}`))
+
+  const error = compact(session.error)
+  if (error && error !== latest) lines.push(theme.fg('error', `✗ ${error}`))
+
+  const timeline = sessionTimeline(session)
+  const duration = formatDurationMs(session.durationMs)
+  const trail = [timeline, timeline ? duration : undefined].filter(Boolean).join(' · ')
+  if (trail) lines.push(theme.fg('muted', trail))
+  return lines
+}
+
 function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded = false) {
   const roots = sessions.filter((session) => !session.parentId)
   const children = sessionChildren(sessions)
 
   const lines: string[] = []
   const render = (session: SessionSnapshot, prefix = '', isLast = true, isRoot = false) => {
-    const label = session.name || session.id || 'session'
-    const effectiveStatus = aggregateStatus(session, children)
+    const { branch, detail, child: childPrefix } = treePrefixes(prefix, isLast, isRoot)
     const latest = sessionPreview(session)
-    const status =
-      session.status === 'failed' || session.status === 'cancelled' ? ` ${session.status}` : ''
-    const branch = isRoot ? '' : `${prefix}${isLast ? '└─ ' : '├─ '}`
-    const detailPrefix = isRoot ? '    ' : `${prefix}${isLast ? '   ' : '│  '}`
-    lines.push(
-      `${branch}${sessionIcon(effectiveStatus, theme)} ${theme.fg('accent', label)}${theme.fg('muted', status)}${latest ? `  ${theme.fg('toolOutput', latest)}` : ''}`
-    )
+    lines.push(sessionRow(session, children, theme, branch))
 
     const summary = synthesis(session, children, theme)
     if (summary) lines.push(`${branch}${summary}`)
 
     if (expanded) {
-      const prompt = quotePreview(session.prompt)
-      if (prompt) lines.push(`${detailPrefix}${theme.fg('muted', prompt)}`)
-
-      const response = compact(session.response)
-      if (response && response !== latest)
-        lines.push(`${detailPrefix}${theme.fg('muted', `→ ${response}`)}`)
-
-      const error = compact(session.error)
-      if (error && error !== latest) lines.push(`${detailPrefix}${theme.fg('error', `✗ ${error}`)}`)
-
-      const timeline = session.events
-        ?.map((sessionEvent) => sessionEvent.type)
-        .filter((type): type is string => typeof type === 'string' && type.length > 0)
-        .join(' → ')
-      const duration = formatDurationMs(session.durationMs)
-      const trail = [timeline, timeline ? duration : undefined].filter(Boolean).join(' · ')
-      if (trail) lines.push(`${detailPrefix}${theme.fg('muted', trail)}`)
+      for (const line of sessionDetailLines(session, latest, theme)) lines.push(`${detail}${line}`)
     }
 
     const childSessions = children.get(session.id ?? '') ?? []
     childSessions.forEach((child, index) => {
-      render(child, isRoot ? '  ' : detailPrefix, index === childSessions.length - 1)
+      render(child, childPrefix, index === childSessions.length - 1)
     })
   }
 
