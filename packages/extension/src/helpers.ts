@@ -1,5 +1,5 @@
 import * as fs from 'node:fs'
-import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   DEFAULT_MAX_BYTES,
@@ -249,7 +249,7 @@ const scriptCache = new Map<string, string>()
 export function loadScript(name: string): string {
   const cached = scriptCache.get(name)
   if (cached) return cached
-  const filePath = path.resolve(__dirname, `../scripts/tools/${name}.exs`)
+  const filePath = fileURLToPath(new URL(`../scripts/tools/${name}.exs`, import.meta.url))
   const content = fs.readFileSync(filePath, 'utf-8')
   scriptCache.set(name, content)
   return content

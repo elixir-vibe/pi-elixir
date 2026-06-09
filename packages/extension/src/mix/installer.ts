@@ -1,6 +1,7 @@
 import * as childProcess from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import {
   clearIncompatibleDependency,
@@ -11,7 +12,7 @@ import { expectedPiBridgeDependency } from '#src/version.ts'
 
 import { addPiDependency, hasPiDependency, readAppName, readMixExs } from './project.ts'
 
-const PI_BEAM_PATH = path.resolve(__dirname, '../../../bridge')
+const PI_BEAM_PATH = fileURLToPath(new URL('../../../bridge', import.meta.url))
 
 export interface InstallPrompt {
   dependency: string

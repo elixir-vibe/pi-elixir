@@ -4,6 +4,7 @@
   "private": true,
   "description": "Internal TypeScript extension workspace for pi-elixir",
   "license": "MIT",
+  "type": "module",
   "imports": {
     "#src/*": "./src/*"
   },
