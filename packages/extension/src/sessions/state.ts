@@ -38,12 +38,6 @@ export function updateSessionWidget(ctx: StatusContext, cwd: string) {
   })
 }
 
-export function persistSessionSnapshots(pi: ExtensionAPI, cwd: string) {
-  const sessions = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
-  if (sessions.length === 0) return
-  pi.appendEntry('elixir-sessions', { cwd, sessions })
-}
-
 export function emitCompletedSessionMessages(pi: ExtensionAPI, cwd: string) {
   const snapshots = Array.from(sessionSnapshots.get(cwd)?.values() ?? [])
   const emitted = emittedCompletedSessionRoots.get(cwd) ?? new Set<string>()
@@ -79,7 +73,6 @@ export function handleSessionEvent(
   if (!snapshot.id) return
   storeSessionSnapshot(cwd, snapshot)
   updateSessionWidget(ctx, cwd)
-  persistSessionSnapshots(pi, cwd)
   emitCompletedSessionMessages(pi, cwd)
 }
 
@@ -129,7 +122,6 @@ export async function refreshSessionSnapshots(
   const conn = await resolveUrl(beamCwd)
   if (!conn) return
   await loadSessionSnapshots(ctx as StatusContext, beamCwd, conn.url)
-  persistSessionSnapshots(pi, beamCwd)
   emitCompletedSessionMessages(pi, beamCwd)
   recordDiagnostic('session_snapshots_refresh_done', beamCwd)
 }

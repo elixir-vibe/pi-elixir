@@ -162,7 +162,7 @@ Private control commands are available for active sessions without adding model-
 /elixir:sessions.rerun id=session_123
 ```
 
-Snapshots are also saved as pi custom entries named `elixir-sessions`, so the latest session tree can survive ordinary pi session history operations. Active BEAM snapshots are reloaded when the extension reconnects. Snapshot payloads include prompt/response previews, timing, run count/version fields, live current activity, and recent streaming output so compact and expanded renderers do not parse text blobs.
+Active BEAM snapshots are widget-only and are reloaded directly from the bridge when the extension reconnects. Completed root session trees are sent once as pi custom messages named `elixir-sessions`, so completed results become part of transcript history without live-update artifacts. Snapshot payloads include prompt/response previews, timing, run count/version fields, live current activity, and recent streaming output so compact and expanded renderers do not parse text blobs.
 
 ## Bidirectional UI bridge
 

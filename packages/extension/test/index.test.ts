@@ -220,10 +220,7 @@ describe('extension status lifecycle', () => {
       placement: 'belowEditor'
     })
     expect(pi.events.emit).toHaveBeenCalledWith('pi_session', expect.any(Object))
-    expect(pi.appendEntry).toHaveBeenCalledWith('elixir-sessions', {
-      cwd: projectA,
-      sessions: expect.arrayContaining([expect.objectContaining({ id: 'root' })])
-    })
+    expect(pi.appendEntry).not.toHaveBeenCalledWith('elixir-sessions', expect.any(Object))
   })
 
   it('refreshes BEAM session snapshots after Elixir tool results', async () => {
