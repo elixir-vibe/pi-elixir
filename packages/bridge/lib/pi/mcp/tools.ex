@@ -14,35 +14,9 @@ defmodule Pi.MCP.Tools do
   def dispatch("project_eval_sandbox", args),
     do: eval(Map.put(args, "mode", "sandbox"), structured?: false)
 
-  def dispatch("ex_ast_search", args) do
-    with {:ok, request} <- decode_request(SearchRequest, args, "pattern or patterns") do
-      cond do
-        is_map(request.patterns) and map_size(request.patterns) > 0 ->
-          request.patterns
-          |> Pi.AST.search_many(ast_opts(request))
-          |> encode_result()
+  def dispatch("ex_ast_search", args), do: safe_ast_dispatch(fn -> ast_search(args) end)
 
-        is_binary(request.pattern) ->
-          request.pattern
-          |> Pi.AST.search(ast_opts(request))
-          |> encode_result()
-
-        true ->
-          {:error, "Missing required parameter: pattern or patterns"}
-      end
-    end
-  end
-
-  def dispatch("ex_ast_replace", args) do
-    with {:ok, request} <- decode_request(ReplaceRequest, args, "pattern and replacement") do
-      request.pattern
-      |> Pi.AST.replace(
-        request.replacement,
-        Keyword.put(ast_opts(request), :dry_run, request.dry_run)
-      )
-      |> encode_result()
-    end
-  end
+  def dispatch("ex_ast_replace", args), do: safe_ast_dispatch(fn -> ast_replace(args) end)
 
   def dispatch("pi_session_cancel", %{"id" => id}) when is_binary(id) do
     Pi.Features.gate :sessions do
@@ -74,6 +48,45 @@ defmodule Pi.MCP.Tools do
   end
 
   def dispatch(name, _args), do: {:error, "Unknown tool: #{name}"}
+
+  defp ast_search(args) do
+    with {:ok, request} <- decode_request(SearchRequest, args, "pattern or patterns") do
+      run_ast_search(request)
+    end
+  end
+
+  defp run_ast_search(%SearchRequest{patterns: patterns} = request)
+       when is_map(patterns) and map_size(patterns) > 0 do
+    patterns
+    |> Pi.AST.search_many(ast_opts(request))
+    |> encode_result()
+  end
+
+  defp run_ast_search(%SearchRequest{pattern: pattern} = request) when is_binary(pattern) do
+    pattern
+    |> Pi.AST.search(ast_opts(request))
+    |> encode_result()
+  end
+
+  defp run_ast_search(_request), do: {:error, "Missing required parameter: pattern or patterns"}
+
+  defp ast_replace(args) do
+    with {:ok, request} <- decode_request(ReplaceRequest, args, "pattern and replacement") do
+      request.pattern
+      |> Pi.AST.replace(
+        request.replacement,
+        Keyword.put(ast_opts(request), :dry_run, request.dry_run)
+      )
+      |> encode_result()
+    end
+  end
+
+  defp safe_ast_dispatch(fun) do
+    fun.()
+  rescue
+    exception in [File.Error, ArgumentError, RuntimeError, SyntaxError] ->
+      {:error, Exception.message(exception)}
+  end
 
   defp eval(args, opts) do
     with {:ok, request} <- decode_request(EvalRequest, args, "code") do

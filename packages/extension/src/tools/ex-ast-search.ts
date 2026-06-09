@@ -1,4 +1,10 @@
-import { astOptionSuffix, bridgeTool, displaySingleLine, renderSingleLine } from '#src/helpers.ts'
+import {
+  astOptionSuffix,
+  bridgeTool,
+  displaySingleLine,
+  normalizePathForBeam,
+  renderSingleLine
+} from '#src/helpers.ts'
 import { renderAstSearchResult } from '#src/renderers.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
@@ -92,6 +98,7 @@ Examples:
     },
     {
       transformResult: astSearchText,
+      prepareParams: normalizePathForBeam,
       resultDetails: astSearchDetails,
       renderResult: renderAstSearchResult
     }

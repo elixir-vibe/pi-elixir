@@ -1,4 +1,5 @@
 import * as fs from 'node:fs'
+import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
@@ -79,6 +80,23 @@ export function renderSingleLine(text: string): Component {
     render: (width) => [truncateLine(text, width)],
     invalidate: () => undefined
   }
+}
+
+export function normalizePathForBeam(
+  params: ToolArgs,
+  ctx: ExtensionContext,
+  beamCwd: string
+): ToolArgs {
+  const rawPath = params.path
+  if (typeof rawPath !== 'string' || rawPath.length === 0) return params
+
+  const absolutePath = path.isAbsolute(rawPath) ? rawPath : path.resolve(ctx.cwd, rawPath)
+  if (!fs.existsSync(absolutePath)) return params
+
+  const relativeToBeam = path.relative(beamCwd, absolutePath)
+  if (relativeToBeam === '') return { ...params, path: '.' }
+  if (relativeToBeam.startsWith('..') || path.isAbsolute(relativeToBeam)) return params
+  return { ...params, path: relativeToBeam }
 }
 
 export function astOptionSuffix(args: Record<string, unknown>, theme: Theme) {

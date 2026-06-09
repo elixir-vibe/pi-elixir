@@ -76,6 +76,18 @@ defmodule Pi.MCP.ToolsTest do
       assert source =~ "defmodule Pi.Eval do"
     end
 
+    test "returns errors instead of raising for missing files" do
+      assert {:error, message} =
+               Tools.dispatch("ex_ast_search", %{
+                 "pattern" => "def run_structured(_, _) do _ end",
+                 "path" => "packages/bridge/lib/pi/eval.ex",
+                 "limit" => 5
+               })
+
+      assert message =~ "could not read file"
+      assert message =~ "packages/bridge/lib/pi/eval.ex"
+    end
+
     test "supports search options and search_many" do
       assert {:ok, json} =
                Tools.dispatch("ex_ast_search", %{
@@ -113,6 +125,19 @@ defmodule Pi.MCP.ToolsTest do
     test "requires pattern and replacement" do
       assert {:error, "Missing required parameters: pattern and replacement"} =
                Tools.dispatch("ex_ast_replace", %{})
+    end
+
+    test "returns errors instead of raising for missing files" do
+      assert {:error, message} =
+               Tools.dispatch("ex_ast_replace", %{
+                 "pattern" => "def run_structured(_, _) do _ end",
+                 "replacement" => "def run_structured(code, opts \\ []) do :ok end",
+                 "path" => "packages/bridge/lib/pi/eval.ex",
+                 "dryRun" => true
+               })
+
+      assert message =~ "could not read file"
+      assert message =~ "packages/bridge/lib/pi/eval.ex"
     end
 
     test "returns structured replacement payload" do

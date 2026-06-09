@@ -1,4 +1,8 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+import * as fs from 'node:fs'
+import * as os from 'node:os'
+import * as path from 'node:path'
+
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
 vi.mock('@earendil-works/pi-coding-agent', () => ({
   DEFAULT_MAX_LINES: 2000,
@@ -12,7 +16,7 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 vi.mock('../src/beam-client.ts', () => ({}))
 
-import { displaySingleLine, truncated } from '#src/helpers.ts'
+import { displaySingleLine, normalizePathForBeam, truncated } from '#src/helpers.ts'
 import { truncateHead } from '@earendil-works/pi-coding-agent'
 
 const mockTruncateHead = vi.mocked(truncateHead)
@@ -20,6 +24,42 @@ const mockTruncateHead = vi.mocked(truncateHead)
 describe('displaySingleLine', () => {
   it('normalizes multiline tool arguments for one-line call previews', () => {
     expect(displaySingleLine('foo\n  bar\t baz')).toBe('foo bar baz')
+  })
+})
+
+describe('normalizePathForBeam', () => {
+  let dir: string | undefined
+
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  it('rewrites repo-root relative paths under the BEAM cwd to BEAM-relative paths', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-elixir-path-'))
+    const beamCwd = path.join(dir, 'packages/bridge')
+    const file = path.join(beamCwd, 'lib/pi/eval.ex')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(file, 'defmodule Demo do end')
+
+    const result = normalizePathForBeam(
+      { path: 'packages/bridge/lib/pi/eval.ex' },
+      { cwd: dir } as never,
+      beamCwd
+    )
+
+    expect(result.path).toBe('lib/pi/eval.ex')
+  })
+
+  it('leaves missing paths untouched so BEAM can report the original path', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-elixir-path-'))
+    const result = normalizePathForBeam(
+      { path: 'packages/bridge/lib/pi/missing.ex' },
+      { cwd: dir } as never,
+      path.join(dir, 'packages/bridge')
+    )
+
+    expect(result.path).toBe('packages/bridge/lib/pi/missing.ex')
   })
 })
 

@@ -1,4 +1,10 @@
-import { astOptionSuffix, bridgeTool, displaySingleLine, renderSingleLine } from '#src/helpers.ts'
+import {
+  astOptionSuffix,
+  bridgeTool,
+  displaySingleLine,
+  normalizePathForBeam,
+  renderSingleLine
+} from '#src/helpers.ts'
 import { renderAstReplaceResult } from '#src/renderers.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
@@ -80,6 +86,7 @@ Examples:
     },
     {
       transformResult: astReplaceText,
+      prepareParams: normalizePathForBeam,
       resultDetails: astReplaceDetails,
       renderResult: renderAstReplaceResult
     }
