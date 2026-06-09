@@ -1,5 +1,5 @@
 import type { Theme } from '@earendil-works/pi-coding-agent'
-import { Text } from '@earendil-works/pi-tui'
+import { visibleWidth, type Component } from '@earendil-works/pi-tui'
 import { describe, expect, it } from 'vitest'
 
 import { renderSessionWidget } from '../../src/sessions/render.ts'
@@ -9,9 +9,8 @@ const theme = {
   fg: (_name: string, text: string) => text
 } as Theme
 
-function textOf(component: unknown) {
-  expect(component).toBeInstanceOf(Text)
-  return (component as Text).text
+function textOf(component: Component, width = 120) {
+  return component.render(width).join('\n')
 }
 
 const sessions: SessionSnapshot[] = [
@@ -102,5 +101,29 @@ describe('BEAM session renderer', () => {
      “scan docs”
      … llm
      started → llm · 1.2s`)
+  })
+
+  it('truncates to render width', () => {
+    const text = textOf(
+      renderSessionWidget(
+        [
+          { id: 'root', name: 'wide', status: 'idle' },
+          {
+            id: 'child',
+            parentId: 'root',
+            name: 'child',
+            status: 'done',
+            response: 'this response is intentionally too long for the available width'
+          }
+        ],
+        theme,
+        false
+      ),
+      32
+    )
+
+    const childLine = text.split('\n').find((line) => line.includes('child'))
+    expect(childLine).toContain('…')
+    expect(visibleWidth(childLine ?? '')).toBeLessThanOrEqual(32)
   })
 })

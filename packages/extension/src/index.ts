@@ -108,9 +108,9 @@ export default function (pi: ExtensionAPI) {
         if (event.name === 'pi_session') handleSessionEvent(pi, ctx, cwd, event)
         if (event.name) pi.events.emit(event.name, event.data)
       })
-      const unsubscribeRequests = onBridgeRequest(async (cwd, message) => {
+      const unsubscribeRequests = onBridgeRequest(async (cwd, message, responder) => {
         if (cwd !== sessionCwd) return undefined
-        return handleBridgeRequest(message, ctx, pi)
+        return handleBridgeRequest(message, ctx, pi, responder)
       })
       statusSubscriptions.set(key, {
         cwd: sessionCwd,

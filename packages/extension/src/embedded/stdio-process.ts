@@ -31,10 +31,17 @@ export type { BridgeInfo, BridgeUIEvent }
 
 type UIEventListener = (cwd: string, event: BridgeUIEvent) => void
 type BusEventListener = (cwd: string, event: BridgeBusEvent) => void
+export interface BridgeRequestResponder {
+  llmChunk: (id: string, delta: string) => void
+  llmDone: (id: string, result: string) => void
+  llmError: (id: string, error: string) => void
+}
+
 type BridgeRequestHandler = (
   cwd: string,
-  message: StdioMessage
-) => Promise<Record<string, unknown> | undefined>
+  message: StdioMessage,
+  responder: BridgeRequestResponder
+) => Promise<Record<string, unknown> | null | undefined>
 
 const bridgeInfo = new Map<string, BridgeInfo>()
 const uiEventListeners = new Set<UIEventListener>()
@@ -149,13 +156,21 @@ async function handleBridgeRequest(
 ): Promise<void> {
   if (typeof message.id !== 'string') return
 
+  const responder: BridgeRequestResponder = {
+    llmChunk: (id, delta) => writeToBeam(entry, { type: 'llm_chunk', id, delta }),
+    llmDone: (id, result) => writeToBeam(entry, { type: 'llm_done', id, result }),
+    llmError: (id, error) => writeToBeam(entry, { type: 'llm_error', id, error })
+  }
+
   const responses = await withDiagnosticSpan(
     'bridge_request_handlers',
     cwd,
     { op: message.op },
-    async () => Promise.all(Array.from(requestHandlers, (handler) => handler(cwd, message)))
+    async () =>
+      Promise.all(Array.from(requestHandlers, (handler) => handler(cwd, message, responder)))
   )
   const response = responses.find((candidate) => candidate !== undefined)
+  if (response === null) return
   if (response) {
     sendResponse(entry, message.id, response)
     return

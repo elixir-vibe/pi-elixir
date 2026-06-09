@@ -1,6 +1,7 @@
 import { keyHint, type Theme } from '@earendil-works/pi-coding-agent'
-import { Text } from '@earendil-works/pi-tui'
+import type { Component } from '@earendil-works/pi-tui'
 
+import { truncateLine } from '../helpers.ts'
 import type { SessionSnapshot } from './types.ts'
 
 function compact(text: string | null | undefined, limit = 72) {
@@ -238,7 +239,7 @@ function sessionDetailLines(session: SessionSnapshot, latest: string, theme: The
   return lines
 }
 
-export function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, expanded = false) {
+function sessionWidgetLines(sessions: SessionSnapshot[], theme: Theme, expanded = false) {
   const roots = sessions.filter((session) => !session.parentId)
   const children = sessionChildren(sessions)
 
@@ -264,7 +265,19 @@ export function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme, e
   roots.slice(0, 8).forEach((root) => render(root, '', true, true))
   if (sessions.length > 8) lines.push(theme.fg('muted', `… ${sessions.length - 8} more`))
   if (!expanded && sessions.length > 1) lines.push(theme.fg('muted', `  (${expansionHint()})`))
-  return new Text(lines.join('\n'), 0, 0)
+  return lines
+}
+
+export function renderSessionWidget(
+  sessions: SessionSnapshot[],
+  theme: Theme,
+  expanded = false
+): Component {
+  return {
+    render: (width) =>
+      sessionWidgetLines(sessions, theme, expanded).map((line) => truncateLine(line, width)),
+    invalidate: () => undefined
+  }
 }
 
 export function renderSessionMessage(
