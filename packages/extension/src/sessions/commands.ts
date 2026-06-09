@@ -2,6 +2,24 @@ import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 
 import { callTool, resolveUrl } from '../connection/resolver.ts'
 
+function sessionId(args: unknown) {
+  if (typeof args === 'string') {
+    const trimmed = args.trim()
+    const match = /^id\s*=\s*(\S+)$/u.exec(trimmed)
+    return match?.[1] ?? trimmed
+  }
+
+  if (
+    typeof args === 'object' &&
+    args !== null &&
+    typeof (args as { id?: unknown }).id === 'string'
+  ) {
+    return (args as { id: string }).id
+  }
+
+  return undefined
+}
+
 export function registerSessionCommands(
   pi: ExtensionAPI,
   registered: Set<string>,
@@ -26,15 +44,7 @@ export function registerSessionCommands(
     pi.registerCommand(command.name, {
       description: command.description,
       handler: async (args, ctx) => {
-        const rawArgs = args as unknown
-        const id =
-          typeof rawArgs === 'string'
-            ? rawArgs
-            : typeof rawArgs === 'object' &&
-                rawArgs !== null &&
-                typeof (rawArgs as { id?: unknown }).id === 'string'
-              ? (rawArgs as { id: string }).id
-              : undefined
+        const id = sessionId(args as unknown)
         if (!id) {
           ctx.ui.notify('Session id is required.', 'error')
           return

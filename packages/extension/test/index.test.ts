@@ -276,7 +276,7 @@ describe('extension status lifecycle', () => {
     expect(rerun).toBeTruthy()
 
     await cancel?.[1].handler({ id: 'session_1' }, ctx)
-    await rerun?.[1].handler('session_2', ctx)
+    await rerun?.[1].handler('id=session_2', ctx)
     await cancel?.[1].handler({ id: 'session_3' }, ctx)
     await rerun?.[1].handler({}, ctx)
 
