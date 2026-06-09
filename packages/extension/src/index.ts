@@ -69,12 +69,10 @@ interface PluginCommandResult {
 interface SessionSnapshot {
   id?: string
   parentId?: string | null
-  parent_id?: string | null
   name?: string | null
   status?: string
   latest?: string | null
   messageCount?: number
-  message_count?: number
   events?: Array<{ type?: string; at?: string | null }>
 }
 
@@ -279,10 +277,10 @@ function sessionIcon(status: string | undefined, theme: Theme) {
 }
 
 function renderSessionWidget(sessions: SessionSnapshot[], theme: Theme) {
-  const roots = sessions.filter((session) => !(session.parentId ?? session.parent_id))
+  const roots = sessions.filter((session) => !session.parentId)
   const children = new Map<string, SessionSnapshot[]>()
   for (const session of sessions) {
-    const parentId = session.parentId ?? session.parent_id
+    const parentId = session.parentId
     if (!parentId) continue
     const bucket = children.get(parentId) ?? []
     bucket.push(session)

@@ -241,11 +241,7 @@ defmodule Pi.Transport.Stdio do
     |> Map.new(fn {key, value} -> {to_string(key), value} end)
   end
 
-  defp to_payload(%module{} = struct) do
-    if function_exported?(module, :to_map, 1),
-      do: module.to_map(struct),
-      else: Map.from_struct(struct)
-  end
+  defp to_payload(%_module{} = struct), do: Pi.Protocol.Encoder.to_map(struct)
 
   defp to_payload(map) when is_map(map), do: map
 

@@ -30,6 +30,7 @@ for file <- [
       "pi/protocol/plugin_event.ex",
       "pi/protocol/plugin_hook.ex",
       "pi/protocol/plugin_hook_response.ex",
+      "pi/protocol/encoder.ex",
       "pi/protocol/bridge_info.ex",
       "pi/protocol/ready.ex",
       "pi/protocol/mcp/content.ex",

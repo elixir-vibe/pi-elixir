@@ -84,7 +84,7 @@ defmodule Pi.Session.SessionTest do
   defp field(nil, _key), do: nil
 
   defp field(map, key) when is_map(map),
-    do: Map.get(map, key) || Map.get(map, Atom.to_string(key))
+    do: Map.get(map, Atom.to_string(key)) || Map.get(map, key)
 
   test "reruns latest user message" do
     parent = self()
@@ -102,13 +102,22 @@ defmodule Pi.Session.SessionTest do
     assert_receive {:messages, ["ping", "ok", "ping"]}
   end
 
-  test "returns protocol snapshots" do
+  test "returns camelCase protocol snapshots" do
     assert {:ok, pid} = Session.start(name: :root)
-    [snapshot] = Session.snapshots()
+    id = Session.state(pid).id
+    snapshot = Enum.find(Session.snapshots(), &(&1.id == id))
 
-    assert snapshot.id == Session.state(pid).id
+    assert snapshot.id == id
     assert snapshot.name == "root"
     assert snapshot.status == "idle"
+
+    encoded = Pi.Protocol.Encoder.to_map(snapshot)
+    assert encoded["messageCount"] == 0
+    assert Map.has_key?(encoded, "parentId")
+    assert Map.has_key?(encoded, "updatedAt")
+    refute Map.has_key?(encoded, "message_count")
+    refute Map.has_key?(encoded, "parent_id")
+    refute Map.has_key?(encoded, "updated_at")
   end
 
   test "creates child sessions" do

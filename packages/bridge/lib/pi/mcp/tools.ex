@@ -177,15 +177,9 @@ defmodule Pi.MCP.Tools do
 
   defp encode_result({:error, message}), do: {:error, message}
 
-  defp encode_payload(%module{} = payload) do
-    payload
-    |> module.to_map()
-    |> normalize()
-    |> Jason.encode!()
-  end
-
   defp encode_payload(payload) when is_map(payload) do
     payload
+    |> Pi.Protocol.Encoder.to_map()
     |> normalize()
     |> Jason.encode!()
   end
@@ -194,10 +188,8 @@ defmodule Pi.MCP.Tools do
     Map.new(map, fn {key, value} -> {key, normalize_value(value)} end)
   end
 
-  defp normalize_value(%module{} = value) do
-    if function_exported?(module, :to_map, 1),
-      do: value |> module.to_map() |> normalize(),
-      else: value |> Map.from_struct() |> normalize()
+  defp normalize_value(%_module{} = value) do
+    value |> Pi.Protocol.Encoder.to_map() |> normalize()
   end
 
   defp normalize_value(value) when is_list(value), do: Enum.map(value, &normalize_value/1)
