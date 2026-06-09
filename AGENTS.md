@@ -25,7 +25,13 @@ For local development, start pi with the checkout extension directly:
 pnpm dogfood
 ```
 
-This bypasses package discovery and the last published npm package. Use it as the default way to develop `pi-elixir` with `pi-elixir` itself.
+This bypasses package discovery and the last published npm package. Use it as the default way to develop `pi-elixir` with `pi-elixir` itself. Pass normal pi args directly after the script name, for example:
+
+```bash
+pnpm dogfood --model openai/gpt-5.5 --thinking high
+pnpm dogfood --continue
+pnpm dogfood "initial prompt"
+```
 
 If you are already inside pi with a new-enough `pi-elixir` extension loaded, run:
 
