@@ -1,8 +1,7 @@
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
-import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
-import { astOptionSuffix, bridgeTool, displayString } from '../helpers.ts'
+import { astOptionSuffix, bridgeTool, displayString, renderSingleLine } from '../helpers.ts'
 import { renderAstSearchResult } from '../renderers.ts'
 
 interface AstSearchPayload {
@@ -67,7 +66,7 @@ export function register(pi: ExtensionAPI) {
     pi,
     'elixir_ast_search',
     'ex_ast_search',
-    'AST Search',
+    'ast grep',
     `Search Elixir code by AST pattern using ExAST. Patterns are valid Elixir syntax.
 Variables capture matched nodes, _ is a wildcard, structs/maps match partially.
 Use either pattern for one search or patterns for multiple named searches in one traversal.
@@ -88,9 +87,9 @@ Examples:
       ...astSearchOptions
     }),
     (args, theme) => {
-      let text = theme.fg('toolTitle', theme.bold('elixir_ast_search '))
+      let text = theme.fg('toolTitle', theme.bold('ast grep '))
       text += theme.fg('accent', patternSummary(args))
-      return new Text(text + astOptionSuffix(args, theme), 0, 0)
+      return renderSingleLine(text + astOptionSuffix(args, theme))
     },
     {
       transformResult: astSearchText,

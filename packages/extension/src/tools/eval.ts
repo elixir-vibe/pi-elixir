@@ -1,5 +1,4 @@
 import type { ExtensionAPI, Theme } from '@earendil-works/pi-coding-agent'
-import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
 import {
@@ -7,7 +6,8 @@ import {
   DEFAULT_MAX_LINES,
   formatSize,
   DEFAULT_MAX_BYTES,
-  displayString
+  displayString,
+  renderSingleLine
 } from '../helpers.ts'
 import type { ToolArgs } from '../protocol/types.ts'
 import { renderElixirResult } from '../renderers.ts'
@@ -51,13 +51,10 @@ function optionSuffix(args: ToolArgs, theme: Theme) {
 function renderEvalCall(toolName: string) {
   return (args: ToolArgs, theme: Theme) => {
     const code = displayString(args.code)
-    const preview = code.length > 120 ? code.slice(0, 117) + '…' : code
-    return new Text(
+    return renderSingleLine(
       theme.fg('toolTitle', theme.bold(`${toolName} `)) +
-        theme.fg('accent', preview) +
-        optionSuffix(args, theme),
-      0,
-      0
+        theme.fg('accent', code) +
+        optionSuffix(args, theme)
     )
   }
 }
@@ -67,7 +64,7 @@ export function register(pi: ExtensionAPI) {
     pi,
     'elixir_eval',
     'project_eval_structured',
-    'Elixir Eval',
+    'iex',
     `Evaluate Elixir code in the running application.
 
 Runs inside the BEAM with full access to project modules, deps, Ecto repos, and IEx helpers.
@@ -88,7 +85,7 @@ Output truncated to ${DEFAULT_MAX_LINES} lines / ${formatSize(DEFAULT_MAX_BYTES)
         Type.Integer({ description: 'Timeout in ms (default: 30000 trusted, 5000 sandbox)' })
       )
     }),
-    renderEvalCall('elixir_eval'),
+    renderEvalCall('iex'),
     { transformResult: evalText, resultDetails: evalDetails, renderResult: renderElixirResult }
   )
 }

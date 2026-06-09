@@ -11,7 +11,7 @@ import {
   type ToolRenderResultOptions,
   type Theme
 } from '@earendil-works/pi-coding-agent'
-import type { Component } from '@earendil-works/pi-tui'
+import { visibleWidth, type Component } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
 import {
@@ -25,8 +25,54 @@ import type { ToolArgs, ToolResult } from './protocol/types.ts'
 
 export { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize }
 
+const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
+const ansiStylePrefix = new RegExp(`^${String.fromCharCode(27)}\\[[0-9;]*m`, 'u')
+
 export function displayString(value: unknown) {
   return typeof value === 'string' ? value : ''
+}
+
+export function truncateLine(text: string, maxWidth: number): string {
+  if (maxWidth <= 0) return ''
+  if (visibleWidth(text) <= maxWidth) return text
+
+  const targetWidth = Math.max(0, maxWidth - 1)
+  let result = ''
+  let currentWidth = 0
+  let activeStyles: string[] = []
+  let index = 0
+
+  while (index < text.length) {
+    const ansi = ansiStylePrefix.exec(text.slice(index))
+    if (ansi) {
+      const code = ansi[0]
+      result += code
+      activeStyles = code === '\x1b[0m' || code === '\x1b[m' ? [] : [...activeStyles, code]
+      index += code.length
+      continue
+    }
+
+    let end = index
+    while (end < text.length && !ansiStylePrefix.test(text.slice(end))) end++
+
+    for (const segment of segmenter.segment(text.slice(index, end))) {
+      const grapheme = segment.segment
+      const graphemeWidth = visibleWidth(grapheme)
+      if (currentWidth + graphemeWidth > targetWidth) return result + activeStyles.join('') + '…'
+      result += grapheme
+      currentWidth += graphemeWidth
+    }
+    index = end
+  }
+
+  return result + activeStyles.join('') + '…'
+}
+
+export function renderSingleLine(text: string): Component {
+  return {
+    render: (width) => [truncateLine(text, width)],
+    invalidate: () => undefined
+  }
 }
 
 export function astOptionSuffix(args: Record<string, unknown>, theme: Theme) {
