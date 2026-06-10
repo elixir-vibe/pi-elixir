@@ -10,6 +10,9 @@ defmodule Pi do
   @doc "Clears embedded server logs."
   def clear_logs, do: Pi.LogCapture.clear_logs()
 
+  @doc "Converts a value to pi-native structured output when possible."
+  def output(value, opts \\ []), do: Pi.Output.output(value, opts)
+
   @doc "Renders rows as a pi-native table when returned from eval."
   def table(rows, opts \\ []), do: Pi.Output.table(rows, opts)
 

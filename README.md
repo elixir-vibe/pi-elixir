@@ -255,7 +255,17 @@ Path.wildcard("lib/pi/**/*.ex")
 |> Pi.table(columns: [:path, :bytes])
 ```
 
-Use `Pi.table(rows, columns: [...])` when map key order matters for presentation; otherwise columns are inferred from row keys.
+Final eval values auto-render when their shape is known (tables for lists of maps/keywords, trees for maps, text for strings). Use `Pi.output(value, opts)` only when you want to force rendering options such as column order:
+
+```elixir
+Path.wildcard("lib/pi/**/*.ex")
+|> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})
+|> Enum.sort_by(& &1.bytes, :desc)
+|> Enum.take(8)
+|> Pi.output(columns: [:path, :bytes])
+```
+
+Use `Pi.table(rows, columns: [...])` when you explicitly want to construct table output; otherwise columns are inferred from row keys.
 
 ## Install
 

@@ -230,6 +230,16 @@ Path.wildcard("lib/pi/**/*.ex")
 |> Pi.table(columns: [:path, :bytes])
 ```
 
+Final eval values auto-render when their shape is known. Use `Pi.output/2` only when you want to force rendering options such as column order:
+
+```elixir
+Path.wildcard("lib/pi/**/*.ex")
+|> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})
+|> Enum.sort_by(& &1.bytes, :desc)
+|> Enum.take(8)
+|> Pi.output(columns: [:path, :bytes])
+```
+
 Pass `:columns` when row data is map-based and the presentation order matters. Without it, columns are inferred from map keys.
 
 ```elixir

@@ -65,6 +65,25 @@ raise "boom"|)
     assert columns == ["bytes", "path"]
   end
 
+  test "structured eval auto-renders strings through output protocol" do
+    assert {:ok, payload} = Eval.run_structured(~s("hello"))
+
+    assert [%Pi.Protocol.Tool.OutputPart{format: :text, output: "hello"}] = payload.parts
+    assert payload.result == "\"hello\""
+  end
+
+  test "structured eval accepts generic output helper options" do
+    assert {:ok, payload} =
+             Eval.run_structured(
+               ~S|Pi.output([%{path: "lib/pi.ex", bytes: 123}], columns: [:path, :bytes])|
+             )
+
+    assert [%Pi.Protocol.Tool.OutputPart{format: :table, output: output}] = payload.parts
+
+    assert %{"columns" => ["path", "bytes"], "rows" => [["lib/pi.ex", "123"]]} =
+             Jason.decode!(output)
+  end
+
   test "structured eval accepts explicit output helpers" do
     assert {:ok, payload} = Eval.run_structured("Pi.code(\"IO.puts(:ok)\")")
 

@@ -1,6 +1,7 @@
 defmodule Pi.Output do
   @moduledoc "Eval-friendly structured output helpers for pi renderers."
 
+  alias Pi.Output.Renderable
   alias Pi.Protocol.Tool.OutputPart
 
   defstruct parts: [], text: nil
@@ -72,14 +73,16 @@ defmodule Pi.Output do
     }
   end
 
-  @doc false
-  def auto(value) do
-    cond do
-      table_like?(value) -> table(value)
-      map_size_safe(value) -> tree(value)
-      true -> nil
+  @doc "Converts a value to structured output when a renderer is available."
+  def output(value, opts \\ []) do
+    case Renderable.to_output(value, opts) do
+      %__MODULE__{} = output -> output
+      nil -> text(inspect(value, inspect_opts()), opts)
     end
   end
+
+  @doc false
+  def auto(value, opts \\ []), do: Renderable.to_output(value, opts)
 
   @doc false
   def parts_for(%__MODULE__{parts: parts}) when is_list(parts), do: parts
@@ -185,12 +188,19 @@ defmodule Pi.Output do
   defp transpose([]), do: []
   defp transpose(rows), do: rows |> Enum.zip() |> Enum.map(&Tuple.to_list/1)
 
+  @doc false
+  def list_output(value, opts) do
+    if table_like?(value), do: table(value, opts), else: nil
+  end
+
+  @doc false
+  def map_output(value, opts) do
+    if map_size(value) > 0, do: tree(value, opts), else: nil
+  end
+
   defp table_like?([first | _]) when is_map(first), do: true
   defp table_like?([first | _]) when is_list(first), do: Keyword.keyword?(first)
   defp table_like?(_other), do: false
-
-  defp map_size_safe(value) when is_map(value), do: map_size(value) > 0
-  defp map_size_safe(_value), do: false
 
   defp tree_value(value, depth, max_depth) when depth >= max_depth do
     inspect(value, inspect_opts())
