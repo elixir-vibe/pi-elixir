@@ -523,7 +523,7 @@ defmodule Pi.Mirror.QuackDB do
           " = ? LIMIT 1"
         ],
         [session_file],
-        timeout: :infinity
+        timeout: 30_000
       )
       |> Enum.take(1)
 
