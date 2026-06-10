@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 0.6.4 - 2026-06-10
+
+### Added
+
+- Structured eval output helpers: `Pi.table/2`, `Pi.tree/2`, `Pi.code/3`, `Pi.text/2`, and `Pi.Output`.
+- Automatic pi-native eval rendering for list-of-map tables and map trees.
+- Humane dogfood reload commands: `/elixir:restart` and `/elixir:refresh`.
+- Eval-callable development helpers via `Pi.Dev` / `Dev`: `status/0`, `compile/1`, `reload/1`, `loaded/1`, `restart/1`, and `refresh/1`.
+- Embedded stdio integration coverage for `Dev.status/0`, `Dev.compile/0`, and typed eval file pipelines.
+
+### Changed
+
+- Elixir skill guidance now frames `elixir_eval` as a typed Elixir shell for runtime, docs, and structured file workflows.
+
 ## 0.6.3 - 2026-06-10
 
 ### Changed
