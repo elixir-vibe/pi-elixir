@@ -212,11 +212,17 @@ defmodule Pi.Plugin.Manager do
 
   defp put_started_plugin(state, module) do
     with {:module, ^module} <- Code.ensure_loaded(module),
-         {:ok, pid} <- PluginSupervisor.start_plugin(module) do
+         {:ok, pid} <- safe_start_plugin(module) do
       put_plugin(state, module, pid)
     else
       _reason -> state
     end
+  end
+
+  defp safe_start_plugin(module) do
+    PluginSupervisor.start_plugin(module)
+  catch
+    :exit, _reason -> {:error, :supervisor_unavailable}
   end
 
   defp put_plugin(state, module, pid) do

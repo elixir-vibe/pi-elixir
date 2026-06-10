@@ -389,40 +389,64 @@ defmodule Pi.Mirror.QuackDB do
     state = flush(state)
     before_stat = session_file_stat!(session_file)
 
-    if synced_file?(conn, session_file, before_stat) do
-      :skipped
-    else
-      delete_session_entries(state, session_file)
+    case sync_plan(conn, session_file, before_stat) do
+      :skip ->
+        :skipped
 
-      count =
-        session_file
-        |> File.stream!(:line, read_ahead: 1_000_000)
-        |> Stream.map(&String.trim_trailing(&1, "\n"))
-        |> Stream.reject(&(&1 == ""))
-        |> Stream.chunk_every(sync_batch_size())
-        |> Enum.reduce(0, fn lines, count ->
-          QuackDB.insert_columns!(conn, @table, session_entry_columns(session_file, lines),
-            columns: @columns,
-            timeout: :infinity
-          )
+      {:append, offset, previous_count} ->
+        import_session_file(conn, session_file, offset, previous_count, before_stat, index, total)
 
-          count = count + length(lines)
-
-          UI.set_status(
-            @sync_progress_key,
-            "🦆 sync #{session_file_label(session_file)} · #{index}/#{total} files · #{count} rows"
-          )
-
-          count
-        end)
-
-      after_stat = session_file_stat!(session_file)
-
-      if before_stat == after_stat,
-        do: remember_synced_file(conn, session_file, after_stat, count)
-
-      {:ok, count}
+      :replace ->
+        delete_session_entries(state, session_file)
+        import_session_file(conn, session_file, 0, 0, before_stat, index, total)
     end
+  end
+
+  defp import_session_file(conn, session_file, offset, previous_count, before_stat, index, total) do
+    count =
+      session_file
+      |> stream_session_lines(offset)
+      |> Stream.chunk_every(sync_batch_size())
+      |> Enum.reduce(0, fn lines, count ->
+        QuackDB.insert_columns!(conn, @table, session_entry_columns(session_file, lines),
+          columns: @columns,
+          timeout: :infinity
+        )
+
+        count = count + length(lines)
+
+        UI.set_status(
+          @sync_progress_key,
+          "🦆 sync #{session_file_label(session_file)} · #{index}/#{total} files · #{count} rows"
+        )
+
+        count
+      end)
+
+    after_stat = session_file_stat!(session_file)
+
+    if before_stat == after_stat,
+      do: remember_synced_file(conn, session_file, after_stat, previous_count + count)
+
+    {:ok, count}
+  end
+
+  defp stream_session_lines(session_file, offset) do
+    Stream.resource(
+      fn ->
+        io = File.open!(session_file, [:read, :binary, read_ahead: 1_000_000])
+        {:ok, ^offset} = :file.position(io, offset)
+        io
+      end,
+      fn io ->
+        case IO.binread(io, :line) do
+          :eof -> {:halt, io}
+          line -> {[String.trim_trailing(line, "\n")], io}
+        end
+      end,
+      &File.close/1
+    )
+    |> Stream.reject(&(&1 == ""))
   end
 
   defp session_entry_columns(session_file, lines) do
@@ -451,27 +475,49 @@ defmodule Pi.Mirror.QuackDB do
     %{size: stat.size, mtime_seconds: stat.mtime}
   end
 
-  defp synced_file?(conn, session_file, %{size: size, mtime_seconds: mtime_seconds}) do
+  defp sync_plan(conn, session_file, %{size: size, mtime_seconds: mtime_seconds}) do
+    case synced_file_metadata(conn, session_file) do
+      %{size: ^size, mtime_seconds: ^mtime_seconds} ->
+        :skip
+
+      %{size: old_size, synced_entries: synced_entries}
+      when is_integer(old_size) and old_size < size ->
+        {:append, old_size, synced_entries || 0}
+
+      _metadata ->
+        :replace
+    end
+  end
+
+  defp synced_file_metadata(conn, session_file) do
     rows =
       conn
       |> QuackDB.rows(
         [
-          "SELECT 1 FROM ",
+          "SELECT ",
+          QuackDB.Type.quote_identifier(:file_size),
+          ", ",
+          QuackDB.Type.quote_identifier(:mtime_seconds),
+          ", ",
+          QuackDB.Type.quote_identifier(:synced_entries),
+          " FROM ",
           QuackDB.Type.quote_identifier(@files_table),
           " WHERE ",
           QuackDB.Type.quote_identifier(:session_file),
-          " = ? AND ",
-          QuackDB.Type.quote_identifier(:file_size),
-          " = ? AND ",
-          QuackDB.Type.quote_identifier(:mtime_seconds),
           " = ? LIMIT 1"
         ],
-        [session_file, size, mtime_seconds],
+        [session_file],
         timeout: :infinity
       )
       |> Enum.take(1)
 
-    rows != []
+    case rows do
+      [[size, mtime_seconds, synced_entries] | _rest] ->
+        %{size: size, mtime_seconds: mtime_seconds, synced_entries: synced_entries}
+
+      _other ->
+        nil
+    end
   end
 
   defp remember_synced_file(
