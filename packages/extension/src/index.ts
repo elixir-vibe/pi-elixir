@@ -4,6 +4,7 @@ import { join } from 'node:path'
 import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent'
 import { Text } from '@earendil-works/pi-tui'
 
+import { refreshDev, restartBeam } from './bridge/dev-reload.ts'
 import { registerBridgeCommands } from './bridge/plugin-commands.ts'
 import { handleBridgeRequest } from './bridge/requests.ts'
 import { showStartupInfo } from './bridge/startup-info.ts'
@@ -144,6 +145,51 @@ export default function (pi: ExtensionAPI) {
     })
   }
 
+  if (!registeredCommands.has('elixir:restart')) {
+    registeredCommands.add('elixir:restart')
+    pi.registerCommand('elixir:restart', {
+      description: 'Restart the embedded Elixir BEAM bridge',
+      handler: async (_args, ctx) => {
+        const beamCwd = resolveElixirCwd(ctx.cwd)
+        if (!beamCwd) {
+          ctx.ui.notify('/elixir:restart must be run from an Elixir/Mix project', 'error')
+          return
+        }
+
+        ctx.ui.notify('Restarting Elixir...', 'info')
+        try {
+          await restartBeam(pi, beamCwd)
+          ctx.ui.notify('Elixir restarted', 'info')
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          ctx.ui.notify(`Elixir restart failed:\n${message}`, 'error')
+        }
+      }
+    })
+  }
+
+  if (!registeredCommands.has('elixir:refresh')) {
+    registeredCommands.add('elixir:refresh')
+    pi.registerCommand('elixir:refresh', {
+      description: 'Refresh the pi-elixir development environment',
+      handler: async (_args, ctx) => {
+        const beamCwd = resolveElixirCwd(ctx.cwd)
+        if (!beamCwd) {
+          ctx.ui.notify('/elixir:refresh must be run from an Elixir/Mix project', 'error')
+          return
+        }
+
+        ctx.ui.notify('Refreshing Elixir development environment...', 'info')
+        try {
+          await refreshDev(pi, ctx, beamCwd)
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          ctx.ui.notify(`Elixir refresh failed:\n${message}`, 'error')
+        }
+      }
+    })
+  }
+
   if (!registeredCommands.has('elixir:dogfood')) {
     registeredCommands.add('elixir:dogfood')
     pi.registerCommand('elixir:dogfood', {
@@ -236,7 +282,7 @@ export default function (pi: ExtensionAPI) {
       })
       const unsubscribeRequests = onBridgeRequest(async (cwd, message, responder) => {
         if (cwd !== sessionCwd) return undefined
-        return handleBridgeRequest(message, ctx, pi, responder)
+        return handleBridgeRequest(message, ctx, pi, sessionCwd, responder)
       })
       statusSubscriptions.set(key, {
         cwd: sessionCwd,

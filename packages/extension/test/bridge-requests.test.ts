@@ -1,6 +1,10 @@
 import type * as PiAI from '@earendil-works/pi-ai'
 import { describe, expect, it, vi, beforeEach } from 'vitest'
 
+const { scheduleDevRequest } = vi.hoisted(() => ({ scheduleDevRequest: vi.fn() }))
+
+vi.mock('#src/bridge/dev-reload.ts', () => ({ scheduleDevRequest }))
+
 vi.mock('@earendil-works/pi-ai', async () => {
   const actual = await vi.importActual<typeof PiAI>('@earendil-works/pi-ai')
   return {
@@ -99,7 +103,8 @@ describe('handleBridgeRequest llm_complete', () => {
         }
       },
       fakeCtx() as any,
-      {} as any
+      {} as any,
+      '/tmp/project'
     )
 
     expect(result).toEqual({
@@ -125,7 +130,8 @@ describe('handleBridgeRequest llm_complete', () => {
     const result = await handleBridgeRequest(
       { type: 'request', id: 'llm_1', op: 'llm_complete', payload: { messages: [] } },
       fakeCtx({ model: undefined }) as any,
-      {} as any
+      {} as any,
+      '/tmp/project'
     )
 
     expect(result).toEqual({ ok: false, error: 'No active pi model is selected.' })
@@ -145,6 +151,7 @@ describe('handleBridgeRequest llm_complete', () => {
       },
       fakeCtx() as any,
       {} as any,
+      '/tmp/project',
       responder
     )
 
@@ -158,5 +165,25 @@ describe('handleBridgeRequest llm_complete', () => {
       provider: 'test-provider'
     })
     expect(responder.llmError).not.toHaveBeenCalled()
+  })
+
+  it('schedules dev reload requests from BEAM', async () => {
+    const ctx = fakeCtx()
+    const pi = {}
+
+    const result = await handleBridgeRequest(
+      {
+        type: 'request',
+        id: 'dev_1',
+        op: 'dev_reload',
+        payload: { action: 'beam_restart' }
+      },
+      ctx as any,
+      pi as any,
+      '/tmp/beam'
+    )
+
+    expect(result).toEqual({ ok: true, result: { scheduled: true, action: 'beam_restart' } })
+    expect(scheduleDevRequest).toHaveBeenCalledWith('restart', pi, ctx, '/tmp/beam')
   })
 })

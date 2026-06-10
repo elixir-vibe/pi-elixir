@@ -3,12 +3,36 @@ import { flags } from '#src/flags.ts'
 import type { StdioMessage } from '#src/protocol/types.ts'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
 
+import { scheduleDevRequest } from './dev-reload.ts'
 import { handleLLMComplete, handleLLMStream } from './llm.ts'
+
+function handleDevReloadRequest(
+  message: StdioMessage,
+  ctx: ExtensionContext,
+  pi: ExtensionAPI,
+  beamCwd: string
+): Record<string, unknown> | undefined {
+  const action = message.payload?.action
+  if (action === 'beam_restart') {
+    scheduleDevRequest('restart', pi, ctx, beamCwd)
+    return { ok: true, result: { scheduled: true, action } }
+  }
+  if (action === 'pi_reload') {
+    scheduleDevRequest('pi', pi, ctx, beamCwd)
+    return { ok: true, result: { scheduled: true, action } }
+  }
+  if (action === 'dev_reload') {
+    scheduleDevRequest('refresh', pi, ctx, beamCwd)
+    return { ok: true, result: { scheduled: true, action } }
+  }
+  return { ok: false, error: 'dev_reload requires action beam_restart, pi_reload, or dev_reload' }
+}
 
 export async function handleBridgeRequest(
   message: StdioMessage,
   ctx: ExtensionContext,
   pi: ExtensionAPI,
+  beamCwd: string,
   responder?: BridgeRequestResponder
 ): Promise<Record<string, unknown> | null | undefined> {
   if (message.op === 'llm_complete') {
@@ -38,6 +62,8 @@ export async function handleBridgeRequest(
   if (message.op === 'active_tools') {
     return { ok: true, result: { tools: pi.getActiveTools() } }
   }
+
+  if (message.op === 'dev_reload') return handleDevReloadRequest(message, ctx, pi, beamCwd)
 
   if (message.op === 'append_entry') {
     const customType = message.payload?.customType

@@ -18,6 +18,7 @@ defmodule Pi.Bridge.Info do
     agent: Pi.Agent,
     llm: Pi.LLM,
     bridge_info: __MODULE__,
+    dev: Pi.Dev,
     plugin_ui: Pi.Plugin.UI,
     plugin_events: Pi.Plugin.Event,
     session: Pi.Session,
@@ -59,9 +60,14 @@ defmodule Pi.Bridge.Info do
   end
 
   def aliases_code do
-    extension_apis()
-    |> Enum.filter(& &1.alias)
-    |> Enum.map_join("\n", fn api -> "alias #{inspect(api.module)}, as: #{api.alias}" end)
+    builtin_aliases = ["alias Pi.Dev, as: Dev"]
+
+    extension_aliases =
+      extension_apis()
+      |> Enum.filter(& &1.alias)
+      |> Enum.map(fn api -> "alias #{inspect(api.module)}, as: #{api.alias}" end)
+
+    Enum.join(builtin_aliases ++ extension_aliases, "\n")
   end
 
   defp runtime_api_disabled?({name, _module}) when name in [:agent, :session],
