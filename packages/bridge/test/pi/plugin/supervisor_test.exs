@@ -8,7 +8,7 @@ defmodule Pi.Plugin.SupervisorTest do
   end
 
   setup do
-    if pid = Process.whereis(PluginSupervisor), do: DynamicSupervisor.stop(pid)
+    if pid = Process.whereis(PluginSupervisor), do: stop_if_alive(pid)
     :ok
   end
 
@@ -20,5 +20,11 @@ defmodule Pi.Plugin.SupervisorTest do
 
     assert [{_, ^worker, :worker, [Pi.Plugin.Worker]}] =
              DynamicSupervisor.which_children(PluginSupervisor)
+  end
+
+  defp stop_if_alive(pid) do
+    if Process.alive?(pid), do: DynamicSupervisor.stop(pid)
+  catch
+    :exit, _reason -> :ok
   end
 end

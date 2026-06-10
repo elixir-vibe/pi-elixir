@@ -38,6 +38,13 @@ defmodule Pi.Features do
     |> env_enabled?()
   end
 
+  def env_enabled?(env) when is_binary(env) do
+    case System.get_env(env) do
+      nil -> true
+      value -> String.downcase(String.trim(value)) not in @disabled_values
+    end
+  end
+
   def disabled_message(feature) when is_atom(feature) do
     @features
     |> Map.fetch!(feature)
@@ -59,12 +66,5 @@ defmodule Pi.Features do
     @features
     |> Map.fetch!(feature)
     |> Map.fetch!(:env)
-  end
-
-  defp env_enabled?(env) do
-    case System.get_env(env) do
-      nil -> true
-      value -> String.downcase(String.trim(value)) not in @disabled_values
-    end
   end
 end

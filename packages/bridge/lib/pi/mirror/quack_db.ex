@@ -34,7 +34,7 @@ defmodule Pi.Mirror.QuackDB do
     payload_json: :varchar
   ]
 
-  def enabled?, do: System.get_env("PI_ELIXIR_MIRROR") == "quackdb"
+  def enabled?, do: Pi.Features.env_enabled?("PI_ELIXIR_MIRROR")
 
   @impl true
   def init(_opts) do
@@ -218,8 +218,8 @@ defmodule Pi.Mirror.QuackDB do
     "QuackDB mirror enabled · db=#{db} · session=#{session_file}"
   end
 
-  defp status_text(%{error: error}), do: "QuackDB mirror disabled · #{error}"
-  defp status_text(_state), do: "QuackDB mirror disabled · set PI_ELIXIR_MIRROR=quackdb"
+  defp status_text(%{error: error}), do: "QuackDB mirror unavailable · #{error}"
+  defp status_text(_state), do: "QuackDB mirror disabled · PI_ELIXIR_MIRROR disables it"
 
   defp sync_current_session(%{enabled?: true, session_file: session_file} = state)
        when is_binary(session_file) and session_file != "" do

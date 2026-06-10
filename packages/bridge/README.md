@@ -160,7 +160,7 @@ BEAM code can ask the pi extension for small session-state snapshots, persist br
 
 > **Feature flags:** `PI_ELIXIR_PLUGINS=0` disables built-in/project-local plugins, hooks, UI events, and plugin commands. `PI_ELIXIR_SKILLS=0` disables executable skill discovery.
 
-Built-in optional plugins are loaded before project-local plugins. Set `PI_ELIXIR_MIRROR=quackdb` to enable the built-in DuckDB event mirror (`Pi.Mirror.QuackDB`). By default it writes `~/.pi/elixir/session-mirror.duckdb`; override with `PI_ELIXIR_MIRROR_DB`, or point at an existing Quack server with `PI_ELIXIR_MIRROR_QUACKDB_URI` and `PI_ELIXIR_MIRROR_QUACKDB_TOKEN`.
+Built-in optional plugins are loaded before project-local plugins. The built-in DuckDB event mirror (`Pi.Mirror.QuackDB`) is enabled by default; set `PI_ELIXIR_MIRROR=0` to disable it. By default it writes `~/.pi/elixir/session-mirror.duckdb`; override with `PI_ELIXIR_MIRROR_DB`, or point at an existing Quack server with `PI_ELIXIR_MIRROR_QUACKDB_URI` and `PI_ELIXIR_MIRROR_QUACKDB_TOKEN`.
 
 Project-local plugins live in `priv/pi_plugins`, `.pi/plugins`, or `pi_plugins`. Each plugin is isolated behind a `Pi.Plugin.Worker` process.
 
