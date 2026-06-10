@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+### Added
+
+- Reach-backed `Pi.CodeMap` / preloaded `CodeMap` for semantic project maps, target context, callers/callees, smells, and post-edit `CodeMap.reflect/1` workflows.
+- Elixir development guidance now requires `CodeMap.reflect(changed: true)` after non-trivial Elixir edits when Reach is available.
+
 ## 0.6.5 - 2026-06-10
 
 ### Added

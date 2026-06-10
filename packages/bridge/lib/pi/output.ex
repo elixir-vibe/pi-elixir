@@ -208,7 +208,7 @@ defmodule Pi.Output do
   defp tree_value(value, depth, max_depth) when is_map(value) do
     value
     |> Enum.map(fn {key, child} ->
-      %{key: inspect(key), value: tree_value(child, depth + 1, max_depth)}
+      %{key: tree_key(key), value: tree_value(child, depth + 1, max_depth)}
     end)
   end
 
@@ -221,6 +221,10 @@ defmodule Pi.Output do
   end
 
   defp tree_value(value, _depth, _max_depth), do: cell_text(value)
+
+  defp tree_key(key) when is_atom(key), do: Atom.to_string(key)
+  defp tree_key(key) when is_binary(key), do: key
+  defp tree_key(key), do: inspect(key)
 
   defp table_preview(rows, columns), do: "#{rows} rows × #{columns} columns"
   defp tree_preview(value) when is_map(value), do: "map with #{map_size(value)} keys"

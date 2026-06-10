@@ -91,10 +91,21 @@ Eval preloads short aliases for token-efficient analytical queries:
 # import Ecto.Query
 # use QuackDB.Ecto
 # alias Pi.Self, as: Self
+# alias Pi.CodeMap, as: CodeMap
 # alias Pi.Quack, as: Q
 # require Q
 # alias Pi.Quack.Event, as: E
 # alias Pi.Quack.SessionFile, as: SF
+```
+
+Use `CodeMap` for Reach-backed semantic reflection after edits:
+
+```elixir
+CodeMap.reflect(changed: true)
+CodeMap.reflect_output(changed: true)
+CodeMap.context("MyApp.Module.fun/2")
+CodeMap.hotspots(path: "lib/my_app/module.ex")
+CodeMap.smells(path: "lib/my_app/module.ex")
 ```
 
 Use `Self` for bridge self-introspection and context recall:

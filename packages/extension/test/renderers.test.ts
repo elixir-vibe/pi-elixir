@@ -320,10 +320,10 @@ describe('elixir result rendering', () => {
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
     expect(compact).not.toContain('map with 4 keys')
-    expect(compact).toContain('status: 200')
-    expect(compact).toContain('title: "Example Domain"')
-    expect(compact).toContain('truncated?: false')
-    expect(compact).toContain('(ctrl+o to expand)')
+    expect(compact).toContain('├─ status: 200')
+    expect(compact).toContain('├─ title: Example Domain')
+    expect(compact).toContain('└─ truncated?: false')
+    expect(compact).not.toContain('(ctrl+o to expand)')
   })
 
   it('renders web fetch document parts as a compact card', () => {
@@ -464,7 +464,7 @@ describe('elixir result rendering', () => {
 
     const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
 
-    expect(expanded).toContain(':app: :pi_bridge')
-    expect(expanded).toContain('  :bridge: 0.6.3')
+    expect(expanded).toContain('├─ app: :pi_bridge')
+    expect(expanded).toContain('   └─ bridge: 0.6.3')
   })
 })

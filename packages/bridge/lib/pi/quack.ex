@@ -39,6 +39,7 @@ defmodule Pi.Quack do
     import Ecto.Query
     use QuackDB.Ecto
     alias Pi.Self, as: Self
+    alias Pi.CodeMap, as: CodeMap
     alias Pi.Quack, as: Q
     require Q
     alias Pi.Quack.Event, as: E

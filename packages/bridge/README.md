@@ -53,11 +53,17 @@ QuackDB mirror analytics are available through token-efficient aliases in eval:
 ```elixir
 # preloaded: import Ecto.Query; use QuackDB.Ecto
 # preloaded: alias Pi.Self, as: Self
+# preloaded: alias Pi.CodeMap, as: CodeMap
 # preloaded: alias Pi.Quack, as: Q; require Q
 # preloaded: alias Pi.Quack.Event, as: E; alias Pi.Quack.SessionFile, as: SF
 
 Self.status()
 Self.context("why did sync crash?", limit: 5)
+
+# Reach-backed semantic reflection after edits.
+CodeMap.reflect(changed: true)
+CodeMap.hotspots(path: "lib/my_app/module.ex")
+CodeMap.context("MyApp.Module.fun/2")
 
 from(e in E,
   group_by: e.tool_name,

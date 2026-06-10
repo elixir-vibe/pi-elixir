@@ -20,7 +20,7 @@ defmodule PiBridge.MixProject do
       aliases: aliases(),
       dialyzer: [
         plt_file: {:no_warn, "_build/dev/dialyxir_plt.plt"},
-        plt_add_apps: [:mix]
+        plt_add_apps: [:mix, :reach]
       ],
       deps: deps()
     ]
@@ -72,7 +72,7 @@ defmodule PiBridge.MixProject do
       {:dialyxir, "~> 1.4", only: [:dev, :test], runtime: false},
       {:ex_dna, "~> 1.5", only: [:dev, :test], runtime: false},
       {:ex_slop, "~> 0.4", only: [:dev, :test], runtime: false},
-      {:reach, "~> 2.6", only: [:dev, :test], runtime: false},
+      {:reach, "~> 2.6", runtime: false},
       {:ex_doc, "~> 0.34", only: :dev, runtime: false}
     ]
   end

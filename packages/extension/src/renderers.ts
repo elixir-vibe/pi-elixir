@@ -477,19 +477,32 @@ function renderMarkdownTable(
   }
 }
 
-function renderTreeValue(value: unknown, theme: Theme, indent = 0): string[] {
+function treeKeyLabel(key: unknown) {
+  const label = tableCell(key)
+  const atom = label.match(/^:([A-Za-z_][\w?!@]*)$/u)
+  if (atom) return atom[1]
+  if (label.startsWith('"') && label.endsWith('"')) return decodeInspectedString(label)
+  return label
+}
+
+function renderTreeValue(value: unknown, theme: Theme, prefix = ''): string[] {
   if (Array.isArray(value)) {
-    return value.flatMap((entry) => {
+    return value.flatMap((entry, index) => {
       const node = entry as TreeNode
-      const key = tableCell(node.key)
+      const key = treeKeyLabel(node.key)
       const child = node.value
-      const prefix = `${'  '.repeat(indent)}${theme.fg('muted', key + ':')}`
-      if (Array.isArray(child)) return [prefix, ...renderTreeValue(child, theme, indent + 1)]
-      return [`${prefix} ${theme.fg('toolOutput', tableCell(child))}`]
+      const last = index === value.length - 1
+      const branch = last ? '└─ ' : '├─ '
+      const childPrefix = prefix + (last ? '   ' : '│  ')
+      const linePrefix = theme.fg('muted', prefix + branch)
+      const label = theme.fg('muted', key + ':')
+      if (Array.isArray(child))
+        return [`${linePrefix}${label}`, ...renderTreeValue(child, theme, childPrefix)]
+      return [`${linePrefix}${label} ${theme.fg('toolOutput', tableCell(child))}`]
     })
   }
 
-  return [`${'  '.repeat(indent)}${theme.fg('toolOutput', tableCell(value))}`]
+  return [theme.fg('toolOutput', tableCell(value))]
 }
 
 function renderTreePart(part: OutputPart, theme: Theme): string[] | null {
@@ -509,28 +522,24 @@ function genericTreeTitle(title: string) {
 }
 
 function treeExpandLine(hidden: number, theme: Theme) {
-  if (hidden > 0) return theme.fg('muted', `… ${hidden} more · `) + expandHint(theme)
-  return expandHint(theme)
+  return hidden > 0 ? theme.fg('muted', `… ${hidden} more · `) + expandHint(theme) : undefined
 }
 
 function renderCompactTreePart(part: OutputPart, theme: Theme): Component | null {
-  const inspectPreview = treeInspectPreview(part)
-  const tree = inspectPreview ? undefined : renderTreePart(part, theme)
-  if (!inspectPreview && !tree) return null
+  const tree = renderTreePart(part, theme)
+  const inspectPreview = tree ? undefined : treeInspectPreview(part)
+  if (!tree && !inspectPreview) return null
 
   return {
     render: (width) => {
       const maxLines = 6
-      const rawLines = inspectPreview
-        ? highlightCode(stripFinalNewline(inspectPreview), 'elixir')
-        : (tree ?? [])
+      const rawLines = tree ?? highlightCode(stripFinalNewline(inspectPreview ?? ''), 'elixir')
       const shown = rawLines.slice(0, maxLines).map((line) => truncateLine(line, width))
       const hidden = rawLines.length - shown.length
       const title = partPreview(part)
-      const titleLines = genericTreeTitle(title)
-        ? []
-        : [truncateLine(title + inlineExpandHint(theme), width)]
-      return ['', ...titleLines, ...shown, treeExpandLine(hidden, theme)]
+      const titleLines = genericTreeTitle(title) ? [] : [truncateLine(title, width)]
+      const expand = treeExpandLine(hidden, theme)
+      return ['', ...titleLines, ...shown, ...(expand ? [expand] : [])]
     },
     invalidate: () => undefined
   }
