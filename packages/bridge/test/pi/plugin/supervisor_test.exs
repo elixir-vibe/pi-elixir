@@ -13,13 +13,22 @@ defmodule Pi.Plugin.SupervisorTest do
   end
 
   test "starts plugin workers under a DynamicSupervisor" do
-    {:ok, _supervisor} = PluginSupervisor.install()
+    assert {:ok, _supervisor} = install_supervisor()
     {:ok, worker} = PluginSupervisor.start_plugin(Demo)
 
     assert Process.alive?(worker)
 
-    assert [{_, ^worker, :worker, [Pi.Plugin.Worker]}] =
-             DynamicSupervisor.which_children(PluginSupervisor)
+    assert Enum.any?(DynamicSupervisor.which_children(PluginSupervisor), fn
+             {_, ^worker, :worker, [Pi.Plugin.Worker]} -> true
+             _child -> false
+           end)
+  end
+
+  defp install_supervisor do
+    case PluginSupervisor.install() do
+      {:ok, pid} -> {:ok, pid}
+      {:error, {:already_started, pid}} -> {:ok, pid}
+    end
   end
 
   defp stop_if_alive(pid) do

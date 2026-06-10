@@ -5,7 +5,7 @@ import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-cod
 import { Text } from '@earendil-works/pi-tui'
 
 import { refreshDev, restartBeam } from './bridge/dev-reload.ts'
-import { registerBridgeCommands } from './bridge/plugin-commands.ts'
+import { registerBridgeCommand, registerBridgeCommands } from './bridge/plugin-commands.ts'
 import { handleBridgeRequest } from './bridge/requests.ts'
 import { showStartupInfo } from './bridge/startup-info.ts'
 import { registerBridgeToolHooks } from './bridge/tool-hooks.ts'
@@ -132,7 +132,15 @@ export default function (pi: ExtensionAPI) {
     pi.registerMessageRenderer('elixir-sessions', renderSessionMessage)
     registerSessionCommands(pi, registeredCommands, resolveElixirCwd)
   }
-  if (flags.plugins()) registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
+  if (flags.plugins()) {
+    registerBridgeCommand(
+      pi,
+      { name: 'quack', description: 'Inspect or sync the pi-elixir QuackDB session mirror' },
+      registeredCommands,
+      resolveElixirCwd
+    )
+    registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
+  }
 
   if (!registeredCommands.has('elixir:debug')) {
     registeredCommands.add('elixir:debug')
