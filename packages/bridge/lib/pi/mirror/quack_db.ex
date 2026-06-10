@@ -66,7 +66,7 @@ defmodule Pi.Mirror.QuackDB do
     args
     |> String.split(~r/\s+/, trim: true)
     |> case do
-      ["sync" | rest] -> sync_sessions(state, rest)
+      ["sync" | rest] -> start_sync(state, rest)
       ["status" | _rest] -> {{:ok, status_text(state)}, state}
       [] -> {{:ok, status_text(state)}, state}
       _other -> {{:error, "Usage: /elixir:quack [status|sync [current|PATH]]"}, state}
@@ -242,39 +242,55 @@ defmodule Pi.Mirror.QuackDB do
   defp status_text(%{error: error}), do: "QuackDB mirror unavailable · #{error}"
   defp status_text(_state), do: "QuackDB mirror disabled · PI_ELIXIR_MIRROR disables it"
 
-  defp sync_sessions(%{enabled?: true} = state, []) do
-    sync_session_files(state, discover_session_files())
+  defp start_sync(%{enabled?: true} = state, args) do
+    state = flush(state)
+
+    Task.start(fn -> run_sync(state, args) end)
+
+    {{:ok, "🦆 sync started in background"}, state}
   end
 
-  defp sync_sessions(%{enabled?: true} = state, ["current" | _rest]) do
-    sync_current_session(state)
-  end
+  defp start_sync(state, _args), do: {{:error, status_text(state)}, state}
 
-  defp sync_sessions(%{enabled?: true} = state, [path | _rest]) do
-    path = Path.expand(path)
+  defp run_sync(state, args) do
+    case sync_files(state, args) do
+      {:ok, files} ->
+        sync_session_files(state, files)
 
-    cond do
-      File.dir?(path) -> sync_session_files(state, session_files_under(path))
-      File.regular?(path) -> sync_session_files(state, [path])
-      true -> {{:error, "Session path not found: #{path}"}, state}
+      {:error, message} ->
+        UI.notify(message, type: :error)
+        UI.clear_status(@sync_progress_key)
     end
   end
 
-  defp sync_sessions(state, _args), do: {{:error, status_text(state)}, state}
+  defp sync_files(_state, []), do: {:ok, discover_session_files()}
 
-  defp sync_current_session(%{enabled?: true, session_file: session_file} = state)
+  defp sync_files(%{session_file: session_file}, ["current" | _rest])
        when is_binary(session_file) and session_file != "" do
-    sync_session_files(state, [session_file])
+    {:ok, [session_file]}
   end
 
-  defp sync_current_session(%{enabled?: true} = state) do
-    {{:error,
-      "No current session file observed yet; use /elixir:quack sync to backfill all sessions."},
-     state}
+  defp sync_files(_state, ["current" | _rest]) do
+    {:error,
+     "No current session file observed yet; use /elixir:quack sync to backfill all sessions."}
   end
 
-  defp sync_session_files(state, []),
-    do: {{:ok, "QuackDB mirror synced 0 entries from 0 files"}, state}
+  defp sync_files(_state, [path | _rest]) do
+    path = Path.expand(path)
+
+    cond do
+      File.dir?(path) -> {:ok, session_files_under(path)}
+      File.regular?(path) -> {:ok, [path]}
+      true -> {:error, "Session path not found: #{path}"}
+    end
+  end
+
+  defp sync_session_files(_state, []) do
+    message = "🦆 synced 0 entries from 0 files"
+    UI.notify(message)
+    UI.clear_status(@sync_progress_key)
+    :ok
+  end
 
   defp sync_session_files(state, files) do
     files = Enum.uniq(files)
@@ -322,13 +338,15 @@ defmodule Pi.Mirror.QuackDB do
     message =
       "🦆 synced #{entries} entries from #{ok_files}/#{total} files · #{rows_per_second} rows/s"
 
-    UI.set_status(@sync_progress_key, message)
-    {{:ok, message}, state}
+    UI.notify(message)
+    UI.clear_status(@sync_progress_key)
+    :ok
   rescue
     exception in [File.Error, RuntimeError, QuackDB.Error, DBConnection.ConnectionError] ->
       message = Exception.message(exception)
-      UI.set_status(@sync_progress_key, "🦆 sync failed · #{message}")
-      {{:error, message}, state}
+      UI.notify("🦆 sync failed · #{message}", type: :error)
+      UI.clear_status(@sync_progress_key)
+      :ok
   end
 
   defp sync_session_file(state, session_file) do
