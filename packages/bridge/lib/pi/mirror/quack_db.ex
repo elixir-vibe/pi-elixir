@@ -12,6 +12,13 @@ defmodule Pi.Mirror.QuackDB do
   @table "pi_events"
   @default_batch_size 1
 
+  @session_fields %{
+    "cwd" => :cwd,
+    "sessionFile" => :session_file,
+    "sessionName" => :session_name,
+    "leafId" => :leaf_id
+  }
+
   @columns [
     id: :varchar,
     event_type: :varchar,
@@ -38,19 +45,36 @@ defmodule Pi.Mirror.QuackDB do
     end
   end
 
+  command(name: :quack, description: "Inspect or backfill the built-in QuackDB event mirror")
+
   @impl true
   def handle_event(event, %{enabled?: true} = state) when is_map(event) do
+    state = remember_session(state, event)
     append(state, event_row(event, event["type"] || "event", event))
   end
 
   def handle_event(_event, state), do: {:noreply, state}
 
   @impl true
+  def handle_command(:quack, args, state) do
+    args
+    |> String.split(~r/\s+/, trim: true)
+    |> case do
+      ["sync" | _rest] -> sync_current_session(state)
+      ["status" | _rest] -> {{:ok, status_text(state)}, state}
+      [] -> {{:ok, status_text(state)}, state}
+      _other -> {{:error, "Usage: /elixir:quack [status|sync]"}, state}
+    end
+  end
+
+  @impl true
   def tool_call(call, context, %{enabled?: true} = state) do
     payload = %{"call" => call, "context" => context}
 
     state =
-      append_row(state, %{
+      state
+      |> remember_session(context)
+      |> append_row(%{
         event_type: "tool_call_hook",
         cwd: context["cwd"],
         session_file: context["sessionFile"],
@@ -72,7 +96,9 @@ defmodule Pi.Mirror.QuackDB do
     payload = %{"result" => result, "context" => context}
 
     state =
-      append_row(state, %{
+      state
+      |> remember_session(context)
+      |> append_row(%{
         event_type: "tool_result_hook",
         cwd: context["cwd"],
         session_file: context["sessionFile"],
@@ -183,6 +209,76 @@ defmodule Pi.Mirror.QuackDB do
   rescue
     exception in [QuackDB.Error, DBConnection.ConnectionError, RuntimeError, ArgumentError] ->
       {:error, exception}
+  end
+
+  defp status_text(%{enabled?: true} = state) do
+    session_file = Map.get(state, :session_file) || "none yet"
+    db = mirror_database()
+
+    "QuackDB mirror enabled · db=#{db} · session=#{session_file}"
+  end
+
+  defp status_text(%{error: error}), do: "QuackDB mirror disabled · #{error}"
+  defp status_text(_state), do: "QuackDB mirror disabled · set PI_ELIXIR_MIRROR=quackdb"
+
+  defp sync_current_session(%{enabled?: true, session_file: session_file} = state)
+       when is_binary(session_file) and session_file != "" do
+    case sync_session_file(state, session_file) do
+      {:ok, count, state} ->
+        {{:ok, "QuackDB mirror synced #{count} entries from #{session_file}"}, state}
+
+      {:error, reason, state} ->
+        {{:error, reason}, state}
+    end
+  end
+
+  defp sync_current_session(%{enabled?: true} = state) do
+    {{:error, "No session file observed yet; wait for session_start or a tool event."}, state}
+  end
+
+  defp sync_current_session(state), do: {{:error, status_text(state)}, state}
+
+  defp sync_session_file(state, session_file) do
+    if File.regular?(session_file) do
+      sync_regular_session_file(state, session_file)
+    else
+      {:error, "Session file not found: #{session_file}", state}
+    end
+  rescue
+    exception in [File.Error, RuntimeError, QuackDB.Error, DBConnection.ConnectionError] ->
+      {:error, Exception.message(exception), state}
+  end
+
+  defp sync_regular_session_file(state, session_file) do
+    {state, count} =
+      session_file
+      |> File.stream!(:line, [])
+      |> Stream.map(&String.trim_trailing(&1, "\n"))
+      |> Stream.reject(&(&1 == ""))
+      |> Enum.reduce({state, 0}, fn line, {state, count} ->
+        {append_row(state, session_entry_row(session_file, line)), count + 1}
+      end)
+
+    {:ok, count, flush(state)}
+  end
+
+  defp session_entry_row(session_file, line) do
+    %{
+      event_type: "session_entry",
+      session_file: session_file,
+      payload_json: line
+    }
+  end
+
+  defp remember_session(state, event) when is_map(event) do
+    Map.merge(state, session_attrs(event))
+  end
+
+  defp session_attrs(event) do
+    @session_fields
+    |> Map.new(fn {source, target} -> {target, event[source]} end)
+    |> Enum.reject(fn {_key, value} -> value in [nil, ""] end)
+    |> Map.new()
   end
 
   defp event_row(event, event_type, payload) do
