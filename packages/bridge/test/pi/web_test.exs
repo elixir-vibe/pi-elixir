@@ -45,10 +45,19 @@ defmodule Pi.WebTest do
       total_chars: 11
     }
 
-    assert %Output{parts: [%OutputPart{kind: :text, title: preview}]} =
-             Output.Renderable.to_output(result, [])
+    assert %Output{
+             parts: [
+               %OutputPart{
+                 kind: :document,
+                 title: preview,
+                 language: "text",
+                 data: %{document_kind: :web_fetch, status: 200, total_chars: 11}
+               }
+             ],
+             text: "hello world"
+           } = Output.Renderable.to_output(result, [])
 
-    assert preview == "GET 200 Example"
+    assert preview == "Web fetch · 200 · Example"
   end
 
   defp serve_once(response) do

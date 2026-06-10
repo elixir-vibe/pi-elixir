@@ -60,31 +60,11 @@ defimpl Pi.Output.Renderable, for: Pi.Web.Result do
     preview = Keyword.get(opts, :preview, preview(result))
 
     part =
-      case result.format do
-        :json ->
-          Pi.Protocol.Tool.OutputPart.code(result.text,
-            language: :json,
-            title: preview,
-            data: metadata(result)
-          )
-
-        :html ->
-          Pi.Protocol.Tool.OutputPart.code(result.text,
-            language: :html,
-            title: preview,
-            data: metadata(result)
-          )
-
-        :markdown ->
-          Pi.Protocol.Tool.OutputPart.markdown(result.text,
-            language: :markdown,
-            title: preview,
-            data: metadata(result)
-          )
-
-        _text ->
-          Pi.Protocol.Tool.OutputPart.text(result.text, title: preview, data: metadata(result))
-      end
+      Pi.Protocol.Tool.OutputPart.document(result.text,
+        language: language(result.format),
+        title: preview,
+        data: metadata(result)
+      )
 
     %Pi.Output{parts: [part], text: result.text}
   end
@@ -93,11 +73,17 @@ defimpl Pi.Output.Renderable, for: Pi.Web.Result do
     title = if result.title in [nil, ""], do: result.final_url || result.url, else: result.title
     status = result.status || "?"
     suffix = if result.truncated?, do: " · truncated", else: ""
-    "GET #{status} #{title}#{suffix}"
+    "Web fetch · #{status} · #{title}#{suffix}"
   end
+
+  defp language(:json), do: :json
+  defp language(:html), do: :html
+  defp language(:markdown), do: :markdown
+  defp language(_format), do: :text
 
   defp metadata(result) do
     %{
+      document_kind: :web_fetch,
       url: result.url,
       final_url: result.final_url,
       status: result.status,

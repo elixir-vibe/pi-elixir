@@ -320,6 +320,82 @@ describe('elixir result rendering', () => {
     expect(compact).toContain('truncated?: false')
   })
 
+  it('renders web fetch document parts as a compact card', () => {
+    const result = evalResult({
+      parts: [
+        {
+          kind: 'document',
+          body: [
+            'Example Domain Example Domain',
+            'This domain is for use in documentation examples without needing permission.',
+            'Avoid use in operations.',
+            'Learn more'
+          ].join('\n'),
+          language: 'text',
+          title: 'Web fetch · 200 · Example Domain',
+          data: {
+            document_kind: 'web_fetch',
+            url: 'https://example.com',
+            final_url: 'https://example.com',
+            status: 200,
+            content_type: 'text/html',
+            format: 'text',
+            title: 'Example Domain',
+            size_bytes: 559,
+            total_chars: 142,
+            truncated: false,
+            redirected: false
+          }
+        }
+      ]
+    })
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+
+    expect(compact).toContain('Web fetch · 200 OK · text/html · 559 B')
+    expect(compact).toContain('https://example.com')
+    expect(compact).toContain('→ Example Domain')
+    expect(compact).toContain(
+      'This domain is for use in documentation examples without needing permission.'
+    )
+    expect(compact).toContain('142 chars · not truncated · (ctrl+o to expand)')
+    expect(compact).not.toContain('%Pi.Web.Result')
+  })
+
+  it('renders web fetch document parts as expanded metadata plus body', () => {
+    const result = evalResult({
+      parts: [
+        {
+          kind: 'document',
+          body: 'Example Domain\n\nThis domain is for use in documentation examples.',
+          language: 'text',
+          data: {
+            document_kind: 'web_fetch',
+            url: 'https://example.com',
+            final_url: 'https://example.com',
+            status: 200,
+            content_type: 'text/html',
+            format: 'text',
+            title: 'Example Domain',
+            size_bytes: 559,
+            total_chars: 65,
+            truncated: false,
+            redirected: false
+          }
+        }
+      ]
+    })
+
+    const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
+
+    expect(expanded).toContain('Web fetch')
+    expect(expanded).toContain('Status:       200 OK')
+    expect(expanded).toContain('URL:          https://example.com')
+    expect(expanded).toContain('Content-Type: text/html')
+    expect(expanded).toContain('Title\nExample Domain')
+    expect(expanded).toContain('Body\nExample Domain')
+  })
+
   it('renders structured tree parts when expanded', () => {
     const result = evalResult({
       parts: [

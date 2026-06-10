@@ -5,7 +5,7 @@ defmodule Pi.Protocol.Tool.OutputPart do
 
   defstruct [:kind, body: "", title: nil, language: nil, data: %{}, truncation: nil]
 
-  @type kind :: :text | :inspect | :markdown | :code | :error | :diff | :table | :tree
+  @type kind :: :text | :inspect | :markdown | :code | :error | :diff | :table | :tree | :document
   @type truncation :: :head | :tail | nil
 
   @type t :: %__MODULE__{
@@ -18,7 +18,7 @@ defmodule Pi.Protocol.Tool.OutputPart do
         }
 
   codec(:kind,
-    atom: {:enum, [:text, :inspect, :markdown, :code, :error, :diff, :table, :tree]}
+    atom: {:enum, [:text, :inspect, :markdown, :code, :error, :diff, :table, :tree, :document]}
   )
 
   codec(:truncation, atom: {:enum, [:head, :tail]})
@@ -40,6 +40,9 @@ defmodule Pi.Protocol.Tool.OutputPart do
 
   @spec tree(String.t(), keyword()) :: t()
   def tree(body, opts \\ []) when is_binary(body), do: build(:tree, body, opts)
+
+  @spec document(String.t(), keyword()) :: t()
+  def document(body, opts \\ []) when is_binary(body), do: build(:document, body, opts)
 
   @spec error(String.t(), keyword()) :: t()
   def error(body, opts \\ []) when is_binary(body), do: build(:error, body, opts)
