@@ -137,7 +137,7 @@ defmodule Pi.Transport.Stdio do
         {:ok, hook} ->
           hook
           |> plugin_hook_payload()
-          |> Manager.tool_call(%{})
+          |> Manager.tool_call(hook.context)
           |> encode_hook_reply()
 
         {:error, _reason} ->
@@ -153,7 +153,7 @@ defmodule Pi.Transport.Stdio do
         {:ok, hook} ->
           hook
           |> plugin_hook_payload()
-          |> Manager.tool_result(%{})
+          |> Manager.tool_result(hook.context)
           |> encode_hook_reply()
 
         {:error, _reason} ->

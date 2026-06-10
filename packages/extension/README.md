@@ -70,6 +70,7 @@ Feature flags are escape hatches:
 | BEAM sessions/widgets/control | on | `PI_ELIXIR_SESSIONS=0` |
 | Project plugins/hooks/UI/commands | on | `PI_ELIXIR_PLUGINS=0` |
 | Executable Elixir skills | on | `PI_ELIXIR_SKILLS=0` |
+| DuckDB event mirror | off | `PI_ELIXIR_MIRROR=quackdb` |
 | Extra-short eval previews | off | `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` |
 
 ### Debugging

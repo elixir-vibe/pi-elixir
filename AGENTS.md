@@ -77,7 +77,8 @@ Feature flags are defaults-on escape hatches for noisy, sensitive, or experiment
 - `PI_ELIXIR_EVAL_SIDECAR=0` — keep eval state in memory only; do not write sidecar snapshots.
 - `PI_ELIXIR_LLM=0` — disable BEAM-initiated `Pi.LLM` / `Pi.ReqLLM` requests.
 - `PI_ELIXIR_SESSIONS=0` — disable BEAM session widgets/control affordances.
-- `PI_ELIXIR_PLUGINS=0` — disable project-local plugins, hooks, UI events, and commands.
+- `PI_ELIXIR_PLUGINS=0` — disable built-in/project-local plugins, hooks, UI events, and commands.
+- `PI_ELIXIR_MIRROR=quackdb` — enable the built-in QuackDB/DuckDB event mirror.
 - `PI_ELIXIR_SKILLS=0` — disable executable Elixir skill discovery.
 - `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` — force extra-short one-line eval previews.
 

@@ -10,11 +10,17 @@ defmodule Pi.Protocol.PluginHookTest do
 
   test "normalizes valid hook payloads" do
     assert {:ok,
-            %PluginHook{tool_name: "bash", tool_call_id: "tool-1", input: %{"command" => "pwd"}}} =
+            %PluginHook{
+              tool_name: "bash",
+              tool_call_id: "tool-1",
+              input: %{"command" => "pwd"},
+              context: %{"sessionFile" => "session.jsonl"}
+            }} =
              PluginHook.from_wire(%{
                "toolName" => "bash",
                "toolCallId" => "tool-1",
-               "input" => %{"command" => "pwd"}
+               "input" => %{"command" => "pwd"},
+               "context" => %{"sessionFile" => "session.jsonl"}
              })
   end
 end

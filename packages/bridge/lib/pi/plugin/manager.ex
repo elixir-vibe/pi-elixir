@@ -1,8 +1,9 @@
 defmodule Pi.Plugin.Manager do
-  @moduledoc "Discovers and runs project-local pi_bridge plugins."
+  @moduledoc "Discovers and runs built-in and project-local pi_bridge plugins."
 
   use GenServer
 
+  alias Pi.Mirror.QuackDB, as: QuackDBMirror
   alias Pi.Plugin.Supervisor, as: PluginSupervisor
   alias Pi.Plugin.Worker
   alias Pi.Protocol.PluginInfo
@@ -244,10 +245,18 @@ defmodule Pi.Plugin.Manager do
   end
 
   defp discover do
+    (builtin_plugins() ++ discovered_plugins())
+    |> Enum.uniq()
+  end
+
+  defp builtin_plugins do
+    if QuackDBMirror.enabled?(), do: [QuackDBMirror], else: []
+  end
+
+  defp discovered_plugins do
     default_paths()
     |> Enum.flat_map(&files/1)
     |> Enum.flat_map(&load_file/1)
-    |> Enum.uniq()
   end
 
   defp load_file(path) do

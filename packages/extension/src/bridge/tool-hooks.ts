@@ -1,5 +1,6 @@
 import { callTool, resolveUrl, sendBridgeEvent } from '#src/connection/resolver.ts'
 import { recordDiagnostic, withDiagnosticSpan } from '#src/diagnostics.ts'
+import { sessionContext } from '#src/helpers.ts'
 import type { ToolArgs } from '#src/protocol/types.ts'
 import { refreshSessionSnapshots } from '#src/sessions/state.ts'
 import type { ExtensionAPI, ExtensionContext } from '@earendil-works/pi-coding-agent'
@@ -50,8 +51,8 @@ export function registerBridgeToolHooks(
 
     recordDiagnostic('tool_call', beamCwd, { toolName: event.toolName })
     await sendBridgeEvent(beamCwd, {
+      ...sessionContext(pi, ctx),
       type: 'tool_call',
-      cwd: ctx.cwd,
       name: event.toolName
     })
 
@@ -68,7 +69,8 @@ export function registerBridgeToolHooks(
         const result = await callTool(conn.url, 'pi_plugin_tool_call', {
           toolName: event.toolName,
           toolCallId: event.toolCallId,
-          input: event.input
+          input: event.input,
+          context: sessionContext(pi, ctx)
         })
         return parsePluginHookResponse(result.text)
       }
@@ -91,8 +93,8 @@ export function registerBridgeToolHooks(
       await refreshSessionSnapshots(pi, ctx, resolveElixirCwd)
 
     await sendBridgeEvent(beamCwd, {
+      ...sessionContext(pi, ctx),
       type: 'tool_result',
-      cwd: ctx.cwd,
       name: event.toolName,
       isError
     })
@@ -112,7 +114,8 @@ export function registerBridgeToolHooks(
           toolCallId: event.toolCallId,
           input: event.input,
           content: textFromContent(event.content),
-          isError
+          isError,
+          context: sessionContext(pi, ctx)
         })
         return parsePluginHookResponse(result.text)
       }

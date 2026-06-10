@@ -31,6 +31,16 @@ export { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize }
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const ansiStylePrefix = new RegExp(`^${String.fromCharCode(27)}\\[[0-9;]*m`, 'u')
 
+export function sessionContext(pi: ExtensionAPI, ctx: ExtensionContext) {
+  return {
+    cwd: ctx.cwd,
+    sessionFile: ctx.sessionManager?.getSessionFile?.(),
+    sessionName: pi.getSessionName(),
+    leafId: ctx.sessionManager?.getLeafId?.(),
+    mode: ctx.mode
+  }
+}
+
 export function displayString(value: unknown) {
   return typeof value === 'string' ? value : ''
 }

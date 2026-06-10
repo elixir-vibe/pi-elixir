@@ -32,6 +32,7 @@ import {
   stopEmbedded
 } from './embedded/stdio-process.ts'
 import { flags } from './flags.ts'
+import { sessionContext } from './helpers.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
 import { registerSessionCommands } from './sessions/commands.ts'
 import { renderSessionMessage } from './sessions/render.ts'
@@ -305,7 +306,11 @@ export default function (pi: ExtensionAPI) {
         showStartupInfo(ctx, info)
         if (flags.plugins()) registerBridgeCommands(pi, info, registeredCommands, resolveElixirCwd)
         if (flags.plugins())
-          await sendBridgeEvent(sessionCwd, { type: 'session_start', cwd: sessionCwd })
+          await sendBridgeEvent(sessionCwd, {
+            ...sessionContext(pi, ctx),
+            type: 'session_start',
+            cwd: sessionCwd
+          })
         recordDiagnostic('bridge_resolve_done', sessionCwd, { kind: conn?.kind ?? null })
       })().catch((error) => {
         recordDiagnostic('bridge_resolve_error', sessionCwd, {
@@ -326,8 +331,8 @@ export default function (pi: ExtensionAPI) {
       if (!flags.plugins()) return
 
       await sendBridgeEvent(beamCwd, {
+        ...sessionContext(pi, ctx),
         type: 'before_agent_start',
-        cwd: ctx.cwd,
         prompt: event.prompt
       })
     })
@@ -348,8 +353,8 @@ export default function (pi: ExtensionAPI) {
         if (!flags.plugins()) return
 
         await sendBridgeEvent(beamCwd, {
+          ...sessionContext(pi, ctx),
           type: 'turn_start',
-          cwd: ctx.cwd,
           turnIndex: event.turnIndex
         })
       }
@@ -364,7 +369,11 @@ export default function (pi: ExtensionAPI) {
       markTurnEnd(beamCwd, ctx.sessionManager?.getSessionFile?.(), { turnIndex: event.turnIndex })
       if (!flags.plugins()) return
 
-      await sendBridgeEvent(beamCwd, { type: 'turn_end', cwd: ctx.cwd, turnIndex: event.turnIndex })
+      await sendBridgeEvent(beamCwd, {
+        ...sessionContext(pi, ctx),
+        type: 'turn_end',
+        turnIndex: event.turnIndex
+      })
     })
   })
 
@@ -392,7 +401,10 @@ export default function (pi: ExtensionAPI) {
       const beamCwd = resolveElixirCwd(ctx.cwd)
       if (beamCwd) {
         if (flags.plugins())
-          await sendBridgeEvent(beamCwd, { type: 'session_shutdown', cwd: ctx.cwd })
+          await sendBridgeEvent(beamCwd, {
+            ...sessionContext(pi, ctx),
+            type: 'session_shutdown'
+          })
         clearSessionSnapshots(beamCwd)
         if (flags.sessions()) ctx.ui.setWidget('elixir-sessions', undefined)
       }

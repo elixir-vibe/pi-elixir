@@ -3,14 +3,15 @@ defmodule Pi.Protocol.PluginHook do
 
   use JSONCodec, fast_path: :json
 
-  defstruct [:tool_name, :tool_call_id, input: %{}, content: nil, is_error: false]
+  defstruct [:tool_name, :tool_call_id, input: %{}, content: nil, is_error: false, context: %{}]
 
   @type t :: %__MODULE__{
           tool_name: String.t() | nil,
           tool_call_id: String.t() | nil,
           input: map(),
           content: String.t() | nil,
-          is_error: boolean()
+          is_error: boolean(),
+          context: map()
         }
 
   def from_wire(%{"toolName" => tool_name, "toolCallId" => tool_call_id} = payload) do
@@ -20,7 +21,8 @@ defmodule Pi.Protocol.PluginHook do
        tool_call_id: tool_call_id,
        input: Map.get(payload, "input", %{}),
        content: Map.get(payload, "content"),
-       is_error: Map.get(payload, "isError", false)
+       is_error: Map.get(payload, "isError", false),
+       context: Map.get(payload, "context", %{})
      }}
   end
 
