@@ -37,6 +37,9 @@ defmodule Pi.Transport.Stdio do
   def __test_payload__(payload), do: payload |> to_payload() |> normalize()
 
   @doc false
+  def __test_dispatch__(name, args), do: dispatch(name, args)
+
+  @doc false
   def __test_handle_line__(line), do: handle_line(line)
 
   def start do
@@ -118,6 +121,8 @@ defmodule Pi.Transport.Stdio do
 
   defp dispatch("pi_plugin_command", %{"name" => name, "args" => args}) when is_binary(name) do
     Pi.Features.gate :plugins do
+      Manager.install()
+
       case existing_atom(name) do
         {:ok, name} ->
           name
