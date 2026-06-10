@@ -250,7 +250,7 @@ defmodule Pi.Plugin.Manager do
   end
 
   defp builtin_plugins do
-    if QuackDBMirror.enabled?(), do: [QuackDBMirror], else: []
+    [QuackDBMirror]
   end
 
   defp discovered_plugins do
