@@ -319,10 +319,11 @@ describe('elixir result rendering', () => {
 
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
-    expect(compact).toContain('map with 4 keys (ctrl+o to expand)')
+    expect(compact).not.toContain('map with 4 keys')
     expect(compact).toContain('status: 200')
     expect(compact).toContain('title: "Example Domain"')
     expect(compact).toContain('truncated?: false')
+    expect(compact).toContain('(ctrl+o to expand)')
   })
 
   it('renders web fetch document parts as a compact card', () => {

@@ -502,6 +502,17 @@ function treeInspectPreview(part: OutputPart): string | undefined {
   return stringMetadata(part.data?.inspect_preview ?? part.data?.inspectPreview)
 }
 
+function genericTreeTitle(title: string) {
+  return (
+    title === 'tree' || /^map with \d+ keys$/u.test(title) || /^list with \d+ items$/u.test(title)
+  )
+}
+
+function treeExpandLine(hidden: number, theme: Theme) {
+  if (hidden > 0) return theme.fg('muted', `… ${hidden} more · `) + expandHint(theme)
+  return expandHint(theme)
+}
+
 function renderCompactTreePart(part: OutputPart, theme: Theme): Component | null {
   const inspectPreview = treeInspectPreview(part)
   const tree = inspectPreview ? undefined : renderTreePart(part, theme)
@@ -515,9 +526,11 @@ function renderCompactTreePart(part: OutputPart, theme: Theme): Component | null
         : (tree ?? [])
       const shown = rawLines.slice(0, maxLines).map((line) => truncateLine(line, width))
       const hidden = rawLines.length - shown.length
-      const title = partPreview(part) + inlineExpandHint(theme)
-      const more = hiddenLine(hidden, theme)
-      return ['', truncateLine(title, width), ...shown, ...(more ? [more] : [])]
+      const title = partPreview(part)
+      const titleLines = genericTreeTitle(title)
+        ? []
+        : [truncateLine(title + inlineExpandHint(theme), width)]
+      return ['', ...titleLines, ...shown, treeExpandLine(hidden, theme)]
     },
     invalidate: () => undefined
   }
