@@ -8,14 +8,12 @@ import {
   formatSize,
   DEFAULT_MAX_BYTES,
   displaySingleLine,
-  truncateLine,
   truncated
 } from '#src/helpers.ts'
 import type { ToolArgs } from '#src/protocol/types.ts'
 import { renderElixirResult } from '#src/renderers.ts'
 import type { ExtensionAPI, ExtensionContext, Theme } from '@earendil-works/pi-coding-agent'
-import type { Component } from '@earendil-works/pi-tui'
-import { visibleWidth } from '@earendil-works/pi-tui'
+import { Text } from '@earendil-works/pi-tui'
 import { Type } from 'typebox'
 
 interface EvalPayload {
@@ -174,17 +172,6 @@ function evalPreview(code: unknown) {
   return `${preview.slice(0, 95)}…`
 }
 
-function renderCallLine(prefix: string, code: string, suffix: string): Component {
-  return {
-    render: (width) => {
-      const reserved = visibleWidth(prefix) + visibleWidth(suffix)
-      const available = Math.max(1, width - reserved)
-      return [prefix + truncateLine(code, available) + suffix]
-    },
-    invalidate: () => undefined
-  }
-}
-
 interface EvalRenderContext {
   executionStarted?: boolean
   state?: { startedAt?: number; endedAt?: number }
@@ -205,10 +192,12 @@ function renderEvalCall(toolName: string) {
     }
 
     const code = evalPreview(args.code)
-    return renderCallLine(
-      theme.fg('toolTitle', theme.bold(`${toolName} `)),
-      theme.fg('accent', code),
-      optionSuffix(args, theme)
+    return new Text(
+      theme.fg('toolTitle', theme.bold(`${toolName} `)) +
+        theme.fg('accent', code) +
+        optionSuffix(args, theme),
+      0,
+      0
     )
   }
 }

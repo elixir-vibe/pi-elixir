@@ -106,7 +106,7 @@ describe('extension registration', () => {
     ])
   })
 
-  it('preserves eval timeout suffix in narrow call previews', () => {
+  it('wraps eval call previews like native tools and keeps timeout visible', () => {
     const { pi } = fakePi()
     extension(pi as any)
     const tool = pi.registerTool.mock.calls.find(
@@ -122,9 +122,9 @@ describe('extension registration', () => {
       {}
     )
 
-    const line = rendered.render(48)[0]
-    expect(line).toContain('(30000ms)')
-    expect(line).toContain('…')
+    const lines = rendered.render(48)
+    expect(lines.join('\n')).toContain('(30000ms)')
+    expect(lines.length).toBeGreaterThan(1)
   })
 
   it('registers dogfood and debug slash commands', () => {
