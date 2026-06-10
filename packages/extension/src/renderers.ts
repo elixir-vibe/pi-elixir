@@ -96,23 +96,12 @@ function resultIsError(result: AgentToolResult<unknown>): boolean {
   return (result as { isError?: unknown }).isError === true
 }
 
-function resultArg(result: AgentToolResult<unknown>, key: string): string | undefined {
-  const details = (result as { details?: unknown }).details
-  if (typeof details !== 'object' || details === null) return undefined
-  const args = (details as { args?: unknown }).args
-  if (typeof args !== 'object' || args === null) return undefined
-  const value = (args as Record<string, unknown>)[key]
-  return typeof value === 'string' && value ? value : undefined
-}
-
 function hiddenLine(count: number, theme: Theme) {
-  return count > 0 ? theme.fg('muted', `  … ${count} more`) : undefined
+  return count > 0 ? theme.fg('muted', `… ${count} more`) : undefined
 }
 
 function expandHint(theme: Theme) {
-  return (
-    theme.fg('muted', '  (') + keyHint('app.tools.expand', 'to expand') + theme.fg('muted', ')')
-  )
+  return theme.fg('muted', '(') + keyHint('app.tools.expand', 'to expand') + theme.fg('muted', ')')
 }
 
 function inlineExpandHint(theme: Theme) {
@@ -401,16 +390,10 @@ function codeLanguage(path: string) {
   return getLanguageFromPath(path) ?? 'text'
 }
 
-function searchHeader(count: number, pattern: string | undefined, theme: Theme) {
-  const noun = count === 1 ? 'match' : 'matches'
-  const patternText = pattern ? `  ${theme.fg('muted', oneLine(pattern, 60))}` : ''
-  return `${theme.fg('accent', `${count} ${noun}`)}${patternText}`
-}
-
 function matchLine(match: AstMatch, theme: Theme) {
-  const location = `${match.path}:${match.line}`
-  const snippet = match.snippet ? `  ${theme.fg('toolOutput', oneLine(match.snippet, 80))}` : ''
-  return `  ${theme.fg('muted', location)}${snippet}`
+  const location = `${match.path}:${match.line}:`
+  const snippet = match.snippet ? ` ${theme.fg('toolOutput', oneLine(match.snippet, 80))}` : ''
+  return `${theme.fg('muted', location)}${snippet}`
 }
 
 function renderToolUnavailableOrError(
@@ -443,24 +426,20 @@ export function renderAstSearchResult(
   const matches = payload ? structuredAstMatches(payload) : parseAstMatches(text)
   if (matches.length === 0) return renderFallback(text, theme)
 
-  const pattern = resultArg(result, 'pattern')
   if (!expanded) {
-    const shown = matches.slice(0, 4).map((match) => matchLine(match, theme))
+    const shown = matches.slice(0, 8).map((match) => matchLine(match, theme))
     const more = hiddenLine(matches.length - shown.length, theme)
-    return renderLines([
-      searchHeader(matches.length, pattern, theme),
-      ...shown,
-      ...(more ? [more] : []),
-      expandHint(theme)
-    ])
+    return renderLines([...shown, ...(more ? ['', more, expandHint(theme)] : [])])
   }
 
-  const lines = [searchHeader(matches.length, pattern, theme)]
-  const shownMatches = matches.slice(0, 12)
+  const lines: string[] = []
+  const shownMatches = matches.slice(0, 24)
   for (const match of shownMatches) {
-    lines.push('')
-    lines.push(`  ${theme.fg('muted', `${match.path}:`)}${theme.fg('accent', match.line)}`)
-    if (match.snippet) lines.push(...codeLines(match.snippet, codeLanguage(match.path), theme, 3))
+    if (lines.length > 0) lines.push('')
+    lines.push(matchLine(match, theme))
+    if (match.snippet?.includes('\n')) {
+      lines.push(...codeLines(match.snippet, codeLanguage(match.path), theme, 3))
+    }
   }
 
   const more = hiddenLine(matches.length - shownMatches.length, theme)
@@ -494,6 +473,24 @@ function replacementLines(payload: AstReplacePayload): ReplacementLine[] {
   }))
 }
 
+function renderDiffLine(line: string, theme: Theme): string {
+  if (line.startsWith('+')) return theme.fg('success', line)
+  if (line.startsWith('-')) return theme.fg('error', line)
+  return theme.fg('toolOutput', line)
+}
+
+function diffPreviewLines(payload: AstReplacePayload, theme: Theme, maxLines: number): string[] {
+  const lines: string[] = []
+  for (const diff of payload.diffs ?? []) {
+    const diffText = diff.diff?.trimEnd()
+    if (!diffText) continue
+    if (lines.length > 0) lines.push('')
+    lines.push(...diffText.split('\n').map((line) => renderDiffLine(line, theme)))
+    if (lines.length >= maxLines) break
+  }
+  return lines.slice(0, maxLines)
+}
+
 export function renderAstReplaceResult(
   result: AgentToolResult<unknown>,
   { expanded }: ToolRenderResultOptions,
@@ -514,9 +511,21 @@ export function renderAstReplaceResult(
   const action = payload.dry_run ? 'dry-run' : 'updated'
 
   if (!expanded) {
+    const diffLines = diffPreviewLines(payload, theme, 8)
+    if (diffLines.length > 0) {
+      const totalDiffLines = (payload.diffs ?? []).reduce(
+        (sum, diff) => sum + (diff.diff ? diff.diff.trimEnd().split('\n').length : 0),
+        0
+      )
+      const hidden = totalDiffLines - diffLines.length
+      return renderLines([
+        ...diffLines,
+        ...(hidden > 0 ? ['', theme.fg('muted', `… ${hidden} more lines`), expandHint(theme)] : [])
+      ])
+    }
+
     return renderLines([
-      `${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements in ${replacements.length} files`)}`,
-      expandHint(theme)
+      `${theme.fg('accent', action)}  ${theme.fg('toolOutput', `${total} replacements in ${replacements.length} files`)}`
     ])
   }
 
@@ -534,8 +543,8 @@ export function renderAstReplaceResult(
   const diffs = payload.diffs ?? []
   for (const diff of diffs.slice(0, 3)) {
     if (!diff.diff) continue
-    lines.push('', `  ${theme.fg('muted', diff.file ?? '(diff)')}`)
-    lines.push(...codeLines(diff.diff, diff.language ?? 'diff', theme, 40))
+    lines.push('', theme.fg('muted', diff.file ?? '(diff)'))
+    lines.push(...diff.diff.split('\n').map((line) => renderDiffLine(line, theme)))
   }
 
   return renderLines(lines)
