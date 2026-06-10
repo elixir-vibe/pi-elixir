@@ -392,6 +392,12 @@ function tableFooter(data: RenderTableData, visibleRows: number, hidden: number,
   return theme.fg('muted', shape + more + types)
 }
 
+function compactTableFooter(data: RenderTableData, visibleRows: number, theme: Theme) {
+  const shape = `${visibleRows}/${data.totalRows} rows · ${data.columns.length} columns`
+  const types = data.columnTypes.length > 0 ? ` · ${data.columnTypes.join(', ')}` : ''
+  return theme.fg('muted', shape + types) + theme.fg('muted', ' · ') + expandHint(theme)
+}
+
 function compactContinuationRow(columnCount: number, hidden: number) {
   if (hidden <= 0) return []
   return Array.from({ length: columnCount }, (_, index) =>
@@ -421,9 +427,8 @@ function renderMarkdownTable(
       const lines = new Markdown(markdown, 0, 0, getMarkdownTheme()).render(width)
       const footer = options.expanded
         ? tableFooter(data, visibleRows.length, hidden, theme)
-        : undefined
+        : compactTableFooter(data, visibleRows.length, theme)
       if (footer) lines.push('', footer)
-      if (!options.expanded && hidden > 0) lines.push('', expandHint(theme))
       return ['', ...lines]
     },
     invalidate: () => undefined

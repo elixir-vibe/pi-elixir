@@ -215,7 +215,7 @@ describe('elixir result rendering', () => {
     expect(compact).toContain('│ bytes │ path          │')
     expect(compact).toContain('│ 123   │ lib/pi.ex     │')
     expect(compact).toContain('│       │ … 1 more rows │')
-    expect(compact).toContain('ctrl+o to expand')
+    expect(compact).toContain('1/2 rows · 2 columns · integer, string · (ctrl+o to expand)')
     expect(expanded).toContain('┌───────┬────────────────┐')
     expect(expanded).toContain('│ bytes │ path           │')
     expect(expanded).toContain('│ 123   │ lib/pi.ex      │')
