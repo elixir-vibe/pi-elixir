@@ -12,6 +12,7 @@ defmodule Pi.Mirror.QuackDB do
   alias Pi.Plugin.UI
 
   @table "pi_events"
+  @files_table "pi_session_files"
   @default_batch_size 1
   @sync_batch_size 5_000
   @sync_progress_key :elixir_quack_sync
@@ -209,27 +210,43 @@ defmodule Pi.Mirror.QuackDB do
   end
 
   defp ensure_schema(conn) do
-    QuackDB.query!(conn, """
-    CREATE TABLE IF NOT EXISTS #{@table} (
-      id VARCHAR,
-      event_type VARCHAR,
-      cwd VARCHAR,
-      session_file VARCHAR,
-      session_name VARCHAR,
-      leaf_id VARCHAR,
-      turn_index BIGINT,
-      tool_name VARCHAR,
-      tool_call_id VARCHAR,
-      is_error BOOLEAN,
-      occurred_at TIMESTAMP,
-      payload_json VARCHAR
+    QuackDB.query!(conn, QuackDB.DDL.create_table(@table, @columns, if_not_exists: true))
+
+    QuackDB.query!(
+      conn,
+      QuackDB.DDL.create_table(@files_table, file_columns(), if_not_exists: true)
     )
-    """)
+
+    QuackDB.query!(conn, create_session_file_index())
 
     :ok
   rescue
     exception in [QuackDB.Error, DBConnection.ConnectionError, RuntimeError, ArgumentError] ->
       {:error, exception}
+  end
+
+  defp create_session_file_index do
+    [
+      "CREATE INDEX IF NOT EXISTS ",
+      QuackDB.Type.quote_identifier("pi_events_session_entry_file_idx"),
+      " ON ",
+      QuackDB.Type.quote_identifier(@table),
+      "(",
+      QuackDB.Type.quote_identifier(:event_type),
+      ", ",
+      QuackDB.Type.quote_identifier(:session_file),
+      ")"
+    ]
+  end
+
+  defp file_columns do
+    [
+      {:session_file, :varchar, primary_key: true},
+      file_size: :bigint,
+      mtime_seconds: :bigint,
+      synced_entries: :bigint,
+      synced_at: :timestamp
+    ]
   end
 
   defp status_text(%{enabled?: true} = state) do
@@ -310,7 +327,7 @@ defmodule Pi.Mirror.QuackDB do
           total: total
         )
 
-        case sync_session_file(state, file) do
+        case sync_session_file(state, file, index, total) do
           {:ok, count} ->
             synced = entries + count
 
@@ -320,6 +337,14 @@ defmodule Pi.Mirror.QuackDB do
             )
 
             {synced, failed}
+
+          :skipped ->
+            UI.set_status(
+              @sync_progress_key,
+              "🦆 sync · #{index}/#{total} files · skipped unchanged · #{entries} rows"
+            )
+
+            {entries, failed}
 
           {:error, _reason} ->
             UI.set_status(
@@ -349,9 +374,9 @@ defmodule Pi.Mirror.QuackDB do
       :ok
   end
 
-  defp sync_session_file(state, session_file) do
+  defp sync_session_file(state, session_file, index, total) do
     if File.regular?(session_file) do
-      sync_regular_session_file(state, session_file)
+      sync_regular_session_file(state, session_file, index, total)
     else
       {:error, "Session file not found: #{session_file}"}
     end
@@ -360,26 +385,44 @@ defmodule Pi.Mirror.QuackDB do
       {:error, Exception.message(exception)}
   end
 
-  defp sync_regular_session_file(%{conn: conn} = state, session_file) do
+  defp sync_regular_session_file(%{conn: conn} = state, session_file, index, total) do
     state = flush(state)
-    delete_session_entries(state, session_file)
+    before_stat = session_file_stat!(session_file)
 
-    count =
-      session_file
-      |> File.stream!(:line, read_ahead: 1_000_000)
-      |> Stream.map(&String.trim_trailing(&1, "\n"))
-      |> Stream.reject(&(&1 == ""))
-      |> Stream.chunk_every(sync_batch_size())
-      |> Enum.reduce(0, fn lines, count ->
-        QuackDB.insert_columns!(conn, @table, session_entry_columns(session_file, lines),
-          columns: @columns,
-          timeout: :infinity
-        )
+    if synced_file?(conn, session_file, before_stat) do
+      :skipped
+    else
+      delete_session_entries(state, session_file)
 
-        count + length(lines)
-      end)
+      count =
+        session_file
+        |> File.stream!(:line, read_ahead: 1_000_000)
+        |> Stream.map(&String.trim_trailing(&1, "\n"))
+        |> Stream.reject(&(&1 == ""))
+        |> Stream.chunk_every(sync_batch_size())
+        |> Enum.reduce(0, fn lines, count ->
+          QuackDB.insert_columns!(conn, @table, session_entry_columns(session_file, lines),
+            columns: @columns,
+            timeout: :infinity
+          )
 
-    {:ok, count}
+          count = count + length(lines)
+
+          UI.set_status(
+            @sync_progress_key,
+            "🦆 sync #{session_file_label(session_file)} · #{index}/#{total} files · #{count} rows"
+          )
+
+          count
+        end)
+
+      after_stat = session_file_stat!(session_file)
+
+      if before_stat == after_stat,
+        do: remember_synced_file(conn, session_file, after_stat, count)
+
+      {:ok, count}
+    end
   end
 
   defp session_entry_columns(session_file, lines) do
@@ -401,6 +444,67 @@ defmodule Pi.Mirror.QuackDB do
       occurred_at: List.duplicate(now, size),
       payload_json: lines
     ]
+  end
+
+  defp session_file_stat!(session_file) do
+    stat = File.stat!(session_file, time: :posix)
+    %{size: stat.size, mtime_seconds: stat.mtime}
+  end
+
+  defp synced_file?(conn, session_file, %{size: size, mtime_seconds: mtime_seconds}) do
+    rows =
+      conn
+      |> QuackDB.rows(
+        [
+          "SELECT 1 FROM ",
+          QuackDB.Type.quote_identifier(@files_table),
+          " WHERE ",
+          QuackDB.Type.quote_identifier(:session_file),
+          " = ? AND ",
+          QuackDB.Type.quote_identifier(:file_size),
+          " = ? AND ",
+          QuackDB.Type.quote_identifier(:mtime_seconds),
+          " = ? LIMIT 1"
+        ],
+        [session_file, size, mtime_seconds],
+        timeout: :infinity
+      )
+      |> Enum.take(1)
+
+    rows != []
+  end
+
+  defp remember_synced_file(
+         conn,
+         session_file,
+         %{size: size, mtime_seconds: mtime_seconds},
+         count
+       ) do
+    delete_file_metadata(conn, session_file)
+
+    QuackDB.insert_rows!(
+      conn,
+      @files_table,
+      [
+        %{
+          session_file: session_file,
+          file_size: size,
+          mtime_seconds: mtime_seconds,
+          synced_entries: count,
+          synced_at: NaiveDateTime.utc_now(:microsecond)
+        }
+      ],
+      columns: [
+        session_file: :varchar,
+        file_size: :bigint,
+        mtime_seconds: :bigint,
+        synced_entries: :bigint,
+        synced_at: :timestamp
+      ],
+      timeout: :infinity
+    )
+
+    :ok
   end
 
   defp discover_session_files do
@@ -434,17 +538,40 @@ defmodule Pi.Mirror.QuackDB do
   end
 
   defp delete_session_entries(%{conn: conn}, session_file) do
-    QuackDB.query!(conn, """
-    DELETE FROM #{@table}
-    WHERE event_type = 'session_entry' AND session_file = '#{sql_escape(session_file)}'
-    """)
+    QuackDB.query!(
+      conn,
+      [
+        "DELETE FROM ",
+        QuackDB.Type.quote_identifier(@table),
+        " WHERE ",
+        QuackDB.Type.quote_identifier(:event_type),
+        " = ? AND ",
+        QuackDB.Type.quote_identifier(:session_file),
+        " = ?"
+      ],
+      ["session_entry", session_file],
+      timeout: :infinity
+    )
 
     :ok
   end
 
   defp delete_session_entries(_state, _session_file), do: :ok
 
-  defp sql_escape(value), do: String.replace(value, "'", "''")
+  defp delete_file_metadata(conn, session_file) do
+    QuackDB.query!(
+      conn,
+      [
+        "DELETE FROM ",
+        QuackDB.Type.quote_identifier(@files_table),
+        " WHERE ",
+        QuackDB.Type.quote_identifier(:session_file),
+        " = ?"
+      ],
+      [session_file],
+      timeout: :infinity
+    )
+  end
 
   defp remember_session(state, event) when is_map(event) do
     Map.merge(state, session_attrs(event))
