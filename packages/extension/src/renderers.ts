@@ -143,6 +143,36 @@ function codeLines(text: string, language: string, theme: Theme, maxLines?: numb
   return lines
 }
 
+interface CodeFrameOptions {
+  startLine?: number
+  maxLines?: number
+  highlightLine?: number
+}
+
+function codeFrameLines(
+  text: string,
+  language: string,
+  theme: Theme,
+  options: CodeFrameOptions = {}
+): string[] {
+  const highlighted = highlightCode(text, language)
+  const startLine = options.startLine ?? 1
+  const shown =
+    typeof options.maxLines === 'number' ? highlighted.slice(0, options.maxLines) : highlighted
+  const hidden = typeof options.maxLines === 'number' ? highlighted.length - shown.length : 0
+  const endLine = startLine + Math.max(shown.length - 1, 0)
+  const gutterWidth = String(endLine).length
+  const lines = shown.map((line, index) => {
+    const number = startLine + index
+    const gutter = String(number).padStart(gutterWidth, ' ')
+    const marker = options.highlightLine === number ? '›' : ' '
+    return `${theme.fg('muted', `${marker}${gutter}  `)}${line}`
+  })
+  const more = hiddenLine(hidden, theme)
+  if (more) lines.push(more)
+  return lines
+}
+
 function stripFinalNewline(text: string) {
   return text.replace(/\r?\n$/, '')
 }
@@ -196,6 +226,7 @@ interface OutputPart {
   output?: string
   language?: string | null
   preview?: string | null
+  metadata?: Record<string, unknown> | null
 }
 
 interface ExceptionFrame {
@@ -477,8 +508,44 @@ function renderOnlyTablePart(
   return renderMarkdownTable(onlyPart, theme, { maxRows: expanded ? 20 : 1, expanded })
 }
 
+function numberMetadata(value: unknown): number | undefined {
+  return typeof value === 'number' && Number.isFinite(value) ? value : undefined
+}
+
+function stringMetadata(value: unknown): string | undefined {
+  return typeof value === 'string' && value ? value : undefined
+}
+
+function relativeSourcePath(path: string | undefined) {
+  if (!path) return undefined
+  const marker = '/packages/bridge/'
+  const markerIndex = path.indexOf(marker)
+  if (markerIndex >= 0) return path.slice(markerIndex + marker.length)
+  return path
+}
+
+function sourceStartLine(part: OutputPart) {
+  return numberMetadata(part.metadata?.start_line ?? part.metadata?.startLine) ?? 1
+}
+
+function sourceLocation(part: OutputPart) {
+  const path = relativeSourcePath(stringMetadata(part.metadata?.source ?? part.metadata?.path))
+  const startLine = numberMetadata(part.metadata?.start_line ?? part.metadata?.startLine)
+  const endLine = numberMetadata(part.metadata?.end_line ?? part.metadata?.endLine)
+  if (!path || !startLine) return undefined
+  return endLine && endLine !== startLine
+    ? `${path}:${startLine}-${endLine}`
+    : `${path}:${startLine}`
+}
+
+function sourceTitleText(part: OutputPart) {
+  const subject = stringMetadata(part.metadata?.subject) ?? partPreview(part)
+  const location = sourceLocation(part)
+  return location ? `${subject} · ${location}` : subject
+}
+
 function sourceTitle(part: OutputPart, hidden: boolean, theme: Theme, width: number) {
-  const title = partPreview(part)
+  const title = sourceTitleText(part)
   if (!hidden) return truncateLine(title, width)
 
   const hint = inlineExpandHint(theme)
@@ -497,7 +564,10 @@ function renderCompactSourcePart(part: OutputPart, theme: Theme): Component {
       const maxLines = 6
       const totalLines = output ? output.split('\n').length : 0
       const hidden = totalLines > maxLines
-      const lines = codeLines(output, part.language ?? 'elixir', theme, maxLines)
+      const lines = codeFrameLines(output, part.language ?? 'elixir', theme, {
+        startLine: sourceStartLine(part),
+        maxLines
+      })
       return ['', theme.fg('muted', sourceTitle(part, hidden, theme, width)), ...lines]
     },
     invalidate: () => undefined
@@ -541,7 +611,7 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
       lines.push(theme.fg('toolOutput', output))
     } else if (format === 'tree') {
       lines.push(...(renderTreePart(part, theme) ?? [theme.fg('toolOutput', output)]))
-    } else if (format === 'inspect' || format === 'source') {
+    } else if (format === 'inspect') {
       const code = codeLines(output, part.language ?? 'elixir', theme)
       if (index === 0) {
         const [first, ...rest] = code
@@ -549,6 +619,12 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
       } else {
         lines.push(...code)
       }
+    } else if (format === 'source') {
+      lines.push(
+        ...codeFrameLines(output, part.language ?? 'elixir', theme, {
+          startLine: sourceStartLine(part)
+        })
+      )
     } else if (format === 'error') {
       lines.push(theme.fg('error', output))
     } else {
@@ -702,7 +778,12 @@ export function renderAstSearchResult(
     if (lines.length > 0) lines.push('')
     lines.push(matchLine(match, theme))
     if (match.snippet?.includes('\n')) {
-      lines.push(...codeLines(match.snippet, codeLanguage(match.path), theme, 3))
+      lines.push(
+        ...codeFrameLines(match.snippet, codeLanguage(match.path), theme, {
+          startLine: Number.parseInt(match.line, 10) || 1,
+          maxLines: 3
+        })
+      )
     }
   }
 

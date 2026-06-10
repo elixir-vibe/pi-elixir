@@ -58,7 +58,8 @@ defmodule Pi.Output do
           format: :source,
           output: source,
           language: to_string(language),
-          preview: Keyword.get(opts, :preview) || first_line(source)
+          preview: Keyword.get(opts, :preview) || first_line(source),
+          metadata: Keyword.get(opts, :metadata, %{})
         }
       ],
       text: source

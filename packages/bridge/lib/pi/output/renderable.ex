@@ -58,7 +58,13 @@ end
 defimpl Pi.Output.Renderable, for: Pi.Docs.Source do
   def to_output(source, opts) do
     Pi.Output.code(source.text, Keyword.get(opts, :language, :elixir),
-      preview: Keyword.get(opts, :preview, source.subject)
+      preview: Keyword.get(opts, :preview, source.subject),
+      metadata: %{
+        source: source.source,
+        start_line: source.start_line,
+        end_line: source.end_line,
+        subject: source.subject
+      }
     )
   end
 end

@@ -102,10 +102,19 @@ raise "boom"|)
                "Pi.Docs.module(Pi.Output) |> Pi.Docs.function(:table, 2) |> Pi.Docs.source(context: 5)"
              )
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :source, output: output, language: "elixir"}] =
-             payload.parts
+    assert [
+             %Pi.Protocol.Tool.OutputPart{
+               format: :source,
+               output: output,
+               language: "elixir",
+               metadata: metadata
+             }
+           ] = payload.parts
 
     assert output =~ "def table(rows"
+    assert metadata.start_line <= metadata.end_line
+    assert metadata.source =~ "lib/pi/output.ex"
+    assert metadata.subject =~ "Pi.Output.table/2"
   end
 
   test "structured eval accepts explicit output helpers" do

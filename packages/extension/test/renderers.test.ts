@@ -269,7 +269,13 @@ describe('elixir result rendering', () => {
             'def tree(value, opts \\ []), do: value'
           ].join('\n'),
           language: 'elixir',
-          preview: 'Pi.Output.table/2 lines 6-16'
+          preview: 'Pi.Output.table/2 lines 6-16',
+          metadata: {
+            source: '/Users/dannote/Development/pi-elixir/packages/bridge/lib/pi/output.ex',
+            start_line: 6,
+            end_line: 13,
+            subject: 'Pi.Output.table/2 lines 6-13'
+          }
         }
       ]
     })
@@ -277,12 +283,14 @@ describe('elixir result rendering', () => {
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
     const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
 
-    expect(compact).toContain('Pi.Output.table/2 lines 6-16 (ctrl+o to expand)')
-    expect(compact).toContain('def table(rows, opts')
+    expect(compact).toContain(
+      'Pi.Output.table/2 lines 6-13 · lib/pi/output.ex:6-13 (ctrl+o to expand)'
+    )
+    expect(compact).toContain(' 6  def table(rows, opts')
     expect(compact).toContain('%Pi.Output{}')
     expect(compact).toContain('… 2 more')
     expect(compact).not.toContain('def tree')
-    expect(expanded).toContain('def tree')
+    expect(expanded).toContain('13  def tree')
   })
 
   it('renders structured tree parts when expanded', () => {
