@@ -20,6 +20,14 @@ function parsePluginHookResponse(text: string): PluginHookResponse {
   }
 }
 
+function evalPayloadHasError(details: unknown): boolean {
+  if (typeof details !== 'object' || details === null) return false
+  const payload = (details as { eval?: unknown }).eval
+  if (typeof payload !== 'object' || payload === null) return false
+  const error = (payload as { error?: unknown }).error
+  return typeof error === 'string' && error.length > 0
+}
+
 function textFromContent(content: unknown): string {
   if (!Array.isArray(content)) return ''
   return content
@@ -75,7 +83,10 @@ export function registerBridgeToolHooks(
     const beamCwd = resolveElixirCwd(ctx.cwd)
     if (!beamCwd) return undefined
 
-    recordDiagnostic('tool_result', beamCwd, { toolName: event.toolName, isError: event.isError })
+    const evalError = event.toolName === 'elixir_eval' && evalPayloadHasError(event.details)
+    const isError = event.isError || evalError
+
+    recordDiagnostic('tool_result', beamCwd, { toolName: event.toolName, isError })
     if (event.toolName?.startsWith('elixir_'))
       await refreshSessionSnapshots(pi, ctx, resolveElixirCwd)
 
@@ -83,10 +94,10 @@ export function registerBridgeToolHooks(
       type: 'tool_result',
       cwd: ctx.cwd,
       name: event.toolName,
-      isError: event.isError
+      isError
     })
 
-    if (!hasBridgePlugins(beamCwd)) return undefined
+    if (!hasBridgePlugins(beamCwd)) return isError && !event.isError ? { isError: true } : undefined
 
     const payload = await withDiagnosticSpan(
       'plugin_tool_result',
@@ -101,7 +112,7 @@ export function registerBridgeToolHooks(
           toolCallId: event.toolCallId,
           input: event.input,
           content: textFromContent(event.content),
-          isError: event.isError
+          isError
         })
         return parsePluginHookResponse(result.text)
       }
@@ -109,15 +120,16 @@ export function registerBridgeToolHooks(
 
     if (payload.ok && typeof payload.ok === 'object') {
       const patch = payload.ok
+      const patchedError = typeof patch.isError === 'boolean' ? patch.isError : undefined
       return {
         content:
           typeof patch.content === 'string'
             ? [{ type: 'text' as const, text: patch.content }]
             : undefined,
-        isError: typeof patch.isError === 'boolean' ? patch.isError : undefined
+        isError: patchedError ?? (isError ? true : undefined)
       }
     }
 
-    return undefined
+    return isError && !event.isError ? { isError: true } : undefined
   })
 }

@@ -2,7 +2,7 @@ defmodule Pi.Eval do
   @moduledoc "Runs bounded Elixir evals inside the project BEAM."
 
   alias Pi.Bridge.Info
-  alias Pi.Eval.{Evaluator, Sandbox, Supervisor}
+  alias Pi.Eval.{Evaluator, ExceptionInfo, Sandbox, Supervisor}
   alias Pi.Protocol.Tool.Eval, as: EvalPayload
   alias Pi.Protocol.Tool.OutputPart
   alias Pi.Protocol.UI.Block
@@ -142,7 +142,11 @@ defmodule Pi.Eval do
           {result, _bindings} = Code.eval_string(code, [arguments: []], env())
           {true, result}
         catch
-          kind, reason -> {false, Exception.format(kind, reason, __STACKTRACE__)}
+          kind, reason ->
+            stacktrace = __STACKTRACE__
+            text = Exception.format(kind, reason, stacktrace)
+
+            {false, %{text: text, exception: ExceptionInfo.payload(kind, reason, stacktrace)}}
         end
       end)
 
@@ -154,11 +158,17 @@ defmodule Pi.Eval do
     end
   end
 
+  defp error_text(%{text: text}) when is_binary(text), do: text
+  defp error_text(text) when is_binary(text), do: text
+
+  defp error_exception(%{exception: exception}) when is_map(exception), do: exception
+  defp error_exception(_), do: nil
+
   defp format_eval_result(result, success?, io) do
     case {result, success?, io} do
       {:"do not show this result in output", true, io} -> {:ok, io}
-      {result, false, ""} -> {:error, result}
-      {result, false, io} -> {:error, "IO:\n\n#{io}\n\nError:\n\n#{result}"}
+      {result, false, ""} -> {:error, error_text(result)}
+      {result, false, io} -> {:error, "IO:\n\n#{io}\n\nError:\n\n#{error_text(result)}"}
       {result, true, ""} -> {:ok, inspect(result, @inspect_opts)}
       {result, true, io} -> {:ok, "IO:\n\n#{io}\n\nResult:\n\n#{inspect(result, @inspect_opts)}"}
     end
@@ -184,13 +194,21 @@ defmodule Pi.Eval do
      %EvalPayload{io: io, result: inspected, text: text, parts: parts, display: display(parts)}}
   end
 
-  defp structured_eval_result(_result, false, io, {:error, text}) do
+  defp structured_eval_result(result, false, io, {:error, text}) do
     parts =
       []
       |> maybe_io_part(io)
       |> Kernel.++([%OutputPart{format: :error, output: text}])
 
-    {:error, %EvalPayload{io: io, error: text, text: text, parts: parts, display: display(parts)}}
+    {:error,
+     %EvalPayload{
+       io: io,
+       error: text,
+       exception: error_exception(result),
+       text: text,
+       parts: parts,
+       display: display(parts)
+     }}
   end
 
   defp maybe_io_part(parts, ""), do: parts

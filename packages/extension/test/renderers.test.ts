@@ -101,7 +101,7 @@ describe('elixir result rendering', () => {
     }
   })
 
-  it('shows a couple of stack frames for compact errors', () => {
+  it('shows compact inline exception headline with expansion hint', () => {
     const result = {
       content: [
         {
@@ -114,12 +114,38 @@ describe('elixir result rendering', () => {
 
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
-    expect(compact).toContain('RuntimeError: render smoke boom')
+    expect(compact).toBe('\nRuntimeError: render smoke boom (ctrl+o to expand)')
     expect(compact).not.toContain('✗')
-    expect(compact).toContain('(elixir 1.20.0) src/elixir.erl:382')
-    expect(compact).toContain('(stdlib 8.0) erl_eval.erl:1048')
+    expect(compact).not.toContain('(elixir 1.20.0) src/elixir.erl:382')
     expect(compact).toContain('to expand')
-    expect(compact).not.toContain('pi_bridge 0.6.0')
+  })
+
+  it('uses structured exception origin when available', () => {
+    const result = evalResult({
+      error:
+        '** (RuntimeError) showcase boom\n    nofile:1: (file)\n    (elixir 1.20.0) src/elixir.erl:382: :elixir.eval_external_handler/3',
+      exception: {
+        type: 'Elixir.RuntimeError',
+        message: 'showcase boom',
+        stacktrace: [
+          { text: 'nofile:1: (file)', file: 'nofile', line: 1, origin: 'nofile:1' },
+          {
+            text: '(elixir 1.20.0) src/elixir.erl:382: :elixir.eval_external_handler/3',
+            file: 'src/elixir.erl',
+            line: 382,
+            origin: 'src/elixir.erl:382'
+          }
+        ]
+      }
+    })
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+    const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
+
+    expect(compact).toBe('\nRuntimeError: showcase boom · nofile:1 (ctrl+o to expand)')
+    expect(expanded).toContain('RuntimeError: showcase boom · nofile:1')
+    expect(expanded).not.toContain('nofile:1: (file)')
+    expect(expanded).toContain('(elixir 1.20.0) src/elixir.erl:382')
   })
 
   it('shows the expand hint when the compact preview is semantically lossy', () => {

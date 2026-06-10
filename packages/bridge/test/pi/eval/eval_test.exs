@@ -26,6 +26,16 @@ raise "boom"|)
     assert message =~ "Error:\n\n** (RuntimeError) boom"
   end
 
+  test "structured eval includes exception metadata" do
+    assert {:error, payload} = Eval.run_structured("raise \"boom\"")
+
+    assert payload.exception.type == "RuntimeError"
+    assert payload.exception.message == "boom"
+    assert [%{text: text, origin: origin} | _] = payload.exception.stacktrace
+    assert is_binary(text)
+    assert is_binary(origin)
+  end
+
   test "structured eval includes compact inspect previews" do
     assert {:ok, payload} = Eval.run_structured("%{bridge: \"0.6.0\", app: :pi_bridge}")
 

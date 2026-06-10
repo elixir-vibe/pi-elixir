@@ -4,7 +4,7 @@ defmodule Pi.Eval.Evaluator do
   use GenServer
 
   alias Pi.Bridge.Info
-  alias Pi.Eval.Snapshot
+  alias Pi.Eval.{ExceptionInfo, Snapshot}
   alias Pi.Protocol.Tool.Eval, as: EvalPayload
   alias Pi.Protocol.Tool.OutputPart
   alias Pi.Protocol.UI.Block
@@ -119,11 +119,11 @@ defmodule Pi.Eval.Evaluator do
         {{:ok, structured_result(result, io, state, persist_meta)}, state}
 
       io != "" ->
-        text = "IO:\n\n#{io}\n\nError:\n\n#{result}"
-        {{:error, error_result(text, io, state)}, state}
+        text = "IO:\n\n#{io}\n\nError:\n\n#{error_text(result)}"
+        {{:error, error_result(text, io, state, error_exception(result))}, state}
 
       true ->
-        {{:error, error_result(result, io, state)}, state}
+        {{:error, error_result(error_text(result), io, state, error_exception(result))}, state}
     end
   end
 
@@ -147,7 +147,11 @@ defmodule Pi.Eval.Evaluator do
 
       result
     catch
-      kind, reason -> {false, Exception.format(kind, reason, __STACKTRACE__), state}
+      kind, reason ->
+        stacktrace = __STACKTRACE__
+        text = Exception.format(kind, reason, stacktrace)
+
+        {false, %{text: text, exception: ExceptionInfo.payload(kind, reason, stacktrace)}, state}
     after
       Process.delete(@session_id_key)
       Process.delete(@binding_info_key)
@@ -192,12 +196,19 @@ defmodule Pi.Eval.Evaluator do
     }
   end
 
-  defp error_result(text, io, state) do
+  defp error_text(%{text: text}) when is_binary(text), do: text
+  defp error_text(text) when is_binary(text), do: text
+
+  defp error_exception(%{exception: exception}) when is_map(exception), do: exception
+  defp error_exception(_), do: nil
+
+  defp error_result(text, io, state, exception) do
     parts = [] |> maybe_io_part(io) |> Kernel.++([%OutputPart{format: :error, output: text}])
 
     %EvalPayload{
       io: io,
       error: text,
+      exception: exception,
       text: text,
       parts: parts,
       display: display(parts),

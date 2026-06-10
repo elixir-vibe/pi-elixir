@@ -134,6 +134,7 @@ export interface BridgeToolOpts {
     toolCallId: string
   ) => ToolArgs
   resultDetails?: (text: string, params: ToolArgs) => Record<string, unknown>
+  isErrorResult?: (text: string, params: ToolArgs) => boolean
   renderResult?: (
     result: AgentToolResult<unknown>,
     options: ToolRenderResultOptions,
@@ -243,9 +244,10 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       const { text: rawText, isError } = await tool.executeToolCall(bridgeParams, conn.url, signal)
       const extraDetails = tool.opts?.resultDetails?.(rawText, params) ?? {}
       const text = tool.opts?.transformResult ? tool.opts.transformResult(rawText) : rawText
+      const forcedError = tool.opts?.isErrorResult?.(rawText, params) ?? false
       return {
         content: [{ type: 'text' as const, text: truncated(text) }],
-        isError,
+        isError: isError || forcedError,
         details: { args: params, mcpName: tool.name, ...extraDetails }
       }
     },

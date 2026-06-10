@@ -72,6 +72,11 @@ function evalDetails(text: string) {
   return payload?.kind === 'eval' ? { eval: truncateEvalPayload(payload) } : {}
 }
 
+function evalIsError(text: string) {
+  const payload = parseEvalPayload(text)
+  return payload?.kind === 'eval' && typeof payload.error === 'string' && payload.error.length > 0
+}
+
 function evalText(text: string) {
   const payload = parseEvalPayload(text)
   return payload?.kind === 'eval' && typeof payload.text === 'string' ? payload.text : text
@@ -223,6 +228,7 @@ Output truncated to ${DEFAULT_MAX_LINES} lines / ${formatSize(DEFAULT_MAX_BYTES)
     renderEvalCall('iex'),
     {
       transformResult: evalText,
+      isErrorResult: evalIsError,
       prepareParams: prepareEvalParams,
       resultDetails: evalDetails,
       renderResult: renderElixirResult
