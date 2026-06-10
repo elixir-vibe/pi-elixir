@@ -314,6 +314,76 @@ function partHasSemanticHiddenOutput(part: OutputPart) {
   return comparableInspectText(output) !== comparableInspectText(preview)
 }
 
+interface TablePayload {
+  columns?: unknown[]
+  rows?: unknown[][]
+}
+
+interface TreeNode {
+  key?: unknown
+  value?: unknown
+}
+
+function parseJsonPart(part: OutputPart): unknown {
+  try {
+    return JSON.parse(part.output ?? '')
+  } catch {
+    return null
+  }
+}
+
+function tableCell(value: unknown) {
+  return typeof value === 'string' ? value : String(value ?? '')
+}
+
+function renderTablePart(part: OutputPart, theme: Theme): string[] | null {
+  const table = parseJsonPart(part) as TablePayload | null
+  const columns = table?.columns?.map(tableCell) ?? []
+  const rows = table?.rows?.map((row) => row.map(tableCell)) ?? []
+  if (columns.length === 0) return null
+
+  const visibleRows = rows.slice(0, 20)
+  const widths = columns.map((column, index) =>
+    Math.min(32, Math.max(column.length, ...visibleRows.map((row) => (row[index] ?? '').length)))
+  )
+
+  const renderRow = (row: string[]) =>
+    row
+      .map((cell, index) => truncateLine(cell, widths[index] ?? 12).padEnd(widths[index] ?? 12))
+      .join('  ')
+      .trimEnd()
+
+  const lines = [
+    theme.fg('muted', renderRow(columns)),
+    theme.fg('muted', widths.map((width) => '─'.repeat(width)).join('  ')),
+    ...visibleRows.map((row) => theme.fg('toolOutput', renderRow(row)))
+  ]
+  const more = hiddenLine(rows.length - visibleRows.length, theme)
+  if (more) lines.push(more)
+  return lines
+}
+
+function renderTreeValue(value: unknown, theme: Theme, indent = 0): string[] {
+  if (Array.isArray(value)) {
+    return value.flatMap((entry) => {
+      const node = entry as TreeNode
+      const key = tableCell(node.key)
+      const child = node.value
+      const prefix = `${'  '.repeat(indent)}${theme.fg('muted', key + ':')}`
+      if (Array.isArray(child)) return [prefix, ...renderTreeValue(child, theme, indent + 1)]
+      return [`${prefix} ${theme.fg('toolOutput', tableCell(child))}`]
+    })
+  }
+
+  return [`${'  '.repeat(indent)}${theme.fg('toolOutput', tableCell(value))}`]
+}
+
+function renderTreePart(part: OutputPart, theme: Theme): string[] | null {
+  const tree = parseJsonPart(part)
+  if (tree === null) return null
+  return renderTreeValue(tree, theme).slice(0, 40)
+}
+
 function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
   const visibleParts = parts.filter((part) => part.output)
   if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
@@ -335,7 +405,11 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
     if (index > 0) lines.push('')
     const output = stripFinalNewline(part.output ?? '')
     const format = part.format ?? 'text'
-    if (format === 'inspect' || format === 'source') {
+    if (format === 'table') {
+      lines.push(...(renderTablePart(part, theme) ?? [theme.fg('toolOutput', output)]))
+    } else if (format === 'tree') {
+      lines.push(...(renderTreePart(part, theme) ?? [theme.fg('toolOutput', output)]))
+    } else if (format === 'inspect' || format === 'source') {
       const code = codeLines(output, part.language ?? 'elixir', theme)
       if (index === 0) {
         const [first, ...rest] = code

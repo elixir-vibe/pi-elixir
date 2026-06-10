@@ -5,7 +5,7 @@ defmodule Pi.Protocol.Tool.OutputPart do
 
   defstruct [:format, output: "", language: nil, preview: nil, truncation: nil]
 
-  @type format :: :text | :inspect | :markdown | :source | :error | :diff
+  @type format :: :text | :inspect | :markdown | :source | :error | :diff | :table | :tree
   @type truncation :: :head | :tail | nil
 
   @type t :: %__MODULE__{
@@ -16,6 +16,9 @@ defmodule Pi.Protocol.Tool.OutputPart do
           truncation: truncation()
         }
 
-  codec(:format, atom: {:enum, [:text, :inspect, :markdown, :source, :error, :diff]})
+  codec(:format,
+    atom: {:enum, [:text, :inspect, :markdown, :source, :error, :diff, :table, :tree]}
+  )
+
   codec(:truncation, atom: {:enum, [:head, :tail]})
 end

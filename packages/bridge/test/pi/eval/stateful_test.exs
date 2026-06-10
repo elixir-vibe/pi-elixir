@@ -67,6 +67,19 @@ defmodule Pi.Eval.StatefulTest do
     assert File.regular?(restored_path)
   end
 
+  test "stateful eval renders structured output helpers", %{state_path: state_path} do
+    assert {:ok, payload} =
+             Eval.run_structured("Pi.table([%{path: \"lib/pi.ex\", bytes: 123}])",
+               session_id: "leaf",
+               state_path: state_path
+             )
+
+    assert payload.text == "[%{path: \"lib/pi.ex\", bytes: 123}]"
+
+    assert [%Pi.Protocol.Tool.OutputPart{format: :table, preview: "1 rows × 2 columns"}] =
+             payload.parts
+  end
+
   test "errors do not replace prior state", %{state_path: state_path} do
     assert {:ok, _payload} =
              Eval.run_structured("x = 1", session_id: "leaf", state_path: state_path)

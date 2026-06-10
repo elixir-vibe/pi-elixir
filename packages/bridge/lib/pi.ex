@@ -9,4 +9,16 @@ defmodule Pi do
 
   @doc "Clears embedded server logs."
   def clear_logs, do: Pi.LogCapture.clear_logs()
+
+  @doc "Renders rows as a pi-native table when returned from eval."
+  def table(rows, opts \\ []), do: Pi.Output.table(rows, opts)
+
+  @doc "Renders a nested value as a pi-native tree when returned from eval."
+  def tree(value, opts \\ []), do: Pi.Output.tree(value, opts)
+
+  @doc "Renders source code with syntax highlighting when returned from eval."
+  def code(source, language \\ :elixir, opts \\ []), do: Pi.Output.code(source, language, opts)
+
+  @doc "Renders plain text when returned from eval."
+  def text(text, opts \\ []), do: Pi.Output.text(text, opts)
 end

@@ -39,11 +39,36 @@ raise "boom"|)
   test "structured eval includes compact inspect previews" do
     assert {:ok, payload} = Eval.run_structured("%{bridge: \"0.6.0\", app: :pi_bridge}")
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :inspect, output: output, preview: preview}] =
+    assert [%Pi.Protocol.Tool.OutputPart{format: :tree, output: output, preview: preview}] =
              payload.parts
 
-    assert output =~ "bridge: \"0.6.0\""
-    assert preview == "%{bridge: \"0.6.0\", app: :pi_bridge}"
-    refute preview =~ "\n"
+    assert output =~ "bridge"
+    assert preview == "map with 2 keys"
+  end
+
+  test "structured eval renders list of maps as a table part" do
+    assert {:ok, payload} = Eval.run_structured("[%{path: \"lib/pi.ex\", bytes: 123}]")
+
+    assert [%Pi.Protocol.Tool.OutputPart{format: :table, output: output, preview: preview}] =
+             payload.parts
+
+    assert preview == "1 rows × 2 columns"
+    assert %{"columns" => columns, "rows" => [["123", "lib/pi.ex"]]} = Jason.decode!(output)
+    assert columns == ["bytes", "path"]
+  end
+
+  test "structured eval accepts explicit output helpers" do
+    assert {:ok, payload} = Eval.run_structured("Pi.code(\"IO.puts(:ok)\")")
+
+    assert [
+             %Pi.Protocol.Tool.OutputPart{
+               format: :source,
+               output: "IO.puts(:ok)",
+               language: "elixir"
+             }
+           ] =
+             payload.parts
+
+    assert payload.text == "IO.puts(:ok)"
   end
 end

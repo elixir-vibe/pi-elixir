@@ -5,6 +5,7 @@ defmodule Pi.Eval.Evaluator do
 
   alias Pi.Bridge.Info
   alias Pi.Eval.{ExceptionInfo, Snapshot}
+  alias Pi.Output
   alias Pi.Protocol.Tool.Eval, as: EvalPayload
   alias Pi.Protocol.Tool.OutputPart
   alias Pi.Protocol.UI.Block
@@ -173,17 +174,22 @@ defmodule Pi.Eval.Evaluator do
   end
 
   defp structured_result(result, io, state, persist_meta) do
-    inspected = inspect(result, @inspect_opts)
+    explicit_text = Output.text_for(result)
+    inspected = explicit_text || inspect(result, @inspect_opts)
     preview = inspect(result, @preview_inspect_opts)
+
+    value_parts =
+      Output.parts_for(result) ||
+        [%OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}]
 
     parts =
       []
       |> maybe_io_part(io)
-      |> Kernel.++([
-        %OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}
-      ])
+      |> Kernel.++(value_parts)
 
-    text = if io == "", do: inspected, else: "IO:\n\n#{io}\n\nResult:\n\n#{inspected}"
+    text =
+      explicit_text ||
+        if(io == "", do: inspected, else: "IO:\n\n#{io}\n\nResult:\n\n#{inspected}")
 
     %EvalPayload{
       io: io,

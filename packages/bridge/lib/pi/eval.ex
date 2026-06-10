@@ -3,6 +3,7 @@ defmodule Pi.Eval do
 
   alias Pi.Bridge.Info
   alias Pi.Eval.{Evaluator, ExceptionInfo, Sandbox, Supervisor}
+  alias Pi.Output
   alias Pi.Protocol.Tool.Eval, as: EvalPayload
   alias Pi.Protocol.Tool.OutputPart
   alias Pi.Protocol.UI.Block
@@ -180,18 +181,29 @@ defmodule Pi.Eval do
   end
 
   defp structured_eval_result(result, true, io, {:ok, text}) do
-    inspected = inspect(result, @inspect_opts)
+    explicit_text = Output.text_for(result)
+    inspected = explicit_text || inspect(result, @inspect_opts)
     preview = inspect(result, @preview_inspect_opts)
+
+    value_parts =
+      Output.parts_for(result) ||
+        [
+          %OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}
+        ]
 
     parts =
       []
       |> maybe_io_part(io)
-      |> Kernel.++([
-        %OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}
-      ])
+      |> Kernel.++(value_parts)
 
     {:ok,
-     %EvalPayload{io: io, result: inspected, text: text, parts: parts, display: display(parts)}}
+     %EvalPayload{
+       io: io,
+       result: inspected,
+       text: explicit_text || text,
+       parts: parts,
+       display: display(parts)
+     }}
   end
 
   defp structured_eval_result(result, false, io, {:error, text}) do

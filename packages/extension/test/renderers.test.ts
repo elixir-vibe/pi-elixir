@@ -166,4 +166,49 @@ describe('elixir result rendering', () => {
     expect(compact).toContain('[1, 2, 3, 4, 5, ...]')
     expect(compact).toContain('to expand')
   })
+
+  it('renders structured table parts when expanded', () => {
+    const result = evalResult({
+      parts: [
+        {
+          format: 'table',
+          output: JSON.stringify({
+            columns: ['bytes', 'path'],
+            rows: [
+              ['123', 'lib/pi.ex'],
+              ['456', 'lib/pi/eval.ex']
+            ]
+          }),
+          preview: '2 rows × 2 columns'
+        }
+      ]
+    })
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+    const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
+
+    expect(compact).toBe('\n2 rows × 2 columns (ctrl+o to expand)')
+    expect(expanded).toContain('bytes  path')
+    expect(expanded).toContain('123    lib/pi.ex')
+  })
+
+  it('renders structured tree parts when expanded', () => {
+    const result = evalResult({
+      parts: [
+        {
+          format: 'tree',
+          output: JSON.stringify([
+            { key: ':app', value: ':pi_bridge' },
+            { key: ':versions', value: [{ key: ':bridge', value: '0.6.3' }] }
+          ]),
+          preview: 'map with 2 keys'
+        }
+      ]
+    })
+
+    const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
+
+    expect(expanded).toContain(':app: :pi_bridge')
+    expect(expanded).toContain('  :bridge: 0.6.3')
+  })
 })
