@@ -3,7 +3,6 @@ defmodule Pi.Transport.Stdio do
 
   require Pi.Features
 
-  alias Pi.Agent.Registry, as: AgentRegistry
   alias Pi.Bridge.Info
   alias Pi.Integrations
   alias Pi.LLM.Broker
@@ -47,7 +46,6 @@ defmodule Pi.Transport.Stdio do
     Event.install()
     if Pi.Features.plugins?(), do: Manager.install()
     Broker.install()
-    AgentRegistry.install()
     Pi.Eval.Supervisor.install()
     ready()
     emit_integration_statuses()

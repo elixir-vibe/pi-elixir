@@ -146,7 +146,7 @@ Snapshots carry structured fields such as prompt/response previews, current acti
 
 > **Feature flag:** `PI_ELIXIR_SESSIONS=0` disables session snapshot/control affordances.
 
-Use `Pi.Agent` for convenience orchestration over those sessions:
+Use `Pi.Agent` for convenience orchestration over those sessions. Agent helpers use canonical `%Pi.Session.State{}` values and runtime `Pi.Session` workers; there is no separate agent session registry:
 
 ```elixir
 {:ok, result} = Pi.Agent.run("Review this change", name: :reviewer)

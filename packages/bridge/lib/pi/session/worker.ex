@@ -367,6 +367,8 @@ defmodule Pi.Session.Worker do
   end
 
   defp to_snapshot(%State{} = state) do
+    Code.ensure_loaded?(Snapshot)
+
     %Snapshot{
       id: state.id,
       parent_id: state.parent_id,

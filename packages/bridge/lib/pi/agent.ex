@@ -1,16 +1,15 @@
 defmodule Pi.Agent do
   @moduledoc "Unified BEAM abstraction for top-level agents and child agents."
 
-  alias Pi.Agent.Registry
   alias Pi.Agent.Result
   alias Pi.Agent.Run
-  alias Pi.Agent.Session
   alias Pi.Agent.Step
   alias Pi.Protocol.LLM.Message
   alias Pi.Session, as: RuntimeSession
+  alias Pi.Session.State
 
   def run(prompt_or_opts, opts \\ []) do
-    session = prompt_or_opts |> session(opts) |> Registry.put()
+    session = session(prompt_or_opts, opts)
 
     with {:ok, runtime} <- start_runtime_session(session, opts) do
       complete_runtime(runtime, session, opts)
@@ -62,15 +61,19 @@ defmodule Pi.Agent do
     end
   end
 
-  def child(%Session{} = parent, opts \\ []) do
-    parent
-    |> Session.child(opts)
-    |> Registry.put()
+  def child(%State{} = parent, opts \\ []), do: State.child(parent, opts)
+
+  def sessions, do: RuntimeSession.list()
+
+  def children(%State{id: id}), do: children(id)
+
+  def children(parent_id) when is_binary(parent_id) do
+    RuntimeSession.list()
+    |> Enum.filter(&(&1.parent_id == parent_id))
   end
 
-  def sessions, do: Registry.sessions()
-  def children(parent), do: Registry.children(parent)
-  def history(agent), do: Registry.history(agent)
+  def history(%State{id: id, messages: fallback}), do: history(id, fallback)
+  def history(session_id) when is_binary(session_id), do: history(session_id, [])
 
   def session(prompt_or_opts, opts \\ [])
 
@@ -79,16 +82,16 @@ defmodule Pi.Agent do
   def session(prompt, opts) when is_binary(prompt) do
     opts
     |> Keyword.put(:messages, [%Message{role: :user, content: prompt}])
-    |> Session.new()
+    |> State.new()
   end
 
   def session(opts, extra_opts) when is_list(opts) do
     opts
     |> Keyword.merge(extra_opts)
-    |> Session.new()
+    |> State.new()
   end
 
-  def session(%Session{} = session, _opts), do: session
+  def session(%State{} = session, _opts), do: session
 
   defp child_opts(run, opts, index) do
     opts = Keyword.delete(opts, :name)
@@ -113,25 +116,21 @@ defmodule Pi.Agent do
   defp child_name(_run, index), do: "child #{index}"
 
   defp run_child(parent, prompt_or_opts, opts) do
-    session = prompt_or_opts |> session(opts) |> Registry.put()
+    session = session(prompt_or_opts, opts)
 
     with {:ok, runtime} <- start_runtime_child(parent, session, opts) do
       complete_runtime(runtime, session, opts)
     end
   end
 
-  defp complete_runtime(runtime, %Session{} = session, opts) do
+  defp complete_runtime(runtime, %State{} = session, opts) do
     case RuntimeSession.complete(runtime, Keyword.put(opts, :agent, session.id)) do
-      {:ok, result} ->
-        Registry.append(session.id, %Message{role: :assistant, content: result})
-        {:ok, Result.ok(session, result)}
-
-      {:error, reason} ->
-        {:error, Result.error(session, reason)}
+      {:ok, result} -> {:ok, Result.ok(session, result)}
+      {:error, reason} -> {:error, Result.error(session, reason)}
     end
   end
 
-  defp start_runtime_session(%Session{} = session, opts) do
+  defp start_runtime_session(%State{} = session, opts) do
     RuntimeSession.start(
       id: session.id,
       parent_id: session.parent_id,
@@ -142,7 +141,7 @@ defmodule Pi.Agent do
     )
   end
 
-  defp start_runtime_child(parent, %Session{} = session, opts) do
+  defp start_runtime_child(parent, %State{} = session, opts) do
     RuntimeSession.child(parent,
       id: session.id,
       name: session.name,
@@ -150,6 +149,13 @@ defmodule Pi.Agent do
       messages: session.messages,
       metadata: Map.merge(session.metadata, Map.new(Keyword.get(opts, :metadata, %{})))
     )
+  end
+
+  defp history(session_id, fallback) do
+    case RuntimeSession.lookup(session_id) do
+      {:ok, pid} -> RuntimeSession.state(pid).messages
+      {:error, :not_found} -> fallback
+    end
   end
 
   defp reduce_chain([], _opts, _previous, results), do: {:ok, results}

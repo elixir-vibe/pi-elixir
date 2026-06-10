@@ -2,9 +2,7 @@ defmodule Pi.AgentTest do
   use ExUnit.Case, async: false
 
   alias Pi.Agent
-  alias Pi.Agent.Registry
   alias Pi.Agent.Run
-  alias Pi.Agent.Session
   alias Pi.LLM.Broker
   alias Pi.Protocol.LLM.Message
   alias Pi.Protocol.Response
@@ -12,7 +10,6 @@ defmodule Pi.AgentTest do
   alias Pi.Session.Supervisor, as: SessionSupervisor
 
   setup do
-    if pid = Process.whereis(Registry), do: GenServer.stop(pid)
     if pid = Process.whereis(Broker), do: GenServer.stop(pid)
     if pid = Process.whereis(SessionSupervisor), do: GenServer.stop(pid)
     :persistent_term.put({Pi.Transport.Stdio, :pid}, self())
@@ -23,7 +20,7 @@ defmodule Pi.AgentTest do
   test "creates top-level sessions from prompts" do
     session = Agent.session("review this", name: :reviewer)
 
-    assert %Session{name: :reviewer, parent_id: nil} = session
+    assert %Pi.Session.State{name: :reviewer, parent_id: nil} = session
     assert [%Message{role: :user, content: "review this"}] = session.messages
   end
 
@@ -33,7 +30,8 @@ defmodule Pi.AgentTest do
 
     assert child.parent_id == parent.id
     assert child.name == :reviewer
-    assert Agent.children(parent) == [child]
+    assert Agent.history(parent) == [%Message{role: :user, content: "plan"}]
+    assert Agent.children(parent) == []
   end
 
   test "chains agent runs into a structured orchestration result" do
@@ -72,15 +70,18 @@ defmodule Pi.AgentTest do
     assert Enum.map(children, & &1.name) |> Enum.sort() == ["docs", "tests"]
   end
 
-  test "tracks session history" do
-    session = Agent.session("review this", name: :reviewer) |> Registry.put()
+  test "lists runtime sessions and reads canonical runtime history" do
+    task = Task.async(fn -> Agent.run("review this", name: :reviewer) end)
 
-    assert Agent.sessions() == [session]
-    assert Agent.history(session) == [%Message{role: :user, content: "review this"}]
+    request = receive_request(:llm_complete)
+    Broker.deliver(request.id, %Response{ok: true, result: "done"})
 
-    Registry.append(session.id, %Message{role: :assistant, content: "done"})
+    assert {:ok, result} = Task.await(task)
+    assert result.session.name == :reviewer
 
-    assert Agent.history(session) == [
+    assert [%Pi.Session.State{name: :reviewer} = runtime] = Agent.sessions()
+
+    assert Agent.history(runtime) == [
              %Message{role: :user, content: "review this"},
              %Message{role: :assistant, content: "done"}
            ]

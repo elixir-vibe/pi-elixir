@@ -1,8 +1,8 @@
 defmodule Pi.Agent.Step do
   @moduledoc "Declarative Pi agent orchestration step."
 
-  alias Pi.Agent.Session
   alias Pi.Protocol.LLM.Message
+  alias Pi.Session.State
 
   defstruct [:name, :system, :prompt, :messages, :parent_id, metadata: %{}]
 
@@ -18,7 +18,7 @@ defmodule Pi.Agent.Step do
   def from(%__MODULE__{} = step), do: step
   def from(prompt) when is_binary(prompt), do: %__MODULE__{prompt: prompt}
 
-  def from(%Session{} = session),
+  def from(%State{} = session),
     do: %__MODULE__{
       name: session.name,
       system: session.system,
