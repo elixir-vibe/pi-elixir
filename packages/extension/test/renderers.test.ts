@@ -359,7 +359,12 @@ describe('elixir result rendering', () => {
 
     expect(compact).toContain('Web fetch · 200 OK · text/html · 559 B')
     expect(compact).toContain('https://example.com')
+    const compactLines = linesOf(
+      renderElixirResult(result, { expanded: false, isPartial: false }, theme)
+    )
+    expect(compactLines).toHaveLength(6)
     expect(compact).toContain('→ Example Domain')
+    expect(compact).not.toContain('Example Domain Example Domain')
     expect(compact).toContain(
       'This domain is for use in documentation examples without needing permission.'
     )

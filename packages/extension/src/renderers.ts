@@ -671,43 +671,39 @@ function webFetchUrlLines(part: OutputPart) {
   return [url]
 }
 
-function webFetchFooter(part: OutputPart, theme: Theme) {
+function webFetchFooterText(part: OutputPart) {
   const chars = numberMetadata(part.data?.total_chars ?? part.data?.totalChars)
   const truncated = booleanMetadata(part.data?.truncated) === true
-  return (
-    theme.fg(
-      'muted',
-      `${chars ?? visibleWidth(part.body ?? '')} chars · ${truncated ? 'truncated' : 'not truncated'}`
-    ) +
-    theme.fg('muted', ' · ') +
-    expandHint(theme)
-  )
+  return `${chars ?? visibleWidth(part.body ?? '')} chars · ${truncated ? 'truncated' : 'not truncated'}`
+}
+
+function compactWebBodyLines(part: OutputPart, title: string | undefined) {
+  const lines = stripFinalNewline(part.body ?? '')
+    .split('\n')
+    .map((line) => line.trim())
+    .filter(Boolean)
+
+  const bodyLines = title
+    ? lines.filter((line) => line !== title && line !== `${title} ${title}`)
+    : lines
+
+  return bodyLines.slice(0, 1)
 }
 
 function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
   return {
     render: (width) => {
-      const bodyLines = stripFinalNewline(part.body ?? '')
-        .split('\n')
-        .map((line) => line.trim())
-        .filter(Boolean)
-      const shownBody = bodyLines.slice(0, 4)
-      const hidden = bodyLines.length - shownBody.length
       const title = stringMetadata(part.data?.title)
-      const more = hiddenLine(hidden, theme)
+      const shownBody = compactWebBodyLines(part, title)
       return [
         '',
         theme.fg('muted', truncateLine(webFetchMetaLine(part), width)),
         ...webFetchUrlLines(part).map((line) => theme.fg('muted', truncateLine(line, width))),
         ...(title
-          ? ['', theme.fg('muted', '→ ') + theme.fg('toolOutput', truncateLine(title, width - 2))]
+          ? [theme.fg('muted', '→ ') + theme.fg('toolOutput', truncateLine(title, width - 2))]
           : []),
-        ...(shownBody.length > 0
-          ? ['', ...shownBody.map((line) => theme.fg('toolOutput', truncateLine(line, width)))]
-          : []),
-        ...(more ? [more] : []),
-        '',
-        webFetchFooter(part, theme)
+        ...shownBody.map((line) => theme.fg('toolOutput', truncateLine(line, width))),
+        theme.fg('muted', webFetchFooterText(part)) + theme.fg('muted', ' · ') + expandHint(theme)
       ]
     },
     invalidate: () => undefined
