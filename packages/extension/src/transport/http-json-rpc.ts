@@ -74,7 +74,7 @@ export async function callHttpTool(
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)
     return {
-      text: `Could not reach BEAM at ${url} (${msg}). Is the Phoenix server running?`,
+      text: `Could not reach BEAM MCP endpoint at ${url} (${msg}). Start the configured external MCP server, or unset PI_MCP_URL to let pi-elixir use its embedded bridge.`,
       isError: true
     }
   }

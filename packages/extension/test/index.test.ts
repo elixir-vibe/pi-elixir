@@ -223,6 +223,31 @@ describe('extension status lifecycle', () => {
     expect(result.content[0].text).toBe(message)
   })
 
+  it('returns project-neutral no-connection guidance', async () => {
+    const projectA = makeProject('project-a')
+    vi.mocked(resolveUrl).mockResolvedValue(null)
+    vi.mocked(getConnectionKind).mockReturnValue('unavailable')
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    const result = await tool.execute(
+      'tool-1',
+      { code: 'Pi.project()' },
+      undefined,
+      undefined,
+      fakeCtx(projectA)
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('No pi_bridge connection')
+    expect(result.content[0].text).toContain('embedded BEAM')
+    expect(result.content[0].text).toContain('Only start `mix phx.server`')
+  })
+
   it('renders compact BEAM session widget from session snapshots', async () => {
     const projectA = makeProject('project-a')
     let busListener: ((cwd: string, event: any) => void) | undefined

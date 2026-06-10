@@ -176,7 +176,7 @@ function noConnectionError() {
     content: [
       {
         type: 'text' as const,
-        text: 'No BEAM connection for this project. Start the Phoenix server with `mix phx.server` or ensure mix.exs exists and the project compiles.'
+        text: 'No pi_bridge connection for this Mix project. pi-elixir normally starts an embedded BEAM automatically after the dev-only pi_bridge dependency is installed. If you just added deps, wait for compilation or run `mix deps.get && mix compile`, then try again. Only start `mix phx.server` if you intentionally use an external Phoenix/MCP server.'
       }
     ],
     isError: true,
