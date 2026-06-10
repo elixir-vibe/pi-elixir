@@ -281,15 +281,15 @@ defmodule Pi.Mirror.QuackDB do
     total = length(files)
     started_at = System.monotonic_time(:millisecond)
 
-    UI.set_progress(@sync_progress_key, title: "QuackDB sync", current: 0, total: total)
-    UI.set_status(@sync_progress_key, "QuackDB sync starting · #{total} files")
+    UI.set_progress(@sync_progress_key, title: "🦆 sync", current: 0, total: total)
+    UI.set_status(@sync_progress_key, "🦆 sync starting · #{total} files")
 
     {entries, failed} =
       files
       |> Enum.with_index(1)
       |> Enum.reduce({0, 0}, fn {file, index}, {entries, failed} ->
         UI.set_progress(@sync_progress_key,
-          title: "QuackDB sync #{Path.basename(file)}",
+          title: "🦆 sync #{session_file_label(file)}",
           current: index,
           total: total
         )
@@ -300,7 +300,7 @@ defmodule Pi.Mirror.QuackDB do
 
             UI.set_status(
               @sync_progress_key,
-              "QuackDB sync · #{index}/#{total} files · #{synced} rows"
+              "🦆 sync · #{index}/#{total} files · #{synced} rows"
             )
 
             {synced, failed}
@@ -308,7 +308,7 @@ defmodule Pi.Mirror.QuackDB do
           {:error, _reason} ->
             UI.set_status(
               @sync_progress_key,
-              "QuackDB sync · #{index}/#{total} files · #{failed + 1} failed"
+              "🦆 sync · #{index}/#{total} files · #{failed + 1} failed"
             )
 
             {entries, failed + 1}
@@ -320,14 +320,14 @@ defmodule Pi.Mirror.QuackDB do
     rows_per_second = div(entries * 1_000, elapsed)
 
     message =
-      "QuackDB mirror synced #{entries} entries from #{ok_files}/#{total} files · #{rows_per_second} rows/s"
+      "🦆 synced #{entries} entries from #{ok_files}/#{total} files · #{rows_per_second} rows/s"
 
     UI.set_status(@sync_progress_key, message)
     {{:ok, message}, state}
   rescue
     exception in [File.Error, RuntimeError, QuackDB.Error, DBConnection.ConnectionError] ->
       message = Exception.message(exception)
-      UI.set_status(@sync_progress_key, "QuackDB sync failed · #{message}")
+      UI.set_status(@sync_progress_key, "🦆 sync failed · #{message}")
       {{:error, message}, state}
   end
 
@@ -388,6 +388,13 @@ defmodule Pi.Mirror.QuackDB do
     |> Path.join("**/*.jsonl")
     |> Path.wildcard()
     |> Enum.filter(&File.regular?/1)
+  end
+
+  defp session_file_label(file) do
+    file
+    |> Path.basename(".jsonl")
+    |> String.split("_", parts: 2)
+    |> List.last()
   end
 
   defp delete_session_entries(%{conn: conn}, session_file) do
