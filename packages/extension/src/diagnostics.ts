@@ -142,6 +142,12 @@ export function startEventLoopLagMonitor(): void {
   monitorStarted = true
   lastTick = Date.now()
 
+  if (DEBUG_ENABLED) {
+    void writeDiagnosticDump('debug_startup', { debug: DEBUG_ENV }).catch(() => {
+      // Diagnostics must never make extension failures worse.
+    })
+  }
+
   setInterval(() => {
     const now = Date.now()
     const lagMs = now - lastTick - SAMPLE_INTERVAL_MS
