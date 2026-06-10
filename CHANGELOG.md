@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.5 - 2026-06-10
+
+### Added
+
+- Eval self-introspection facade via `Pi.Self` / preloaded `Self` with bridge status, eval bindings, QuackDB mirror status, active sessions, plugin/skill inventory, and session-history recall helpers.
+- `Pi.Quack.status/0` for compact QuackDB mirror counts and database metadata.
+- Documentation and skill prompts for `Self.status/0`, `Self.quack/0`, `Self.bindings/0`, `Self.sessions/0`, and `Self.context/2`.
+
 ## 0.6.4 - 2026-06-10
 
 ### Added
