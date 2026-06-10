@@ -91,6 +91,7 @@ describe('extension registration', () => {
   })
 
   afterEach(() => {
+    delete process.env.PI_MCP_URL
     fs.rmSync(tempRoot, { recursive: true, force: true })
   })
 
@@ -242,6 +243,39 @@ describe('extension status lifecycle', () => {
 
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toBe(message)
+  })
+
+  it('uses explicit PI_MCP_URL even when session cwd is not a Mix project', async () => {
+    const workspace = makeProject('workspace', false)
+    process.env.PI_MCP_URL = 'http://127.0.0.1:4041/mcp'
+    vi.mocked(resolveUrl).mockResolvedValue({ url: process.env.PI_MCP_URL, kind: 'external' })
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({ kind: 'eval', text: 'ok' }),
+      isError: false
+    })
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    const result = await tool.execute(
+      'tool-1',
+      { code: 'File.cwd!()' },
+      undefined,
+      undefined,
+      fakeCtx(workspace)
+    )
+
+    expect(result.isError).toBe(false)
+    expect(resolveUrl).toHaveBeenCalledWith(workspace, expect.any(Object))
+    expect(callTool).toHaveBeenCalledWith(
+      'http://127.0.0.1:4041/mcp',
+      'project_eval_structured',
+      expect.objectContaining({ code: 'File.cwd!()' }),
+      undefined
+    )
   })
 
   it('returns project-neutral no-connection guidance', async () => {

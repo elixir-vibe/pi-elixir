@@ -222,6 +222,11 @@ interface BeamToolRegistration {
   opts?: BridgeToolOpts
 }
 
+function resolveBeamToolCwd(cwd: string): string | null {
+  if (process.env.PI_MCP_URL) return cwd
+  return resolveMixProjectCwd(cwd)
+}
+
 function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
   pi.registerTool({
     name: tool.name,
@@ -229,7 +234,7 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
     description: tool.description,
     parameters: tool.parameters,
     async execute(_id, params, signal, _onUpdate, ctx) {
-      const beamCwd = resolveMixProjectCwd(ctx.cwd)
+      const beamCwd = resolveBeamToolCwd(ctx.cwd)
       if (!beamCwd) return connectionError(ctx.cwd)
 
       const conn = await resolveUrl(beamCwd, {
