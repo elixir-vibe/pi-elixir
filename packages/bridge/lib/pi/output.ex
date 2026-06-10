@@ -17,18 +17,16 @@ defmodule Pi.Output do
 
     %__MODULE__{
       parts: [
-        %OutputPart{
-          format: :table,
-          output:
-            encode_output_payload(%{
-              columns: columns,
-              rows: row_values,
-              total_rows: length(row_values),
-              column_types: types,
-              alignments: alignments
-            }),
-          preview: preview
-        }
+        OutputPart.table(
+          encode_output_payload(%{
+            columns: columns,
+            rows: row_values,
+            total_rows: length(row_values),
+            column_types: types,
+            alignments: alignments
+          }),
+          title: preview
+        )
       ],
       text: inspect(rows, inspect_opts())
     }
@@ -40,12 +38,11 @@ defmodule Pi.Output do
 
     %__MODULE__{
       parts: [
-        %OutputPart{
-          format: :tree,
-          output: encode_output_payload(tree_value(value, 0, Keyword.get(opts, :depth, 4))),
-          preview: preview,
-          metadata: %{inspect_preview: inspect(value, compact_inspect_opts(opts))}
-        }
+        OutputPart.tree(
+          encode_output_payload(tree_value(value, 0, Keyword.get(opts, :depth, 4))),
+          title: preview,
+          data: %{inspect_preview: inspect(value, compact_inspect_opts(opts))}
+        )
       ],
       text: inspect(value, inspect_opts())
     }
@@ -55,13 +52,11 @@ defmodule Pi.Output do
   def code(source, language \\ :elixir, opts \\ []) when is_binary(source) do
     %__MODULE__{
       parts: [
-        %OutputPart{
-          format: :source,
-          output: source,
-          language: to_string(language),
-          preview: Keyword.get(opts, :preview) || first_line(source),
-          metadata: Keyword.get(opts, :metadata, %{})
-        }
+        OutputPart.code(source,
+          language: language,
+          title: Keyword.get(opts, :title) || Keyword.get(opts, :preview) || first_line(source),
+          data: Keyword.get(opts, :data) || Keyword.get(opts, :metadata, %{})
+        )
       ],
       text: source
     }
@@ -70,7 +65,9 @@ defmodule Pi.Output do
   @doc "Wraps plain text output."
   def text(text, opts \\ []) when is_binary(text) do
     %__MODULE__{
-      parts: [%OutputPart{format: :text, output: text, preview: Keyword.get(opts, :preview)}],
+      parts: [
+        OutputPart.text(text, title: Keyword.get(opts, :title) || Keyword.get(opts, :preview))
+      ],
       text: text
     }
   end

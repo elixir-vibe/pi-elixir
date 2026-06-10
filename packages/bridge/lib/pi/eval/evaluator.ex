@@ -160,7 +160,7 @@ defmodule Pi.Eval.Evaluator do
   end
 
   defp structured_result(:"do not show this result in output", io, state, persist_meta) do
-    parts = if io == "", do: [], else: [%OutputPart{format: :text, output: io}]
+    parts = if io == "", do: [], else: [OutputPart.text(io)]
 
     %EvalPayload{
       io: io,
@@ -180,7 +180,7 @@ defmodule Pi.Eval.Evaluator do
 
     value_parts =
       Output.parts_for(result) ||
-        [%OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}]
+        [OutputPart.inspect(inspected, language: :elixir, title: preview)]
 
     parts =
       []
@@ -209,7 +209,7 @@ defmodule Pi.Eval.Evaluator do
   defp error_exception(_), do: nil
 
   defp error_result(text, io, state, exception) do
-    parts = [] |> maybe_io_part(io) |> Kernel.++([%OutputPart{format: :error, output: text}])
+    parts = [] |> maybe_io_part(io) |> Kernel.++([OutputPart.error(text)])
 
     %EvalPayload{
       io: io,
@@ -224,12 +224,15 @@ defmodule Pi.Eval.Evaluator do
   end
 
   defp maybe_io_part(parts, ""), do: parts
-  defp maybe_io_part(parts, io), do: parts ++ [%OutputPart{format: :text, output: io}]
+  defp maybe_io_part(parts, io), do: parts ++ [OutputPart.text(io)]
   defp display(parts), do: %Display{blocks: Enum.map(parts, &part_block/1)}
 
   defp part_block(%OutputPart{} = part) do
-    struct(Block, type: part.format, text: part.output, language: part.language)
+    struct(Block, type: block_type(part.kind), text: part.body, language: part.language)
   end
+
+  defp block_type(:code), do: :source
+  defp block_type(kind), do: kind
 
   defp eval_state_meta(state, persist_meta) do
     %{

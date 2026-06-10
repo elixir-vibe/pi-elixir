@@ -6,6 +6,7 @@ defmodule Pi.MCP.Tools do
   alias Pi.Protocol.Tool.AST.ReplaceRequest
   alias Pi.Protocol.Tool.AST.SearchRequest
   alias Pi.Protocol.Tool.EvalRequest
+  alias Pi.Protocol.Tool.OutputPart
 
   def dispatch("project_eval", %{"mode" => "sandbox"} = args), do: eval(args, structured?: false)
   def dispatch("project_eval", args), do: eval(args, structured?: false)
@@ -137,9 +138,7 @@ defmodule Pi.MCP.Tools do
     parts =
       []
       |> maybe_sandbox_io_part(stdio)
-      |> Kernel.++([
-        %Pi.Protocol.Tool.OutputPart{format: :inspect, output: inspected, language: "elixir"}
-      ])
+      |> Kernel.++([OutputPart.inspect(inspected, language: :elixir)])
 
     {:ok,
      %Pi.Protocol.Tool.Eval{
@@ -157,16 +156,19 @@ defmodule Pi.MCP.Tools do
   defp maybe_sandbox_io_part(parts, ""), do: parts
 
   defp maybe_sandbox_io_part(parts, stdio) do
-    parts ++ [%Pi.Protocol.Tool.OutputPart{format: :text, output: stdio}]
+    parts ++ [OutputPart.text(stdio)]
   end
 
-  defp sandbox_part_block(%Pi.Protocol.Tool.OutputPart{
-         format: format,
-         output: output,
+  defp sandbox_part_block(%OutputPart{
+         kind: kind,
+         body: body,
          language: language
        }) do
-    %Pi.Protocol.UI.Block{type: format, text: output, language: language}
+    %Pi.Protocol.UI.Block{type: block_type(kind), text: body, language: language}
   end
+
+  defp block_type(:code), do: :source
+  defp block_type(kind), do: kind
 
   defp sandbox_text("", inspected), do: inspected
   defp sandbox_text(stdio, inspected), do: "IO:\n\n#{stdio}\n\nResult:\n\n#{inspected}"

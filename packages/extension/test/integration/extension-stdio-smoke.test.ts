@@ -33,7 +33,7 @@ function structuredPayload(result: { text: string }) {
   return JSON.parse(result.text) as {
     kind?: string
     text?: string
-    parts?: Array<{ format?: string; output?: string; preview?: string }>
+    parts?: Array<{ kind?: string; body?: string; title?: string }>
   }
 }
 
@@ -119,8 +119,8 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
       const payload = structuredPayload(result)
       expect(payload.text).toContain('app: :pi_demo_project')
       expect(payload.text).toContain('restart_hint')
-      expect(payload.parts?.[0]?.format).toBe('tree')
-      expect(payload.parts?.[0]?.preview).toContain('map with')
+      expect(payload.parts?.[0]?.kind).toBe('tree')
+      expect(payload.parts?.[0]?.title).toContain('map with')
     })
 
     it('compiles the fixture project through Dev.compile', async () => {
@@ -141,10 +141,10 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
 
       expect(result.isError).toBe(false)
       const payload = structuredPayload(result)
-      const table = payload.parts?.find((part) => part.format === 'table')
-      expect(table?.preview).toMatch(/\d+ rows × 2 columns/u)
-      expect(table?.output).toContain('path')
-      expect(table?.output).toContain('bytes')
+      const table = payload.parts?.find((part) => part.kind === 'table')
+      expect(table?.title).toMatch(/\d+ rows × 2 columns/u)
+      expect(table?.body).toContain('path')
+      expect(table?.body).toContain('bytes')
     })
 
     it('routes Pi.LLM.stream through extension chunk/done messages', async () => {

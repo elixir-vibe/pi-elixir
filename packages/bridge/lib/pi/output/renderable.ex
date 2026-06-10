@@ -62,39 +62,28 @@ defimpl Pi.Output.Renderable, for: Pi.Web.Result do
     part =
       case result.format do
         :json ->
-          %Pi.Protocol.Tool.OutputPart{
-            format: :source,
-            output: result.text,
-            language: "json",
-            preview: preview,
-            metadata: metadata(result)
-          }
+          Pi.Protocol.Tool.OutputPart.code(result.text,
+            language: :json,
+            title: preview,
+            data: metadata(result)
+          )
 
         :html ->
-          %Pi.Protocol.Tool.OutputPart{
-            format: :source,
-            output: result.text,
-            language: "html",
-            preview: preview,
-            metadata: metadata(result)
-          }
+          Pi.Protocol.Tool.OutputPart.code(result.text,
+            language: :html,
+            title: preview,
+            data: metadata(result)
+          )
 
         :markdown ->
-          %Pi.Protocol.Tool.OutputPart{
-            format: :markdown,
-            output: result.text,
-            language: "markdown",
-            preview: preview,
-            metadata: metadata(result)
-          }
+          Pi.Protocol.Tool.OutputPart.markdown(result.text,
+            language: :markdown,
+            title: preview,
+            data: metadata(result)
+          )
 
         _text ->
-          %Pi.Protocol.Tool.OutputPart{
-            format: :text,
-            output: result.text,
-            preview: preview,
-            metadata: metadata(result)
-          }
+          Pi.Protocol.Tool.OutputPart.text(result.text, title: preview, data: metadata(result))
       end
 
     %Pi.Output{parts: [part], text: result.text}
@@ -126,9 +115,9 @@ end
 defimpl Pi.Output.Renderable, for: Pi.Docs.Source do
   def to_output(source, opts) do
     Pi.Output.code(source.text, Keyword.get(opts, :language, :elixir),
-      preview: Keyword.get(opts, :preview, source.subject),
-      metadata: %{
-        source: source.source,
+      title: Keyword.get(opts, :title) || Keyword.get(opts, :preview, source.subject),
+      data: %{
+        source_path: source.source,
         start_line: source.start_line,
         end_line: source.end_line,
         subject: source.subject

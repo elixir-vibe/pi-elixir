@@ -19,7 +19,7 @@ defmodule Pi.MCP.ToolsTest do
                "io" => "",
                "result" => "2",
                "text" => "2",
-               "parts" => [%{"format" => "inspect", "output" => "2"}],
+               "parts" => [%{"kind" => "inspect", "body" => "2"}],
                "display" => %{"blocks" => [%{"type" => "inspect", "text" => "2"}]}
              } = Jason.decode!(json)
     end
@@ -42,8 +42,8 @@ defmodule Pi.MCP.ToolsTest do
                "result" => "{:ok, :done}",
                "text" => text,
                "parts" => [
-                 %{"format" => "text", "output" => "hi\n"},
-                 %{"format" => "inspect", "output" => "{:ok, :done}"}
+                 %{"kind" => "text", "body" => "hi\n"},
+                 %{"kind" => "inspect", "body" => "{:ok, :done}"}
                ]
              } = Jason.decode!(json)
 

@@ -76,7 +76,7 @@ defmodule Pi.Eval.StatefulTest do
 
     assert payload.text == "[%{path: \"lib/pi.ex\", bytes: 123}]"
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :table, preview: "1 rows × 2 columns"}] =
+    assert [%Pi.Protocol.Tool.OutputPart{kind: :table, title: "1 rows × 2 columns"}] =
              payload.parts
   end
 

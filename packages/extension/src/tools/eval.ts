@@ -23,10 +23,11 @@ interface EvalPayload {
   error?: string
   text?: string
   parts?: Array<{
-    format?: string
-    output?: string
+    kind?: string
+    body?: string
     language?: string | null
-    preview?: string | null
+    title?: string | null
+    data?: Record<string, unknown> | null
   }>
 }
 
@@ -53,7 +54,7 @@ function parseEvalPayload(text: string): EvalPayload | null {
 }
 
 function truncateOutputPart(part: NonNullable<EvalPayload['parts']>[number]) {
-  return typeof part.output === 'string' ? { ...part, output: truncated(part.output) } : part
+  return typeof part.body === 'string' ? { ...part, body: truncated(part.body) } : part
 }
 
 function truncateEvalPayload(payload: EvalPayload): EvalPayload {

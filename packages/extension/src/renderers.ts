@@ -111,13 +111,13 @@ function inlineExpandHint(theme: Theme) {
 
 function renderCompactLine(
   prefix: string,
-  preview: string,
+  title: string,
   semanticHidden: boolean,
   theme: Theme
 ): Component {
   return {
     render: (width) => {
-      const line = prefix + preview
+      const line = prefix + title
       if (!semanticHidden && visibleWidth(line) <= width) return ['', line]
 
       const hint = inlineExpandHint(theme)
@@ -125,7 +125,7 @@ function renderCompactLine(
       if (semanticHidden && visibleWidth(lineWithHint) <= width) return ['', lineWithHint]
 
       const reserve = visibleWidth(prefix) + visibleWidth(hint)
-      if (width > reserve + 4) return ['', prefix + truncateLine(preview, width - reserve) + hint]
+      if (width > reserve + 4) return ['', prefix + truncateLine(title, width - reserve) + hint]
 
       return ['', truncateLine(line, width)]
     },
@@ -222,11 +222,11 @@ function errorHeadline(title: string, origin: string | undefined) {
 }
 
 interface OutputPart {
-  format?: string
-  output?: string
+  kind?: string
+  body?: string
   language?: string | null
-  preview?: string | null
-  metadata?: Record<string, unknown> | null
+  title?: string | null
+  data?: Record<string, unknown> | null
 }
 
 interface ExceptionFrame {
@@ -337,11 +337,11 @@ function renderStructuredEval(payload: EvalPayload, expanded: boolean, theme: Th
 }
 
 function partPreview(part: OutputPart) {
-  return part.preview ?? compactText(part.output ?? '')
+  return part.title ?? compactText(part.body ?? '')
 }
 
 function partHasSemanticHiddenOutput(part: OutputPart) {
-  const output = part.output ?? ''
+  const output = part.body ?? ''
   const preview = partPreview(part)
   return comparableInspectText(output) !== comparableInspectText(preview)
 }
@@ -363,7 +363,7 @@ interface TreeNode {
 
 function parseJsonPart(part: OutputPart): unknown {
   try {
-    return JSON.parse(part.output ?? '')
+    return JSON.parse(part.body ?? '')
   } catch {
     return null
   }
@@ -499,7 +499,7 @@ function renderTreePart(part: OutputPart, theme: Theme): string[] | null {
 }
 
 function treeInspectPreview(part: OutputPart): string | undefined {
-  return stringMetadata(part.metadata?.inspect_preview ?? part.metadata?.inspectPreview)
+  return stringMetadata(part.data?.inspect_preview ?? part.data?.inspectPreview)
 }
 
 function renderCompactTreePart(part: OutputPart, theme: Theme): Component | null {
@@ -529,7 +529,7 @@ function renderOnlyTablePart(
   theme: Theme
 ): Component | null {
   const onlyPart = visibleParts.length === 1 ? visibleParts[0] : undefined
-  if (onlyPart?.format !== 'table') return null
+  if (onlyPart?.kind !== 'table') return null
   return renderMarkdownTable(onlyPart, theme, { maxRows: expanded ? 20 : 1, expanded })
 }
 
@@ -550,13 +550,17 @@ function relativeSourcePath(path: string | undefined) {
 }
 
 function sourceStartLine(part: OutputPart) {
-  return numberMetadata(part.metadata?.start_line ?? part.metadata?.startLine) ?? 1
+  return numberMetadata(part.data?.start_line ?? part.data?.startLine) ?? 1
 }
 
 function sourceLocation(part: OutputPart) {
-  const path = relativeSourcePath(stringMetadata(part.metadata?.source ?? part.metadata?.path))
-  const startLine = numberMetadata(part.metadata?.start_line ?? part.metadata?.startLine)
-  const endLine = numberMetadata(part.metadata?.end_line ?? part.metadata?.endLine)
+  const path = relativeSourcePath(
+    stringMetadata(
+      part.data?.source_path ?? part.data?.sourcePath ?? part.data?.source ?? part.data?.path
+    )
+  )
+  const startLine = numberMetadata(part.data?.start_line ?? part.data?.startLine)
+  const endLine = numberMetadata(part.data?.end_line ?? part.data?.endLine)
   if (!path || !startLine) return undefined
   return endLine && endLine !== startLine
     ? `${path}:${startLine}-${endLine}`
@@ -564,7 +568,7 @@ function sourceLocation(part: OutputPart) {
 }
 
 function sourceTitleText(part: OutputPart) {
-  const subject = stringMetadata(part.metadata?.subject) ?? partPreview(part)
+  const subject = stringMetadata(part.data?.subject) ?? partPreview(part)
   const location = sourceLocation(part)
   return location ? `${subject} · ${location}` : subject
 }
@@ -585,7 +589,7 @@ function sourceTitle(part: OutputPart, hidden: boolean, theme: Theme, width: num
 function renderCompactSourcePart(part: OutputPart, theme: Theme): Component {
   return {
     render: (width) => {
-      const output = stripFinalNewline(part.output ?? '')
+      const output = stripFinalNewline(part.body ?? '')
       const maxLines = 6
       const totalLines = output ? output.split('\n').length : 0
       const hidden = totalLines > maxLines
@@ -601,18 +605,18 @@ function renderCompactSourcePart(part: OutputPart, theme: Theme): Component {
 
 function renderOnlySourcePart(visibleParts: OutputPart[], expanded: boolean, theme: Theme) {
   const onlyPart = visibleParts.length === 1 ? visibleParts[0] : undefined
-  if (expanded || onlyPart?.format !== 'source') return null
+  if (expanded || onlyPart?.kind !== 'code') return null
   return renderCompactSourcePart(onlyPart, theme)
 }
 
 function renderOnlyTreePart(visibleParts: OutputPart[], expanded: boolean, theme: Theme) {
   const onlyPart = visibleParts.length === 1 ? visibleParts[0] : undefined
-  if (expanded || onlyPart?.format !== 'tree') return null
+  if (expanded || onlyPart?.kind !== 'tree') return null
   return renderCompactTreePart(onlyPart, theme)
 }
 
 function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
-  const visibleParts = parts.filter((part) => part.output)
+  const visibleParts = parts.filter((part) => part.body)
   if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
 
   const table = renderOnlyTablePart(visibleParts, expanded, theme)
@@ -628,7 +632,7 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
     const preview = visibleParts
       .map((part, index) => {
         const text = partPreview(part)
-        const styled = part.format === 'text' && index === 0 ? theme.fg('toolOutput', text) : text
+        const styled = part.kind === 'text' && index === 0 ? theme.fg('toolOutput', text) : text
         return index === 0 ? styled : theme.fg('muted', ` ↳ ${text}`)
       })
       .join('')
@@ -639,13 +643,13 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
   const lines: string[] = []
   for (const [index, part] of visibleParts.entries()) {
     if (index > 0) lines.push('')
-    const output = stripFinalNewline(part.output ?? '')
-    const format = part.format ?? 'text'
-    if (format === 'table') {
+    const output = stripFinalNewline(part.body ?? '')
+    const kind = part.kind ?? 'text'
+    if (kind === 'table') {
       lines.push(theme.fg('toolOutput', output))
-    } else if (format === 'tree') {
+    } else if (kind === 'tree') {
       lines.push(...(renderTreePart(part, theme) ?? [theme.fg('toolOutput', output)]))
-    } else if (format === 'inspect') {
+    } else if (kind === 'inspect') {
       const code = codeLines(output, part.language ?? 'elixir', theme)
       if (index === 0) {
         const [first, ...rest] = code
@@ -653,13 +657,13 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
       } else {
         lines.push(...code)
       }
-    } else if (format === 'source') {
+    } else if (kind === 'code') {
       lines.push(
         ...codeFrameLines(output, part.language ?? 'elixir', theme, {
           startLine: sourceStartLine(part)
         })
       )
-    } else if (format === 'error') {
+    } else if (kind === 'error') {
       lines.push(theme.fg('error', output))
     } else {
       const rendered = output.split('\n').map((line) => `  ${theme.fg('toolOutput', line)}`)

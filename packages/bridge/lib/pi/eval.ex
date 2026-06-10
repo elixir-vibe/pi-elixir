@@ -176,7 +176,7 @@ defmodule Pi.Eval do
   end
 
   defp structured_eval_result(:"do not show this result in output", true, io, {:ok, text}) do
-    parts = if io == "", do: [], else: [%OutputPart{format: :text, output: io}]
+    parts = if io == "", do: [], else: [OutputPart.text(io)]
     {:ok, %EvalPayload{io: io, result: nil, text: text, parts: parts, display: display(parts)}}
   end
 
@@ -187,9 +187,7 @@ defmodule Pi.Eval do
 
     value_parts =
       Output.parts_for(result) ||
-        [
-          %OutputPart{format: :inspect, output: inspected, language: "elixir", preview: preview}
-        ]
+        [OutputPart.inspect(inspected, language: :elixir, title: preview)]
 
     parts =
       []
@@ -210,7 +208,7 @@ defmodule Pi.Eval do
     parts =
       []
       |> maybe_io_part(io)
-      |> Kernel.++([%OutputPart{format: :error, output: text}])
+      |> Kernel.++([OutputPart.error(text)])
 
     {:error,
      %EvalPayload{
@@ -224,15 +222,18 @@ defmodule Pi.Eval do
   end
 
   defp maybe_io_part(parts, ""), do: parts
-  defp maybe_io_part(parts, io), do: parts ++ [%OutputPart{format: :text, output: io}]
+  defp maybe_io_part(parts, io), do: parts ++ [OutputPart.text(io)]
 
   defp display(parts) do
     %Display{blocks: Enum.map(parts, &part_block/1)}
   end
 
-  defp part_block(%OutputPart{format: format, output: output, language: language}) do
-    %Block{type: format, text: output, language: language}
+  defp part_block(%OutputPart{kind: kind, body: body, language: language}) do
+    %Block{type: block_type(kind), text: body, language: language}
   end
+
+  defp block_type(:code), do: :source
+  defp block_type(kind), do: kind
 
   defp normalize_names!(name) when is_atom(name), do: [name]
 

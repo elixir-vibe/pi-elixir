@@ -16,7 +16,7 @@ defmodule Pi.WebTest do
         "HTTP/1.1 200 OK\r\ncontent-type: text/html\r\n\r\n<html><head><title>Hello</title></head><body><h1>Hello</h1><p>world</p></body></html>"
       )
 
-    assert {:ok, %Result{} = result} = Web.fetch(url, format: :text)
+    assert {:ok, %Result{} = result} = Web.fetch(url, kind: :text)
     assert result.status == 200
     assert result.title == "Hello"
     assert result.text =~ "Hello"
@@ -45,7 +45,7 @@ defmodule Pi.WebTest do
       total_chars: 11
     }
 
-    assert %Output{parts: [%OutputPart{format: :text, preview: preview}]} =
+    assert %Output{parts: [%OutputPart{kind: :text, title: preview}]} =
              Output.Renderable.to_output(result, [])
 
     assert preview == "GET 200 Example"

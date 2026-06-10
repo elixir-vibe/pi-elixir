@@ -56,9 +56,9 @@ describe('elixir result rendering', () => {
       result: '%{\n  bridge: "0.6.0",\n  app: :pi_bridge\n}',
       parts: [
         {
-          format: 'inspect',
-          output: '%{\n  bridge: "0.6.0",\n  app: :pi_bridge\n}',
-          preview: '%{bridge: "0.6.0", app: :pi_bridge}',
+          kind: 'inspect',
+          body: '%{\n  bridge: "0.6.0",\n  app: :pi_bridge\n}',
+          title: '%{bridge: "0.6.0", app: :pi_bridge}',
           language: 'elixir'
         }
       ]
@@ -77,10 +77,9 @@ describe('elixir result rendering', () => {
         '%{\n  bridge: "0.6.0",\n  cwd: "/Users/dannote/Development/pi-elixir/packages/bridge",\n  app: :pi_bridge,\n  transport: :stdio\n}',
       parts: [
         {
-          format: 'inspect',
-          output:
-            '%{\n  bridge: "0.6.0",\n  cwd: "/Users/dannote/Development/pi-elixir/packages/bridge",\n  app: :pi_bridge,\n  transport: :stdio\n}',
-          preview:
+          kind: 'inspect',
+          body: '%{\n  bridge: "0.6.0",\n  cwd: "/Users/dannote/Development/pi-elixir/packages/bridge",\n  app: :pi_bridge,\n  transport: :stdio\n}',
+          title:
             '%{bridge: "0.6.0", cwd: "/Users/dannote/Development/pi-elixir/packages/bridge", app: :pi_bridge, transport: :stdio}',
           language: 'elixir'
         }
@@ -106,7 +105,7 @@ describe('elixir result rendering', () => {
       vi.setSystemTime(new Date('2026-06-10T00:00:01.200Z'))
       const result = evalResult({
         result: '42',
-        parts: [{ format: 'inspect', output: '42', preview: '42', language: 'elixir' }]
+        parts: [{ kind: 'inspect', body: '42', title: '42', language: 'elixir' }]
       })
 
       const compact = textOf(
@@ -174,9 +173,9 @@ describe('elixir result rendering', () => {
       result: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',
       parts: [
         {
-          format: 'inspect',
-          output: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',
-          preview: '[1, 2, 3, 4, 5, ...]',
+          kind: 'inspect',
+          body: '[1, 2, 3, 4, 5, 6, 7, 8, 9, 10]',
+          title: '[1, 2, 3, 4, 5, ...]',
           language: 'elixir'
         }
       ]
@@ -192,8 +191,8 @@ describe('elixir result rendering', () => {
     const result = evalResult({
       parts: [
         {
-          format: 'table',
-          output: JSON.stringify({
+          kind: 'table',
+          body: JSON.stringify({
             columns: ['bytes', 'path'],
             rows: [
               ['123', 'lib/pi.ex'],
@@ -203,7 +202,7 @@ describe('elixir result rendering', () => {
             column_types: ['integer', 'string'],
             alignments: ['right', 'left']
           }),
-          preview: '2 rows × 2 columns'
+          title: '2 rows × 2 columns'
         }
       ]
     })
@@ -226,8 +225,8 @@ describe('elixir result rendering', () => {
     const result = evalResult({
       parts: [
         {
-          format: 'table',
-          output: JSON.stringify({
+          kind: 'table',
+          body: JSON.stringify({
             columns: ['name', 'description'],
             rows: [
               [
@@ -257,8 +256,8 @@ describe('elixir result rendering', () => {
     const result = evalResult({
       parts: [
         {
-          format: 'source',
-          output: [
+          kind: 'code',
+          body: [
             'def table(rows, opts \\ []) when is_list(rows) do',
             '  %{columns: columns, rows: row_values} = table_data(rows, opts)',
             '',
@@ -269,9 +268,9 @@ describe('elixir result rendering', () => {
             'def tree(value, opts \\ []), do: value'
           ].join('\n'),
           language: 'elixir',
-          preview: 'Pi.Output.table/2 lines 6-16',
-          metadata: {
-            source: '/Users/dannote/Development/pi-elixir/packages/bridge/lib/pi/output.ex',
+          title: 'Pi.Output.table/2 lines 6-16',
+          data: {
+            source_path: '/Users/dannote/Development/pi-elixir/packages/bridge/lib/pi/output.ex',
             start_line: 6,
             end_line: 13,
             subject: 'Pi.Output.table/2 lines 6-13'
@@ -297,15 +296,15 @@ describe('elixir result rendering', () => {
     const result = evalResult({
       parts: [
         {
-          format: 'tree',
-          output: JSON.stringify([
+          kind: 'tree',
+          body: JSON.stringify([
             { key: ':status', value: '200' },
             { key: ':title', value: 'Example Domain' },
             { key: ':format', value: ':text' },
             { key: ':truncated?', value: 'false' }
           ]),
-          preview: 'map with 4 keys',
-          metadata: {
+          title: 'map with 4 keys',
+          data: {
             inspect_preview:
               '%{\n  status: 200,\n  title: "Example Domain",\n  format: :text,\n  truncated?: false\n}'
           }
@@ -325,12 +324,12 @@ describe('elixir result rendering', () => {
     const result = evalResult({
       parts: [
         {
-          format: 'tree',
-          output: JSON.stringify([
+          kind: 'tree',
+          body: JSON.stringify([
             { key: ':app', value: ':pi_bridge' },
             { key: ':versions', value: [{ key: ':bridge', value: '0.6.3' }] }
           ]),
-          preview: 'map with 2 keys'
+          title: 'map with 2 keys'
         }
       ]
     })

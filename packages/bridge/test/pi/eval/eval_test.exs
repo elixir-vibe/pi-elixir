@@ -39,13 +39,13 @@ raise "boom"|)
   test "structured eval includes compact inspect previews" do
     assert {:ok, payload} = Eval.run_structured("%{bridge: \"0.6.0\", app: :pi_bridge}")
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :tree, output: output, preview: preview}] =
+    assert [%Pi.Protocol.Tool.OutputPart{kind: :tree, body: output, title: preview}] =
              payload.parts
 
     assert output =~ "bridge"
     assert preview == "map with 2 keys"
 
-    assert [%Pi.Protocol.Tool.OutputPart{metadata: %{inspect_preview: inspect_preview}}] =
+    assert [%Pi.Protocol.Tool.OutputPart{data: %{inspect_preview: inspect_preview}}] =
              payload.parts
 
     assert inspect_preview =~ "bridge:"
@@ -54,7 +54,7 @@ raise "boom"|)
   test "structured eval renders list of maps as a table part" do
     assert {:ok, payload} = Eval.run_structured("[%{path: \"lib/pi.ex\", bytes: 123}]")
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :table, output: output, preview: preview}] =
+    assert [%Pi.Protocol.Tool.OutputPart{kind: :table, body: output, title: preview}] =
              payload.parts
 
     assert preview == "1 rows × 2 columns"
@@ -73,7 +73,7 @@ raise "boom"|)
   test "structured eval auto-renders strings through output protocol" do
     assert {:ok, payload} = Eval.run_structured(~s("hello"))
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :text, output: "hello"}] = payload.parts
+    assert [%Pi.Protocol.Tool.OutputPart{kind: :text, body: "hello"}] = payload.parts
     assert payload.result == "\"hello\""
   end
 
@@ -83,7 +83,7 @@ raise "boom"|)
                ~S|Pi.output([%{path: "lib/pi.ex", bytes: 123}], columns: [:path, :bytes])|
              )
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :table, output: output}] = payload.parts
+    assert [%Pi.Protocol.Tool.OutputPart{kind: :table, body: output}] = payload.parts
 
     assert %{"columns" => ["path", "bytes"], "rows" => [["lib/pi.ex", "123"]]} =
              Jason.decode!(output)
@@ -95,7 +95,7 @@ raise "boom"|)
                "Pi.Docs.module(Pi.Output) |> Pi.Docs.functions() |> Pi.Docs.search(\"table\")"
              )
 
-    assert [%Pi.Protocol.Tool.OutputPart{format: :table, output: output}] = payload.parts
+    assert [%Pi.Protocol.Tool.OutputPart{kind: :table, body: output}] = payload.parts
     assert %{"columns" => columns, "rows" => rows} = Jason.decode!(output)
     assert columns == ["module", "kind", "name", "arity", "summary", "line"]
     assert Enum.any?(rows, fn row -> Enum.at(row, 2) == "table" and Enum.at(row, 3) == "2" end)
@@ -109,16 +109,16 @@ raise "boom"|)
 
     assert [
              %Pi.Protocol.Tool.OutputPart{
-               format: :source,
-               output: output,
+               kind: :code,
+               body: output,
                language: "elixir",
-               metadata: metadata
+               data: metadata
              }
            ] = payload.parts
 
     assert output =~ "def table(rows"
     assert metadata.start_line <= metadata.end_line
-    assert metadata.source =~ "lib/pi/output.ex"
+    assert metadata.source_path =~ "lib/pi/output.ex"
     assert metadata.subject =~ "Pi.Output.table/2"
   end
 
@@ -127,8 +127,8 @@ raise "boom"|)
 
     assert [
              %Pi.Protocol.Tool.OutputPart{
-               format: :source,
-               output: "IO.puts(:ok)",
+               kind: :code,
+               body: "IO.puts(:ok)",
                language: "elixir"
              }
            ] =

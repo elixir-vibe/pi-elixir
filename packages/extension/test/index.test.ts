@@ -312,7 +312,7 @@ describe('extension status lifecycle', () => {
         kind: 'eval',
         text: long,
         result: long,
-        parts: [{ format: 'inspect', output: long, preview: '"xxx…"' }]
+        parts: [{ kind: 'inspect', body: long, title: '"xxx…"' }]
       }),
       isError: false
     })
@@ -334,8 +334,8 @@ describe('extension status lifecycle', () => {
 
     expect(result.content[0].text).toContain('[Truncated:')
     expect(result.details.eval.result).toContain('[Truncated:')
-    expect(result.details.eval.parts[0].output).toContain('[Truncated:')
-    expect(result.details.eval.parts[0].preview).toBe('"xxx…"')
+    expect(result.details.eval.parts[0].body).toContain('[Truncated:')
+    expect(result.details.eval.parts[0].title).toBe('"xxx…"')
   })
 
   it('does not attach sidecar eval state refs to sandbox eval', async () => {
