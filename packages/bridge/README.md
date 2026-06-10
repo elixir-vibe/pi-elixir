@@ -30,7 +30,7 @@ The public API intentionally separates single-call and orchestration shapes:
 - `Pi.Plugin.Manager.load/2` and `unload/1` support dynamic plugin lifecycle changes.
 - `Pi.Plugin.Waiters` provides an ETS-backed waiter registry for interactive plugins.
 - `Pi.Plugin.Event.emit/2` publishes BEAM events onto pi's TypeScript extension event bus.
-- `Pi.Session.info/1`, `active_tools/1`, `append_entry/3`, and `send_message/3` expose small host-session APIs back to BEAM code.
+- `Pi.Host.info/1`, `active_tools/1`, `append_entry/3`, and `send_message/3` expose small host-session APIs back to BEAM code. `Pi.Session` remains the BEAM-owned runtime session API.
 
 Boundary JSON examples are documented in [`docs/protocol.md`](docs/protocol.md).
 
@@ -177,10 +177,10 @@ Use `Pi.Agent` for convenience orchestration over those sessions:
 BEAM code can ask the pi extension for small session-state snapshots, persist branch-aware custom entries, or emit a visible custom transcript message:
 
 ```elixir
-{:ok, info} = Pi.Session.info()
-{:ok, %{tools: tools}} = Pi.Session.active_tools()
-{:ok, "ok"} = Pi.Session.append_entry("demo-state", count: 1)
-{:ok, "ok"} = Pi.Session.send_message("demo-message", count: 1)
+{:ok, info} = Pi.Host.info()
+{:ok, %{tools: tools}} = Pi.Host.active_tools()
+{:ok, "ok"} = Pi.Host.append_entry("demo-state", count: 1)
+{:ok, "ok"} = Pi.Host.send_message("demo-message", count: 1)
 ```
 
 ## Plugins

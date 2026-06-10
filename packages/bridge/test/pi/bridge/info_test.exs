@@ -18,4 +18,12 @@ defmodule Pi.Bridge.InfoTest do
     assert %{"type" => "ready", "info" => %{"project" => "pi_bridge", "version" => "0.6.5"}} =
              Jason.decode!(encoded)
   end
+
+  test "runtime inventory and eval prelude expose host helpers separately from sessions" do
+    runtime_modules = Enum.map(Info.runtime_apis(), & &1.module)
+
+    assert Pi.Host in runtime_modules
+    assert Pi.Session in runtime_modules
+    assert Info.aliases_code() =~ "alias Pi.Host, as: Host"
+  end
 end

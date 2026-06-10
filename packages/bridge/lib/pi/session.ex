@@ -1,11 +1,8 @@
 defmodule Pi.Session do
   @moduledoc "Pi session APIs: host-session helpers plus server-owned BEAM sessions."
 
-  alias Pi.LLM.Broker
   alias Pi.Session.Supervisor, as: SessionSupervisor
   alias Pi.Session.Worker
-
-  @timeout 10_000
 
   @doc "Starts a server-owned BEAM session process."
   def start(opts \\ []) when is_list(opts), do: SessionSupervisor.start_session(opts)
@@ -66,27 +63,17 @@ defmodule Pi.Session do
   @doc "Reruns a BEAM session from its latest user message."
   def rerun(session, opts \\ []), do: session |> resolve!() |> Worker.rerun(opts)
 
-  @doc "Returns compact project/runtime metadata from the active pi host session."
-  def info(opts \\ []) do
-    request(:session_info, %{}, opts)
-  end
+  @doc "Returns compact project/runtime metadata from the active pi host session. Prefer `Pi.Host.info/1`."
+  defdelegate info(opts \\ []), to: Pi.Host
 
-  @doc "Returns active model-facing tools from the active pi host session."
-  def active_tools(opts \\ []) do
-    request(:active_tools, %{}, opts)
-  end
+  @doc "Returns active model-facing tools from the active pi host session. Prefer `Pi.Host.active_tools/1`."
+  defdelegate active_tools(opts \\ []), to: Pi.Host
 
-  @doc "Appends a custom entry to the active pi host session."
-  def append_entry(custom_type, data \\ %{}, opts \\ [])
-      when is_binary(custom_type) and (is_map(data) or is_list(data)) do
-    request(:append_entry, %{customType: custom_type, data: custom_data(data)}, opts)
-  end
+  @doc "Appends a custom entry to the active pi host session. Prefer `Pi.Host.append_entry/3`."
+  defdelegate append_entry(custom_type, data \\ %{}, opts \\ []), to: Pi.Host
 
-  @doc "Sends a custom message entry to the active pi host session."
-  def send_message(custom_type, data \\ %{}, opts \\ [])
-      when is_binary(custom_type) and (is_map(data) or is_list(data)) do
-    request(:send_message, %{customType: custom_type, data: custom_data(data)}, opts)
-  end
+  @doc "Sends a custom message entry to the active pi host session. Prefer `Pi.Host.send_message/3`."
+  defdelegate send_message(custom_type, data \\ %{}, opts \\ []), to: Pi.Host
 
   defp resolve!(pid) when is_pid(pid), do: pid
 
@@ -95,13 +82,5 @@ defmodule Pi.Session do
       {:ok, pid} -> pid
       {:error, :not_found} -> raise ArgumentError, "unknown Pi session: #{id}"
     end
-  end
-
-  defp custom_data(data) when is_map(data), do: data
-  defp custom_data(data) when is_list(data), do: Map.new(data)
-
-  defp request(op, payload, opts) do
-    timeout = Keyword.get(opts, :timeout, @timeout)
-    Broker.request(op, payload, timeout)
   end
 end

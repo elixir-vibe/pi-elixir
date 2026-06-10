@@ -17,6 +17,7 @@ defmodule Pi.Bridge.Info do
   @runtime_api_modules [
     agent: Pi.Agent,
     llm: Pi.LLM,
+    host: Pi.Host,
     bridge_info: __MODULE__,
     dev: Pi.Dev,
     docs: Pi.Docs,
@@ -68,6 +69,7 @@ defmodule Pi.Bridge.Info do
       "alias Pi.Dev, as: Dev, warn: false",
       "alias Pi.Docs, as: Docs, warn: false",
       "alias Pi.Web, as: Web, warn: false",
+      "alias Pi.Host, as: Host, warn: false",
       "alias Pi.Self, as: Self, warn: false",
       "alias Pi.CodeMap, as: CodeMap, warn: false",
       "alias Pi.Quack, as: Q, warn: false",

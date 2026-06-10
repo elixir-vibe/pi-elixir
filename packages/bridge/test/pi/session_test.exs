@@ -1,6 +1,7 @@
 defmodule Pi.SessionTest do
   use ExUnit.Case, async: false
 
+  alias Pi.Host
   alias Pi.LLM.Broker
   alias Pi.LLM.Stream, as: LLMStream
   alias Pi.Protocol.LLM.Message
@@ -173,13 +174,17 @@ defmodule Pi.SessionTest do
   test "host session helpers accept keyword custom data" do
     :persistent_term.put({Pi.Transport.Stdio, :pid}, self())
 
-    append_task = Task.async(fn -> Session.append_entry("demo-state", count: 1) end)
+    append_task = Task.async(fn -> Host.append_entry("demo-state", count: 1) end)
     assert_request(:append_entry, "demo-state", %{"count" => 1})
     assert {:ok, "ok"} = Task.await(append_task)
 
-    message_task = Task.async(fn -> Session.send_message("demo-message", count: 2) end)
+    message_task = Task.async(fn -> Host.send_message("demo-message", count: 2) end)
     assert_request(:send_message, "demo-message", %{"count" => 2})
     assert {:ok, "ok"} = Task.await(message_task)
+
+    compat_task = Task.async(fn -> Session.append_entry("compat-state", count: 3) end)
+    assert_request(:append_entry, "compat-state", %{"count" => 3})
+    assert {:ok, "ok"} = Task.await(compat_task)
   after
     :persistent_term.erase({Pi.Transport.Stdio, :pid})
   end
