@@ -16,6 +16,16 @@ defmodule Pi.Mirror.QuackDB do
   @default_batch_size 1
   @sync_batch_size 5_000
   @sync_progress_key :elixir_quack_sync
+  @fts_columns [
+    :event_type,
+    :cwd,
+    :session_file,
+    :session_name,
+    :leaf_id,
+    :tool_name,
+    :tool_call_id,
+    :payload_json
+  ]
 
   @session_fields %{
     "cwd" => :cwd,
@@ -67,10 +77,23 @@ defmodule Pi.Mirror.QuackDB do
     args
     |> String.split(~r/\s+/, trim: true)
     |> case do
-      ["sync" | rest] -> start_sync(state, rest)
-      ["status" | _rest] -> {{:ok, status_text(state)}, state}
-      [] -> {{:ok, status_text(state)}, state}
-      _other -> {{:error, "Usage: /elixir:quack [status|sync [current|PATH]]"}, state}
+      ["sync" | rest] ->
+        start_sync(state, rest)
+
+      ["index" | _rest] ->
+        rebuild_fts_command(state)
+
+      ["search" | query] ->
+        search_command(state, Enum.join(query, " "))
+
+      ["status" | _rest] ->
+        {{:ok, status_text(state)}, state}
+
+      [] ->
+        {{:ok, status_text(state)}, state}
+
+      _other ->
+        {{:error, "Usage: /elixir:quack [status|sync [current|PATH]|index|search QUERY]"}, state}
     end
   end
 
@@ -259,6 +282,101 @@ defmodule Pi.Mirror.QuackDB do
   defp status_text(%{error: error}), do: "QuackDB mirror unavailable · #{error}"
   defp status_text(_state), do: "QuackDB mirror disabled · PI_ELIXIR_MIRROR disables it"
 
+  defp rebuild_fts_command(%{enabled?: true, conn: conn} = state) do
+    case refresh_fts_index(conn) do
+      :ok -> {{:ok, "🦆 FTS index rebuilt for #{@table}"}, state}
+      {:error, reason} -> {{:error, "🦆 FTS index failed · #{Exception.message(reason)}"}, state}
+    end
+  end
+
+  defp rebuild_fts_command(state), do: {{:error, status_text(state)}, state}
+
+  defp search_command(%{enabled?: true, conn: conn} = state, query) do
+    query = String.trim(query)
+
+    if query == "" do
+      {{:error, "Usage: /elixir:quack search QUERY"}, state}
+    else
+      case search_fts(conn, query) do
+        {:ok, []} -> {{:ok, "🦆 no matches"}, state}
+        {:ok, rows} -> {{:ok, format_search_results(rows)}, state}
+        {:error, reason} -> {{:error, "🦆 search failed · #{Exception.message(reason)}"}, state}
+      end
+    end
+  end
+
+  defp search_command(state, _query), do: {{:error, status_text(state)}, state}
+
+  defp refresh_fts_index(conn) do
+    QuackDB.query!(conn, QuackDB.FTS.install())
+    QuackDB.query!(conn, QuackDB.FTS.load())
+    QuackDB.query!(conn, QuackDB.FTS.create_index(@table, :id, @fts_columns, overwrite: true))
+    :ok
+  rescue
+    exception in [QuackDB.Error, DBConnection.ConnectionError, RuntimeError, ArgumentError] ->
+      {:error, exception}
+  end
+
+  defp search_fts(conn, query) do
+    score =
+      QuackDB.FTS.match_bm25(QuackDB.Type.quote_identifier(:id), query, schema: fts_schema())
+
+    result =
+      QuackDB.query!(
+        conn,
+        [
+          "SELECT ",
+          QuackDB.Type.quote_identifier(:id),
+          ", ",
+          QuackDB.Type.quote_identifier(:event_type),
+          ", ",
+          QuackDB.Type.quote_identifier(:session_file),
+          ", ",
+          QuackDB.Type.quote_identifier(:tool_name),
+          ", ",
+          QuackDB.Type.quote_identifier(:payload_json),
+          ", ",
+          score,
+          " AS ",
+          QuackDB.Type.quote_identifier(:score),
+          " FROM ",
+          QuackDB.Type.quote_identifier(@table),
+          " WHERE ",
+          score,
+          " IS NOT NULL AND ",
+          score,
+          " > 0 ORDER BY ",
+          QuackDB.Type.quote_identifier(:score),
+          " DESC LIMIT ?"
+        ],
+        [10],
+        timeout: 30_000
+      )
+
+    {:ok, result.rows || []}
+  rescue
+    exception in [QuackDB.Error, DBConnection.ConnectionError, RuntimeError, ArgumentError] ->
+      {:error, exception}
+  end
+
+  defp fts_schema, do: QuackDB.FTS.schema_name("main.#{@table}")
+
+  defp format_search_results(rows) do
+    rows
+    |> Enum.with_index(1)
+    |> Enum.map_join("\n", fn {[id, event_type, session_file, tool_name, payload_json, score],
+                               index} ->
+      snippet =
+        payload_json |> to_string() |> String.replace(~r/\s+/, " ") |> String.slice(0, 160)
+
+      file = session_file_label(to_string(session_file || ""))
+      tool = if tool_name in [nil, ""], do: "", else: " · #{tool_name}"
+
+      "#{index}. #{Float.round(score * 1.0, 3)} · #{event_type}#{tool} · #{file} · #{id}\n   #{snippet}"
+    end)
+    |> then(&"🦆 search results\n#{&1}")
+  end
+
   defp start_sync(%{enabled?: true} = state, args) do
     state = flush(state)
 
@@ -369,6 +487,18 @@ defmodule Pi.Mirror.QuackDB do
 
     message =
       "🦆 synced #{entries} entries from #{ok_files}/#{total} files · #{rows_per_second} rows/s"
+
+    if entries > 0 and failed == 0 do
+      UI.set_status(@sync_progress_key, "🦆 sync · rebuilding FTS index")
+
+      case refresh_fts_index(state.conn) do
+        :ok ->
+          :ok
+
+        {:error, reason} ->
+          UI.notify("🦆 FTS index failed · #{Exception.message(reason)}", type: :error)
+      end
+    end
 
     UI.notify(message)
     UI.clear_status(@sync_progress_key)

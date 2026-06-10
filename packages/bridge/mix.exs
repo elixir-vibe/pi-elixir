@@ -62,7 +62,7 @@ defmodule PiBridge.MixProject do
       {:json_codec, "~> 0.1.3"},
       {:ex_ast, "~> 0.12"},
       {:req, "~> 0.5"},
-      {:quackdb, "~> 0.5.3"},
+      {:quackdb, "~> 0.5.4"},
       {:req_llm, "~> 1.6", optional: true},
       {:dune, "~> 0.3", optional: true},
       {:bandit, "~> 1.8"},
