@@ -253,6 +253,38 @@ describe('elixir result rendering', () => {
     expect(compact).toContain('1/2 rows · 2 columns · string, string · (ctrl+o to expand)')
   })
 
+  it('renders compact source parts with code preview', () => {
+    const result = evalResult({
+      parts: [
+        {
+          format: 'source',
+          output: [
+            'def table(rows, opts \\ []) when is_list(rows) do',
+            '  %{columns: columns, rows: row_values} = table_data(rows, opts)',
+            '',
+            '  preview = Keyword.get(opts, :preview)',
+            '  %Pi.Output{}',
+            'end',
+            '',
+            'def tree(value, opts \\ []), do: value'
+          ].join('\n'),
+          language: 'elixir',
+          preview: 'Pi.Output.table/2 lines 6-16'
+        }
+      ]
+    })
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+    const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
+
+    expect(compact).toContain('Pi.Output.table/2 lines 6-16 (ctrl+o to expand)')
+    expect(compact).toContain('def table(rows, opts')
+    expect(compact).toContain('%Pi.Output{}')
+    expect(compact).toContain('… 2 more')
+    expect(compact).not.toContain('def tree')
+    expect(expanded).toContain('def tree')
+  })
+
   it('renders structured tree parts when expanded', () => {
     const result = evalResult({
       parts: [

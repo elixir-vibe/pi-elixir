@@ -477,12 +477,48 @@ function renderOnlyTablePart(
   return renderMarkdownTable(onlyPart, theme, { maxRows: expanded ? 20 : 1, expanded })
 }
 
+function sourceTitle(part: OutputPart, hidden: boolean, theme: Theme, width: number) {
+  const title = partPreview(part)
+  if (!hidden) return truncateLine(title, width)
+
+  const hint = inlineExpandHint(theme)
+  if (visibleWidth(title + hint) <= width) return title + hint
+
+  const reserve = visibleWidth(hint)
+  return width > reserve + 4
+    ? truncateLine(title, width - reserve) + hint
+    : truncateLine(title, width)
+}
+
+function renderCompactSourcePart(part: OutputPart, theme: Theme): Component {
+  return {
+    render: (width) => {
+      const output = stripFinalNewline(part.output ?? '')
+      const maxLines = 6
+      const totalLines = output ? output.split('\n').length : 0
+      const hidden = totalLines > maxLines
+      const lines = codeLines(output, part.language ?? 'elixir', theme, maxLines)
+      return ['', theme.fg('muted', sourceTitle(part, hidden, theme, width)), ...lines]
+    },
+    invalidate: () => undefined
+  }
+}
+
+function renderOnlySourcePart(visibleParts: OutputPart[], expanded: boolean, theme: Theme) {
+  const onlyPart = visibleParts.length === 1 ? visibleParts[0] : undefined
+  if (expanded || onlyPart?.format !== 'source') return null
+  return renderCompactSourcePart(onlyPart, theme)
+}
+
 function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
   const visibleParts = parts.filter((part) => part.output)
   if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
 
   const table = renderOnlyTablePart(visibleParts, expanded, theme)
   if (table) return table
+
+  const source = renderOnlySourcePart(visibleParts, expanded, theme)
+  if (source) return source
 
   if (!expanded) {
     const preview = visibleParts
