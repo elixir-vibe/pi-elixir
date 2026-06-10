@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.6.2 - 2026-06-10
+
+### Changed
+
+- Release from the configured npm trusted publisher workflow so npm and Hex versions are aligned again.
+
 ## 0.6.1 - 2026-06-10
 
 ### Changed
