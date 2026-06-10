@@ -256,4 +256,20 @@ end)
 |> Pi.table(columns: [:api, :module, :total, :functions])
 ```
 
+Docs/source discovery is pipeline-first and auto-renders through the generic output protocol:
+
+```elixir
+Pi.Docs.module(Pi.Output)
+|> Pi.Docs.functions()
+|> Pi.Docs.search("table")
+```
+
+Use source slices when you want read-tool-like context for installed modules:
+
+```elixir
+Pi.Docs.module(Pi.Output)
+|> Pi.Docs.function(:table, 2)
+|> Pi.Docs.source(context: 25)
+```
+
 More helpers should be added only when they produce safer/better bounded output than obvious stdlib code.

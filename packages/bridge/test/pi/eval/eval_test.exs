@@ -84,6 +84,30 @@ raise "boom"|)
              Jason.decode!(output)
   end
 
+  test "structured eval auto-renders docs query results through output protocol" do
+    assert {:ok, payload} =
+             Eval.run_structured(
+               "Pi.Docs.module(Pi.Output) |> Pi.Docs.functions() |> Pi.Docs.search(\"table\")"
+             )
+
+    assert [%Pi.Protocol.Tool.OutputPart{format: :table, output: output}] = payload.parts
+    assert %{"columns" => columns, "rows" => rows} = Jason.decode!(output)
+    assert columns == ["module", "kind", "name", "arity", "summary", "line"]
+    assert Enum.any?(rows, fn row -> Enum.at(row, 2) == "table" and Enum.at(row, 3) == "2" end)
+  end
+
+  test "structured eval auto-renders docs source through output protocol" do
+    assert {:ok, payload} =
+             Eval.run_structured(
+               "Pi.Docs.module(Pi.Output) |> Pi.Docs.function(:table, 2) |> Pi.Docs.source(context: 5)"
+             )
+
+    assert [%Pi.Protocol.Tool.OutputPart{format: :source, output: output, language: "elixir"}] =
+             payload.parts
+
+    assert output =~ "def table(rows"
+  end
+
   test "structured eval accepts explicit output helpers" do
     assert {:ok, payload} = Eval.run_structured("Pi.code(\"IO.puts(:ok)\")")
 

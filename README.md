@@ -267,6 +267,20 @@ Path.wildcard("lib/pi/**/*.ex")
 
 Use `Pi.table(rows, columns: [...])` when you explicitly want to construct table output; otherwise columns are inferred from row keys.
 
+Docs/source discovery is also pipeline-first and auto-renders through the same output protocol:
+
+```elixir
+Pi.Docs.module(Pi.Output)
+|> Pi.Docs.functions()
+|> Pi.Docs.search("table")
+```
+
+```elixir
+Pi.Docs.module(Pi.Output)
+|> Pi.Docs.function(:table, 2)
+|> Pi.Docs.source(context: 25)
+```
+
 ## Install
 
 ```sh

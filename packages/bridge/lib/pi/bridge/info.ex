@@ -19,6 +19,7 @@ defmodule Pi.Bridge.Info do
     llm: Pi.LLM,
     bridge_info: __MODULE__,
     dev: Pi.Dev,
+    docs: Pi.Docs,
     plugin_ui: Pi.Plugin.UI,
     plugin_events: Pi.Plugin.Event,
     session: Pi.Session,
@@ -60,7 +61,7 @@ defmodule Pi.Bridge.Info do
   end
 
   def aliases_code do
-    builtin_aliases = ["alias Pi.Dev, as: Dev"]
+    builtin_aliases = ["alias Pi.Dev, as: Dev", "alias Pi.Docs, as: Docs"]
 
     extension_aliases =
       extension_apis()

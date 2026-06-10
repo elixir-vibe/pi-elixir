@@ -10,6 +10,9 @@ defmodule Pi do
   @doc "Clears embedded server logs."
   def clear_logs, do: Pi.LogCapture.clear_logs()
 
+  @doc "Returns docs/source query helpers. Prefer calling `Pi.Docs` directly in pipelines."
+  def docs, do: Pi.Docs
+
   @doc "Converts a value to pi-native structured output when possible."
   def output(value, opts \\ []), do: Pi.Output.output(value, opts)
 

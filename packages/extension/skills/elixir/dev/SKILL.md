@@ -13,11 +13,11 @@ Use the BEAM as the primary control plane. Keep the model-facing Elixir tool sur
 - LSP, when available — diagnostics, definitions, references, hover/type info, workspace/file symbols, and code actions.
 - Host file/shell tools — file edits, `git`, package managers, and `mix` build/test/format commands.
 
-Use Elixir docs APIs from `elixir_eval` before guessing framework/library behavior. Prefer `Code.fetch_docs/1`, `h(Module.fun/arity)`, `exports(Module)`, and `i(term)` over web search for installed modules. Web search is for missing or external docs, not the first step for code that is already loaded in the project.
+Use Elixir docs APIs from `elixir_eval` before guessing framework/library behavior. Prefer pipeline-friendly `Pi.Docs` for structured docs/source workflows, and use `Code.fetch_docs/1`, `h(Module.fun/arity)`, `exports(Module)`, and `i(term)` for quick direct inspection. Web search is for missing or external docs, not the first step for code that is already loaded in the project.
 
 Treat `elixir_eval` as a typed Elixir shell: prefer plain Elixir expressions and pipelines for BEAM/runtime inspection, installed docs, OTP state, app config, and structured filesystem work where typed maps/lists help follow-up reasoning. Use `bash` for external CLIs and raw text tools; use eval when the result should remain typed and renderable.
 
-Use Elixir/OTP stdlib directly from `elixir_eval` for ordinary runtime, file, and process work. Reach for `Pi.*` shortcuts only when they provide bounded summaries or remove repetitive boilerplate.
+Use Elixir/OTP stdlib directly from `elixir_eval` for ordinary runtime, file, and process work. Reach for `Pi.*` shortcuts only when they provide bounded summaries or remove repetitive boilerplate. For docs/source context, prefer pipelines such as `Pi.Docs.module(Mod) |> Pi.Docs.functions() |> Pi.Docs.search("query")` and `Pi.Docs.module(Mod) |> Pi.Docs.function(:name, arity) |> Pi.Docs.source(context: 25)`.
 
 Read the focused guidance files as needed:
 
