@@ -43,7 +43,8 @@ defmodule Pi.Output do
         %OutputPart{
           format: :tree,
           output: encode_output_payload(tree_value(value, 0, Keyword.get(opts, :depth, 4))),
-          preview: preview
+          preview: preview,
+          metadata: %{inspect_preview: inspect(value, compact_inspect_opts(opts))}
         }
       ],
       text: inspect(value, inspect_opts())
@@ -237,4 +238,14 @@ defmodule Pi.Output do
   end
 
   defp inspect_opts, do: [charlists: :as_lists, limit: 50, pretty: true]
+
+  defp compact_inspect_opts(opts) do
+    [
+      charlists: :as_lists,
+      pretty: true,
+      limit: Keyword.get(opts, :inspect_limit, 8),
+      printable_limit: Keyword.get(opts, :printable_limit, 180),
+      width: Keyword.get(opts, :width, 80)
+    ]
+  end
 end

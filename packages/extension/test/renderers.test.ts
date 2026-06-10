@@ -304,7 +304,11 @@ describe('elixir result rendering', () => {
             { key: ':format', value: ':text' },
             { key: ':truncated?', value: 'false' }
           ]),
-          preview: 'map with 4 keys'
+          preview: 'map with 4 keys',
+          metadata: {
+            inspect_preview:
+              '%{\n  status: 200,\n  title: "Example Domain",\n  format: :text,\n  truncated?: false\n}'
+          }
         }
       ]
     })
@@ -312,9 +316,9 @@ describe('elixir result rendering', () => {
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
 
     expect(compact).toContain('map with 4 keys (ctrl+o to expand)')
-    expect(compact).toContain(':status: 200')
-    expect(compact).toContain(':title: Example Domain')
-    expect(compact).toContain(':truncated?: false')
+    expect(compact).toContain('status: 200')
+    expect(compact).toContain('title: "Example Domain"')
+    expect(compact).toContain('truncated?: false')
   })
 
   it('renders structured tree parts when expanded', () => {

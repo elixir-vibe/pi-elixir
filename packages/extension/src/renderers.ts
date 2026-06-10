@@ -498,15 +498,23 @@ function renderTreePart(part: OutputPart, theme: Theme): string[] | null {
   return renderTreeValue(tree, theme).slice(0, 40)
 }
 
+function treeInspectPreview(part: OutputPart): string | undefined {
+  return stringMetadata(part.metadata?.inspect_preview ?? part.metadata?.inspectPreview)
+}
+
 function renderCompactTreePart(part: OutputPart, theme: Theme): Component | null {
-  const tree = renderTreePart(part, theme)
-  if (!tree) return null
+  const inspectPreview = treeInspectPreview(part)
+  const tree = inspectPreview ? undefined : renderTreePart(part, theme)
+  if (!inspectPreview && !tree) return null
 
   return {
     render: (width) => {
       const maxLines = 6
-      const shown = tree.slice(0, maxLines).map((line) => truncateLine(line, width))
-      const hidden = tree.length - shown.length
+      const rawLines = inspectPreview
+        ? highlightCode(stripFinalNewline(inspectPreview), 'elixir')
+        : (tree ?? [])
+      const shown = rawLines.slice(0, maxLines).map((line) => truncateLine(line, width))
+      const hidden = rawLines.length - shown.length
       const title = partPreview(part) + inlineExpandHint(theme)
       const more = hiddenLine(hidden, theme)
       return ['', truncateLine(title, width), ...shown, ...(more ? [more] : [])]

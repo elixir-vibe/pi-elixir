@@ -44,6 +44,11 @@ raise "boom"|)
 
     assert output =~ "bridge"
     assert preview == "map with 2 keys"
+
+    assert [%Pi.Protocol.Tool.OutputPart{metadata: %{inspect_preview: inspect_preview}}] =
+             payload.parts
+
+    assert inspect_preview =~ "bridge:"
   end
 
   test "structured eval renders list of maps as a table part" do
