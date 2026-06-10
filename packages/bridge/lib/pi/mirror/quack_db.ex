@@ -369,20 +369,38 @@ defmodule Pi.Mirror.QuackDB do
       |> File.stream!(:line, read_ahead: 1_000_000)
       |> Stream.map(&String.trim_trailing(&1, "\n"))
       |> Stream.reject(&(&1 == ""))
-      |> Stream.map(&session_entry_row(session_file, &1))
-      |> Stream.map(&normalize_row/1)
       |> Stream.chunk_every(sync_batch_size())
-      |> Enum.reduce(0, fn rows, count ->
-        QuackDB.insert_rows!(conn, @table, rows,
+      |> Enum.reduce(0, fn lines, count ->
+        QuackDB.insert_columns!(conn, @table, session_entry_columns(session_file, lines),
           columns: @columns,
-          batch_size: length(rows),
           timeout: :infinity
         )
 
-        count + length(rows)
+        count + length(lines)
       end)
 
     {:ok, count}
+  end
+
+  defp session_entry_columns(session_file, lines) do
+    size = length(lines)
+    now = NaiveDateTime.utc_now(:microsecond)
+    nils = List.duplicate(nil, size)
+
+    [
+      id: Enum.map(1..size, fn _ -> unique_id() end),
+      event_type: List.duplicate("session_entry", size),
+      cwd: nils,
+      session_file: List.duplicate(session_file, size),
+      session_name: nils,
+      leaf_id: nils,
+      turn_index: nils,
+      tool_name: nils,
+      tool_call_id: nils,
+      is_error: List.duplicate(false, size),
+      occurred_at: List.duplicate(now, size),
+      payload_json: lines
+    ]
   end
 
   defp discover_session_files do
@@ -427,14 +445,6 @@ defmodule Pi.Mirror.QuackDB do
   defp delete_session_entries(_state, _session_file), do: :ok
 
   defp sql_escape(value), do: String.replace(value, "'", "''")
-
-  defp session_entry_row(session_file, line) do
-    %{
-      event_type: "session_entry",
-      session_file: session_file,
-      payload_json: line
-    }
-  end
 
   defp remember_session(state, event) when is_map(event) do
     Map.merge(state, session_attrs(event))
