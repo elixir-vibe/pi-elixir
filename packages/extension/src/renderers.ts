@@ -697,14 +697,10 @@ function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
       const more = hiddenLine(hidden, theme)
       return [
         '',
-        theme.fg('mdCodeBlockBorder', truncateLine(webFetchMetaLine(part), width)),
-        ...webFetchUrlLines(part).map((line) => theme.fg('mdLinkUrl', truncateLine(line, width))),
+        theme.fg('muted', truncateLine(webFetchMetaLine(part), width)),
+        ...webFetchUrlLines(part).map((line) => theme.fg('accent', truncateLine(line, width))),
         ...(title
-          ? [
-              '',
-              theme.fg('mdCodeBlockBorder', '→ ') +
-                theme.fg('mdHeading', truncateLine(title, width - 2))
-            ]
+          ? ['', theme.fg('muted', '→ ') + theme.fg('accent', truncateLine(title, width - 2))]
           : []),
         ...(shownBody.length > 0
           ? ['', ...shownBody.map((line) => theme.fg('toolOutput', truncateLine(line, width)))]
@@ -721,10 +717,11 @@ function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
 function metadataRow(
   label: string,
   value: string | number | boolean | undefined | null,
-  theme: Theme
+  theme: Theme,
+  valueColor: 'toolOutput' | 'accent' = 'toolOutput'
 ) {
   if (value === undefined || value === null || value === '') return undefined
-  return `${theme.fg('mdCodeBlockBorder', label.padEnd(13))} ${theme.fg('mdCodeBlock', String(value))}`
+  return `${theme.fg('muted', label.padEnd(13))} ${theme.fg(valueColor, String(value))}`
 }
 
 function yesNo(value: boolean | undefined) {
@@ -734,10 +731,15 @@ function yesNo(value: boolean | undefined) {
 function webFetchExpandedHeader(part: OutputPart, format: string, theme: Theme) {
   return [
     '',
-    theme.fg('mdHeading', 'Web fetch'),
+    theme.fg('muted', 'Web fetch'),
     metadataRow('Status:', statusLabel(numberMetadata(part.data?.status)), theme),
-    metadataRow('URL:', stringMetadata(part.data?.url), theme),
-    metadataRow('Final URL:', stringMetadata(part.data?.final_url ?? part.data?.finalUrl), theme),
+    metadataRow('URL:', stringMetadata(part.data?.url), theme, 'accent'),
+    metadataRow(
+      'Final URL:',
+      stringMetadata(part.data?.final_url ?? part.data?.finalUrl),
+      theme,
+      'accent'
+    ),
     metadataRow(
       'Content-Type:',
       stringMetadata(part.data?.content_type ?? part.data?.contentType),
@@ -764,14 +766,8 @@ function webFetchExpandedBodyLines(output: string, format: string, width: number
 function webFetchExpandedBodyHeader(part: OutputPart, theme: Theme) {
   const title = stringMetadata(part.data?.title)
   return title
-    ? [
-        '',
-        theme.fg('mdCodeBlockBorder', 'Title'),
-        theme.fg('mdHeading', title),
-        '',
-        theme.fg('mdCodeBlockBorder', 'Body')
-      ]
-    : ['', theme.fg('mdCodeBlockBorder', 'Body')]
+    ? ['', theme.fg('muted', 'Title'), theme.fg('accent', title), '', theme.fg('muted', 'Body')]
+    : ['', theme.fg('muted', 'Body')]
 }
 
 function renderExpandedWebFetchPart(part: OutputPart, theme: Theme): Component {
