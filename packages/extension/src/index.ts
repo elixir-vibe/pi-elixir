@@ -2,6 +2,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 
 import { type ExtensionAPI, type ExtensionContext } from '@earendil-works/pi-coding-agent'
+import { Text } from '@earendil-works/pi-tui'
 
 import { registerBridgeCommands } from './bridge/plugin-commands.ts'
 import { handleBridgeRequest } from './bridge/requests.ts'
@@ -9,7 +10,11 @@ import { showStartupInfo } from './bridge/startup-info.ts'
 import { registerBridgeToolHooks } from './bridge/tool-hooks.ts'
 import { applyBridgeUIEvent, updateStatus } from './bridge/ui-events.ts'
 import { resolveUrl, getConnectionKind, sendBridgeEvent } from './connection/resolver.ts'
-import { onStatusChange } from './connection/status.ts'
+import {
+  getIncompatibleDependency,
+  onStatusChange,
+  type ConnectionKind
+} from './connection/status.ts'
 import {
   markTurnEnd,
   markTurnStart,
@@ -47,6 +52,15 @@ interface StatusSubscription {
   unsubscribeRequests: () => void
 }
 
+type ElixirNoticeKind = 'missing' | 'incompatible' | 'unavailable'
+
+interface ElixirNoticeDetails {
+  kind: ElixirNoticeKind
+  title: string
+  message: string
+  cwd: string
+}
+
 function resolveElixirCwd(cwd: string): string | null {
   return resolveMixProjectCwd(cwd)
 }
@@ -59,11 +73,59 @@ function hasBridgePlugins(cwd: string): boolean {
   return (getBridgeInfo(cwd)?.plugins?.length ?? 0) > 0
 }
 
+function noticeForKind(cwd: string, kind: ElixirNoticeKind): ElixirNoticeDetails {
+  switch (kind) {
+    case 'missing':
+      return {
+        kind,
+        cwd,
+        title: 'Elixir tools are not installed',
+        message:
+          'This Mix project does not have the pi_bridge dev dependency installed. Run an Elixir tool to install it when prompted.'
+      }
+    case 'incompatible':
+      return {
+        kind,
+        cwd,
+        title: 'Elixir tools version mismatch',
+        message:
+          getIncompatibleDependency(cwd) ??
+          'The pi_bridge dependency version does not match this pi-elixir extension.'
+      }
+    case 'unavailable':
+      return {
+        kind,
+        cwd,
+        title: 'Elixir tools are unavailable',
+        message:
+          'pi-elixir could not start or connect to the project bridge. Elixir-specific tools may be unavailable for this session.'
+      }
+  }
+
+  kind satisfies never
+  throw new Error(`Unhandled Elixir notice kind: ${kind}`)
+}
+
+function noticeKind(kind: ConnectionKind): ElixirNoticeKind | undefined {
+  if (kind === 'missing' || kind === 'incompatible' || kind === 'unavailable') return kind
+  return undefined
+}
+
+function formatNotice(details: ElixirNoticeDetails): string {
+  return `${details.title}: ${details.message}`
+}
+
 export default function (pi: ExtensionAPI) {
   startEventLoopLagMonitor()
 
   const statusSubscriptions = new Map<string, StatusSubscription>()
+  const emittedNotices = new Set<string>()
   const registeredCommands = new Set<string>()
+  pi.registerMessageRenderer<ElixirNoticeDetails>('elixir-notice', (message, _options, theme) => {
+    const details = message.details
+    if (!details) return undefined
+    return new Text(theme.fg('error', `Error: ${formatNotice(details)}`), 1, 0)
+  })
   if (flags.sessions()) {
     pi.registerMessageRenderer('elixir-sessions', renderSessionMessage)
     registerSessionCommands(pi, registeredCommands, resolveElixirCwd)
@@ -131,6 +193,26 @@ export default function (pi: ExtensionAPI) {
     return Array.from(statusSubscriptions.values()).some((subscription) => subscription.cwd === cwd)
   }
 
+  function reportConnectionNotice(ctx: ExtensionContext, cwd: string, kind: ConnectionKind) {
+    const notice = noticeKind(kind)
+    if (!notice) return
+
+    const details = noticeForKind(cwd, notice)
+    const key = `${subscriptionKey(ctx)}:${details.kind}:${details.message}`
+    if (emittedNotices.has(key)) return
+    emittedNotices.add(key)
+
+    pi.sendMessage(
+      {
+        customType: 'elixir-notice',
+        content: `Error: ${formatNotice(details)}`,
+        display: true,
+        details
+      },
+      { triggerTurn: false }
+    )
+  }
+
   pi.on('session_start', async (_event, ctx) => {
     await withDiagnosticSpan('hook_session_start', ctx.cwd, undefined, async () => {
       recordDiagnostic('session_start', ctx.cwd)
@@ -140,7 +222,9 @@ export default function (pi: ExtensionAPI) {
       const sessionCwd = resolveElixirCwd(ctx.cwd)
       if (!sessionCwd) return
       const unsubscribeStatus = onStatusChange((cwd, kind) => {
-        if (cwd === sessionCwd) updateStatus(ctx, kind)
+        if (cwd !== sessionCwd) return
+        updateStatus(ctx, kind)
+        reportConnectionNotice(ctx, sessionCwd, kind)
       })
       const unsubscribeUI = onBridgeUIEvent((cwd, event) => {
         if (flags.plugins() && cwd === sessionCwd) applyBridgeUIEvent(ctx, event)
@@ -167,7 +251,9 @@ export default function (pi: ExtensionAPI) {
       void (async () => {
         recordDiagnostic('bridge_resolve_start', sessionCwd)
         const conn = await resolveUrl(sessionCwd)
-        updateStatus(ctx, conn?.kind ?? getConnectionKind(sessionCwd))
+        const kind = conn?.kind ?? getConnectionKind(sessionCwd) ?? 'unavailable'
+        updateStatus(ctx, kind)
+        reportConnectionNotice(ctx, sessionCwd, kind)
         if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
         const info = getBridgeInfo(sessionCwd)
         showStartupInfo(ctx, info)
@@ -179,6 +265,8 @@ export default function (pi: ExtensionAPI) {
         recordDiagnostic('bridge_resolve_error', sessionCwd, {
           error: error instanceof Error ? error.message : String(error)
         })
+        updateStatus(ctx, 'unavailable')
+        reportConnectionNotice(ctx, sessionCwd, 'unavailable')
       })
     })
   })

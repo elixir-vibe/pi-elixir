@@ -1,6 +1,12 @@
-import packageJson from '../../../package.json' with { type: 'json' }
+import { readFileSync } from 'node:fs'
 
-export const EXTENSION_VERSION = packageJson.version
+function readExtensionVersion(): string {
+  const packageJsonUrl = new URL('../../../package.json', import.meta.url)
+  const packageJson = JSON.parse(readFileSync(packageJsonUrl, 'utf8')) as { version?: string }
+  return packageJson.version ?? '0.0.0'
+}
+
+export const EXTENSION_VERSION = readExtensionVersion()
 
 export function expectedPiBridgeDependency(): string {
   return `{:pi_bridge, "== ${EXTENSION_VERSION}", only: :dev}`

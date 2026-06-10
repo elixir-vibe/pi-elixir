@@ -8,6 +8,7 @@ vi.mock('../src/connection/resolver.ts', () => ({
 }))
 
 vi.mock('../src/connection/status.ts', () => ({
+  getIncompatibleDependency: vi.fn(),
   onStatusChange: vi.fn()
 }))
 
@@ -24,7 +25,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 
 import { callTool, resolveUrl, getConnectionKind } from '#src/connection/resolver.ts'
-import { onStatusChange } from '#src/connection/status.ts'
+import { getIncompatibleDependency, onStatusChange } from '#src/connection/status.ts'
 import { onBridgeBusEvent, onBridgeRequest, stopEmbedded } from '#src/embedded/stdio-process.ts'
 import extension from '#src/index.js'
 
@@ -85,6 +86,7 @@ describe('extension registration', () => {
     vi.clearAllMocks()
     vi.mocked(resolveUrl).mockResolvedValue(null)
     vi.mocked(getConnectionKind).mockReturnValue('starting')
+    vi.mocked(getIncompatibleDependency).mockReturnValue(undefined)
     vi.mocked(onStatusChange).mockImplementation((_listener) => vi.fn())
   })
 
@@ -120,6 +122,7 @@ describe('extension status lifecycle', () => {
     vi.clearAllMocks()
     vi.mocked(resolveUrl).mockResolvedValue(null)
     vi.mocked(getConnectionKind).mockReturnValue('starting')
+    vi.mocked(getIncompatibleDependency).mockReturnValue(undefined)
     vi.mocked(onStatusChange).mockImplementation((_listener) => vi.fn())
   })
 
@@ -192,6 +195,32 @@ describe('extension status lifecycle', () => {
 
     expect(unsubscribe).toHaveBeenCalledTimes(1)
     expect(onStatusChange).toHaveBeenCalledTimes(1)
+  })
+
+  it('returns native tool error for incompatible Elixir bridge', async () => {
+    const projectA = makeProject('project-a')
+    const message =
+      'pi_bridge version mismatch: installed 0.6.2, but pi-elixir extension expects 0.6.0.'
+    vi.mocked(resolveUrl).mockResolvedValue(null)
+    vi.mocked(getConnectionKind).mockReturnValue('incompatible')
+    vi.mocked(getIncompatibleDependency).mockReturnValue(message)
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    const result = await tool.execute(
+      'tool-1',
+      { code: 'Application.spec(:pi_bridge, :vsn)' },
+      undefined,
+      undefined,
+      fakeCtx(projectA)
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toBe(message)
   })
 
   it('renders compact BEAM session widget from session snapshots', async () => {

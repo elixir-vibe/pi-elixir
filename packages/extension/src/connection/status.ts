@@ -4,6 +4,7 @@ export type ConnectionKind =
   | 'starting'
   | 'missing'
   | 'incompatible'
+  | 'unavailable'
   | null
 
 export interface CachedConnection {

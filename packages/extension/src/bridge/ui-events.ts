@@ -2,25 +2,9 @@ import type { ConnectionKind } from '#src/connection/resolver.ts'
 import type { BridgeUIEvent } from '#src/embedded/stdio-process.ts'
 import type { StatusContext } from '#src/sessions/types.ts'
 
-export function updateStatus(ctx: StatusContext, kind: ConnectionKind) {
+export function updateStatus(ctx: StatusContext, _kind: ConnectionKind) {
   try {
-    const t = ctx.ui.theme
-    switch (kind) {
-      case 'external':
-        ctx.ui.setStatus('elixir', t.fg('success', '⬡') + ' ' + t.fg('muted', 'BEAM'))
-        break
-      case 'embedded':
-        ctx.ui.setStatus('elixir', t.fg('success', '⬡') + ' ' + t.fg('muted', 'BEAM (embedded)'))
-        break
-      case 'starting':
-        ctx.ui.setStatus('elixir', t.fg('warning', '⬡') + ' ' + t.fg('muted', 'BEAM starting…'))
-        break
-      case 'missing':
-        ctx.ui.setStatus('elixir', t.fg('warning', '⬡') + ' ' + t.fg('muted', 'BEAM tools missing'))
-        break
-      default:
-        ctx.ui.setStatus('elixir', t.fg('warning', '⬡') + ' ' + t.fg('muted', 'BEAM offline'))
-    }
+    ctx.ui.setStatus('elixir', undefined)
   } catch {
     // Status updates are best-effort. Session replacement can stale old UI contexts while embedded process callbacks are still finishing.
   }

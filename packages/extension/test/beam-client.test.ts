@@ -1,6 +1,19 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 
-vi.mock('node:fs')
+const { actualReadFileSync } = vi.hoisted(() => ({
+  actualReadFileSync: require('node:fs').readFileSync as typeof fs.readFileSync
+}))
+
+vi.mock('node:fs', async () => {
+  const actual = await vi.importActual<typeof fs>('node:fs')
+  return {
+    ...actual,
+    readFileSync: vi.fn((path: Parameters<typeof actual.readFileSync>[0], ...args) => {
+      if (String(path).endsWith('package.json')) return actualReadFileSync(path, ...args)
+      return undefined
+    })
+  }
+})
 vi.mock('node:child_process')
 
 import * as childProcess from 'node:child_process'
