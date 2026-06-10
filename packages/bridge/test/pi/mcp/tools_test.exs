@@ -105,6 +105,8 @@ defmodule Pi.MCP.ToolsTest do
 
       assert total <= 2
       assert Enum.all?(matches, &Map.has_key?(&1, "source"))
+      assert Enum.all?(matches, &Map.has_key?(&1, "pattern"))
+      assert Enum.all?(matches, &(&1["pattern"] in ["module", "run"]))
     end
   end
 
