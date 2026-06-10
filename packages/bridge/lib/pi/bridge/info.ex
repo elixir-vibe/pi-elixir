@@ -63,9 +63,15 @@ defmodule Pi.Bridge.Info do
 
   def aliases_code do
     builtin_aliases = [
-      "alias Pi.Dev, as: Dev",
-      "alias Pi.Docs, as: Docs",
-      "alias Pi.Web, as: Web"
+      "import Ecto.Query",
+      "use QuackDB.Ecto",
+      "alias Pi.Dev, as: Dev, warn: false",
+      "alias Pi.Docs, as: Docs, warn: false",
+      "alias Pi.Web, as: Web, warn: false",
+      "alias Pi.Quack, as: Q, warn: false",
+      "require Q",
+      "alias Pi.Quack.Event, as: E, warn: false",
+      "alias Pi.Quack.SessionFile, as: SF, warn: false"
     ]
 
     extension_aliases =

@@ -82,6 +82,55 @@ MyApp.Schema.__schema__(:type, :field)
 MyApp.Repo.all(Ecto.Query.from x in MyApp.Schema, limit: 5)
 ```
 
+## pi session analytics with QuackDB/Ecto
+
+Eval preloads short aliases for token-efficient analytical queries:
+
+```elixir
+# available by default in eval
+# import Ecto.Query
+# use QuackDB.Ecto
+# alias Pi.Quack, as: Q
+# require Q
+# alias Pi.Quack.Event, as: E
+# alias Pi.Quack.SessionFile, as: SF
+```
+
+Use the QuackDB mirror as a real analytical DB, not only slash commands:
+
+```elixir
+from(e in E,
+  group_by: e.tool_name,
+  order_by: [desc: count(e.id)],
+  select: %{tool: e.tool_name, n: count(e.id)}
+)
+|> Q.table()
+```
+
+FTS and JSON helpers compose with QuackDB's Ecto DSL:
+
+```elixir
+q = "function_clause"
+
+from(e in Q.errors(),
+  where: Q.matches(e.id, ^q),
+  order_by: [desc: Q.score(e.id, ^q)],
+  limit: 20,
+  select: %{
+    s: Q.score(e.id, ^q),
+    tool: e.tool_name,
+    content: Q.json_text(e.payload_json, "$.content")
+  }
+)
+|> Q.table()
+```
+
+Run raw DuckDB SQL only when the Ecto DSL is awkward:
+
+```elixir
+Q.sql!("SELECT event_type, count(*) n FROM pi_events GROUP BY 1 ORDER BY 2 DESC")
+```
+
 ## Profiling and performance
 
 ```elixir

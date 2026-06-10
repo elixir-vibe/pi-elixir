@@ -63,6 +63,7 @@ defmodule PiBridge.MixProject do
       {:ex_ast, "~> 0.12"},
       {:req, "~> 0.5"},
       {:quackdb, "~> 0.5.4"},
+      {:ecto_sql, "~> 3.13"},
       {:req_llm, "~> 1.6", optional: true},
       {:dune, "~> 0.3", optional: true},
       {:bandit, "~> 1.8"},

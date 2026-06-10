@@ -195,6 +195,24 @@ Pi.Session.start(name: :reviewer)
 Pi.Agent.parallel(["Review API", "Review tests", "Review OTP risks"])
 ```
 
+Eval also preloads token-efficient aliases for QuackDB session analytics:
+
+```elixir
+# preloaded: import Ecto.Query; use QuackDB.Ecto
+# preloaded: alias Pi.Quack, as: Q; require Q
+# preloaded: alias Pi.Quack.Event, as: E; alias Pi.Quack.SessionFile, as: SF
+
+q = "function_clause"
+
+from(e in Q.errors(),
+  where: Q.matches(e.id, ^q),
+  order_by: [desc: Q.score(e.id, ^q)],
+  limit: 20,
+  select: %{s: Q.score(e.id, ^q), tool: e.tool_name, content: Q.json_text(e.payload_json, "$.content")}
+)
+|> Q.table()
+```
+
 This keeps the transcript understandable: the model writes Elixir to control Elixir.
 
 ## Stateful eval and session-tree resume

@@ -48,6 +48,23 @@ Pi.Eval.forget(:large_result)
 Pi.Eval.reset()
 ```
 
+QuackDB mirror analytics are available through token-efficient aliases in eval:
+
+```elixir
+# preloaded: import Ecto.Query; use QuackDB.Ecto
+# preloaded: alias Pi.Quack, as: Q; require Q
+# preloaded: alias Pi.Quack.Event, as: E; alias Pi.Quack.SessionFile, as: SF
+
+from(e in E,
+  group_by: e.tool_name,
+  order_by: [desc: count(e.id)],
+  select: %{tool: e.tool_name, n: count(e.id)}
+)
+|> Q.table()
+```
+
+Use `Q.score/2`, `Q.matches/2`, `Q.json/2`, and `Q.json_text/2` inside normal QuackDB/Ecto queries for FTS and payload analysis.
+
 For untrusted snippets, use the Dune-backed sandbox:
 
 ```elixir
