@@ -65,6 +65,10 @@ mix run --no-halt -e 'Pi.Transport.Stdio.start()'
 pnpm --dir packages/extension run test:integration
 ```
 
+## TUI renderer style
+
+When changing extension tool renderers, follow `packages/extension/docs/rendering-style.md` and compare against built-in tools. Prefer core tool colors (`toolOutput`, `muted`, `accent`, `warning`, `error`) over Markdown-only colors for metadata. Use bold mainly for call titles, keep labels muted, URLs/paths as accent, normal result text as tool output, and warnings/errors only for real warning/error states.
+
 ## Feature flags
 
 Feature flags are defaults-on escape hatches for noisy, sensitive, or experimental environments:
