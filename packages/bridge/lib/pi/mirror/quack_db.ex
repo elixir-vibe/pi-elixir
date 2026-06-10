@@ -507,8 +507,8 @@ defmodule Pi.Mirror.QuackDB do
 
   defp synced_file_metadata(conn, session_file) do
     rows =
-      conn
-      |> QuackDB.rows(
+      QuackDB.query!(
+        conn,
         [
           "SELECT ",
           QuackDB.Type.quote_identifier(:file_size),
@@ -524,8 +524,7 @@ defmodule Pi.Mirror.QuackDB do
         ],
         [session_file],
         timeout: 30_000
-      )
-      |> Enum.take(1)
+      ).rows || []
 
     case rows do
       [[size, mtime_seconds, synced_entries] | _rest] ->
