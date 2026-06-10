@@ -395,7 +395,7 @@ function tableFooter(data: RenderTableData, visibleRows: number, hidden: number,
 function compactContinuationRow(columnCount: number, hidden: number) {
   if (hidden <= 0) return []
   return Array.from({ length: columnCount }, (_, index) =>
-    index === 0 ? `… ${hidden} more rows` : '…'
+    index === columnCount - 1 ? `… ${hidden} more rows` : ''
   )
 }
 
