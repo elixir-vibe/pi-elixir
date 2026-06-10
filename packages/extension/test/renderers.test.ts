@@ -222,6 +222,37 @@ describe('elixir result rendering', () => {
     expect(expanded).toContain('2/2 rows · 2 columns · integer, string')
   })
 
+  it('truncates compact table cells based on render width', () => {
+    const result = evalResult({
+      parts: [
+        {
+          format: 'table',
+          output: JSON.stringify({
+            columns: ['name', 'description'],
+            rows: [
+              [
+                'Pi.Agent',
+                'async/1, async/2, await/1, await/2, await_many/1, await_many/2, chain/1'
+              ],
+              ['Pi.Dev', 'compile/0, reload/0']
+            ],
+            total_rows: 2,
+            column_types: ['string', 'string']
+          })
+        }
+      ]
+    })
+
+    const compact = textOf(
+      renderElixirResult(result, { expanded: false, isPartial: false }, theme),
+      55
+    )
+
+    expect(compact).toContain('async/1, async/2, await…')
+    expect(compact).not.toContain('await_many/2')
+    expect(compact).toContain('1/2 rows · 2 columns · string, string · (ctrl+o to expand)')
+  })
+
   it('renders structured tree parts when expanded', () => {
     const result = evalResult({
       parts: [

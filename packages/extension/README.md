@@ -220,4 +220,30 @@ Pi.logs(tail: 50)
 Pi.clear_logs()
 ```
 
+Structured output helpers make eval results render nicely in pi while keeping values as ordinary Elixir data until the final step:
+
+```elixir
+Path.wildcard("lib/pi/**/*.ex")
+|> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})
+|> Enum.sort_by(& &1.bytes, :desc)
+|> Enum.take(8)
+|> Pi.table(columns: [:path, :bytes])
+```
+
+Pass `:columns` when row data is map-based and the presentation order matters. Without it, columns are inferred from map keys.
+
+```elixir
+Pi.Bridge.Info.snapshot(:stdio).apis.runtime
+|> Enum.map(fn api ->
+  functions = Enum.map(api.functions, &"#{&1.name}/#{&1.arity}")
+  %{
+    api: api.name,
+    module: inspect(api.module),
+    total: length(functions),
+    functions: Enum.take(functions, 5) |> Enum.join(", ")
+  }
+end)
+|> Pi.table(columns: [:api, :module, :total, :functions])
+```
+
 More helpers should be added only when they produce safer/better bounded output than obvious stdlib code.

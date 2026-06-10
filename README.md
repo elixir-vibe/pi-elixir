@@ -245,7 +245,17 @@ pi Node/TUI
      └─ project modules, deps, processes, Repo, endpoints
 ```
 
-The BEAM side emits structured protocol payloads. The TS side renders them in pi style.
+The BEAM side emits structured protocol payloads. The TS side renders them in pi style. For example, eval can return an ordered, typed table while staying plain Elixir until the final output helper:
+
+```elixir
+Path.wildcard("lib/pi/**/*.ex")
+|> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})
+|> Enum.sort_by(& &1.bytes, :desc)
+|> Enum.take(8)
+|> Pi.table(columns: [:path, :bytes])
+```
+
+Use `Pi.table(rows, columns: [...])` when map key order matters for presentation; otherwise columns are inferred from row keys.
 
 ## Install
 

@@ -398,6 +398,17 @@ function compactTableFooter(data: RenderTableData, visibleRows: number, theme: T
   return theme.fg('muted', shape + types) + theme.fg('muted', ' · ') + expandHint(theme)
 }
 
+function compactTableCellWidth(columnCount: number, width: number) {
+  const borderOverhead = 3 * columnCount + 1
+  const availableForCells = Math.max(columnCount * 8, width - borderOverhead)
+  return Math.max(8, Math.min(60, Math.floor(availableForCells / columnCount)))
+}
+
+function compactTableRows(rows: string[][], columnCount: number, width: number) {
+  const cellWidth = compactTableCellWidth(columnCount, width)
+  return rows.map((row) => row.map((cell) => truncateLine(cell, cellWidth)))
+}
+
 function compactContinuationRow(columnCount: number, hidden: number) {
   if (hidden <= 0) return []
   return Array.from({ length: columnCount }, (_, index) =>
@@ -415,15 +426,15 @@ function renderMarkdownTable(
 
   const visibleRows = data.rows.slice(0, options.maxRows)
   const hidden = Math.max(0, data.totalRows - visibleRows.length)
-  const rows = options.expanded
-    ? visibleRows
-    : [...visibleRows, compactContinuationRow(data.columns.length, hidden)].filter(
-        (row) => row.length > 0
-      )
-  const markdown = markdownTable(data.columns, rows, data.alignments)
-
   return {
     render: (width) => {
+      const rows = options.expanded
+        ? visibleRows
+        : [
+            ...compactTableRows(visibleRows, data.columns.length, width),
+            compactContinuationRow(data.columns.length, hidden)
+          ].filter((row) => row.length > 0)
+      const markdown = markdownTable(data.columns, rows, data.alignments)
       const lines = new Markdown(markdown, 0, 0, getMarkdownTheme()).render(width)
       const footer = options.expanded
         ? tableFooter(data, visibleRows.length, hidden, theme)
