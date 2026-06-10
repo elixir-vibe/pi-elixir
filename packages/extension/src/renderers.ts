@@ -698,9 +698,9 @@ function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
       return [
         '',
         theme.fg('muted', truncateLine(webFetchMetaLine(part), width)),
-        ...webFetchUrlLines(part).map((line) => theme.fg('accent', truncateLine(line, width))),
+        ...webFetchUrlLines(part).map((line) => theme.fg('muted', truncateLine(line, width))),
         ...(title
-          ? ['', theme.fg('muted', '→ ') + theme.fg('accent', truncateLine(title, width - 2))]
+          ? ['', theme.fg('muted', '→ ') + theme.fg('toolOutput', truncateLine(title, width - 2))]
           : []),
         ...(shownBody.length > 0
           ? ['', ...shownBody.map((line) => theme.fg('toolOutput', truncateLine(line, width)))]
@@ -766,7 +766,7 @@ function webFetchExpandedBodyLines(output: string, format: string, width: number
 function webFetchExpandedBodyHeader(part: OutputPart, theme: Theme) {
   const title = stringMetadata(part.data?.title)
   return title
-    ? ['', theme.fg('muted', 'Title'), theme.fg('accent', title), '', theme.fg('muted', 'Body')]
+    ? ['', theme.fg('muted', 'Title'), theme.fg('toolOutput', title), '', theme.fg('muted', 'Body')]
     : ['', theme.fg('muted', 'Body')]
 }
 

@@ -17,7 +17,7 @@ Use core tool colors first:
 - `toolOutput` — normal result/body text and ordinary scalar values.
 - `muted` — metadata labels, secondary status text, dividers, hidden-count lines, durations, expansion hints.
 - `dim` — very low-emphasis hints only.
-- `accent` — clickable or identity-like references: paths, URLs, module names, final target names.
+- `accent` — clickable or identity-like references: paths, URLs, module names, final target names. Use sparingly in compact views; too many accent lines compete with the tool call.
 - `warning` — warnings, truncation notices, line ranges, unusual but non-failing status.
 - `error` — failures only.
 - `success` — success state only when it adds information; do not color every `200 OK` green.
@@ -41,8 +41,8 @@ Compact web/document-like output:
 
 ```text
 Web fetch · 200 OK · text/html · 559 B   # muted
-https://example.com                     # accent
-→ Example Domain                        # muted arrow + accent title
+https://example.com                     # muted in compact, accent in expanded metadata if needed
+→ Example Domain                        # muted arrow + toolOutput title
 
 Body preview text...                    # toolOutput
 
@@ -57,7 +57,7 @@ Status:       200 OK                    # muted label + toolOutput value
 URL:          https://example.com        # muted label + accent value
 
 Title                                  # muted section label
-Example Domain                         # accent or toolOutput
+Example Domain                         # toolOutput unless it is the primary navigation target
 
 Body                                   # muted section label
 Body text...                           # toolOutput
