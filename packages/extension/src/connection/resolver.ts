@@ -27,7 +27,9 @@ import {
 
 export type { ConnectionKind, InstallPrompt }
 
-export interface ResolveUrlOptions extends InstallOptions {}
+export interface ResolveUrlOptions extends InstallOptions {
+  ignoreExternal?: boolean
+}
 
 export interface ConnectionResolution {
   url: string
@@ -66,27 +68,29 @@ export async function resolveUrl(
   options?: ResolveUrlOptions
 ): Promise<ConnectionResolution | null> {
   return withDiagnosticSpan('resolve_url', cwd, undefined, async () => {
-    if (process.env.PI_MCP_URL) {
+    if (!options?.ignoreExternal && process.env.PI_MCP_URL) {
       recordDiagnostic('resolve_url_phase', cwd, { phase: 'env_url' })
       return { url: process.env.PI_MCP_URL, kind: 'external' }
     }
 
-    const cached = connectionCache.get(cwd)
+    const cached = options?.ignoreExternal ? null : connectionCache.get(cwd)
     if (cached && Date.now() - cached.timestamp < CACHE_TTL) {
       recordDiagnostic('resolve_url_phase', cwd, { phase: 'cache_hit', kind: cached.kind })
       return { url: cached.url, kind: cached.kind }
     }
 
-    const externalUrl = await withDiagnosticSpan(
-      'discover_external_mcp',
-      cwd,
-      undefined,
-      async () => discoverExternalMCP(cwd)
-    )
-    if (externalUrl) {
-      connectionCache.set(cwd, { url: externalUrl, kind: 'external', timestamp: Date.now() })
-      recordDiagnostic('resolve_url_phase', cwd, { phase: 'external_found' })
-      return { url: externalUrl, kind: 'external' }
+    if (!options?.ignoreExternal) {
+      const externalUrl = await withDiagnosticSpan(
+        'discover_external_mcp',
+        cwd,
+        undefined,
+        async () => discoverExternalMCP(cwd)
+      )
+      if (externalUrl) {
+        connectionCache.set(cwd, { url: externalUrl, kind: 'external', timestamp: Date.now() })
+        recordDiagnostic('resolve_url_phase', cwd, { phase: 'external_found' })
+        return { url: externalUrl, kind: 'external' }
+      }
     }
 
     if (process.env.PI_DISABLE_EMBEDDED === '1') {
@@ -120,7 +124,9 @@ export async function resolveUrl(
 
     if (isEmbeddedReady(cwd)) {
       const url = getEmbeddedUrl(cwd)
-      connectionCache.set(cwd, { url, kind: 'embedded', timestamp: Date.now() })
+      if (!options?.ignoreExternal) {
+        connectionCache.set(cwd, { url, kind: 'embedded', timestamp: Date.now() })
+      }
       recordDiagnostic('resolve_url_phase', cwd, { phase: 'embedded_ready' })
       return { url, kind: 'embedded' }
     }

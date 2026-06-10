@@ -19,7 +19,7 @@ defmodule Pi.Transport.StdioTest do
     assert Stdio.__test_handle_line__(Jason.encode!(%{type: :llm_chunk})) == :ok
   end
 
-  test "plugin commands install built-ins before atom lookup" do
+  test "plugin commands dispatch from string names" do
     assert {:ok, text} =
              Stdio.__test_dispatch__("pi_plugin_command", %{"name" => "quack", "args" => "status"})
 

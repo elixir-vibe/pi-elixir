@@ -121,17 +121,9 @@ defmodule Pi.Transport.Stdio do
 
   defp dispatch("pi_plugin_command", %{"name" => name, "args" => args}) when is_binary(name) do
     Pi.Features.gate :plugins do
-      Manager.install()
-
-      case existing_atom(name) do
-        {:ok, name} ->
-          name
-          |> Manager.run_command(to_string(args || ""))
-          |> encode_reply()
-
-        :error ->
-          encode_reply({:error, "Unknown plugin command: #{name}"})
-      end
+      name
+      |> run_plugin_command(to_string(args || ""))
+      |> encode_reply()
     end
     |> encode_plugin_command_reply()
   end
@@ -182,6 +174,19 @@ defmodule Pi.Transport.Stdio do
 
   defp dispatch(name, args), do: Tools.dispatch(name, args)
 
+  defp run_plugin_command("quack", args) do
+    case Manager.run_command("quack", args) do
+      {:error, "Unknown plugin command: quack"} ->
+        _ = Manager.load(Pi.Mirror.QuackDB)
+        Manager.run_command("quack", args)
+
+      reply ->
+        reply
+    end
+  end
+
+  defp run_plugin_command(name, args), do: Manager.run_command(name, args)
+
   defp plugin_hook_payload(%PluginHook{} = hook) do
     %{
       "toolName" => hook.tool_name,
@@ -190,12 +195,6 @@ defmodule Pi.Transport.Stdio do
       "content" => hook.content,
       "isError" => hook.is_error
     }
-  end
-
-  defp existing_atom(value) do
-    {:ok, String.to_existing_atom(value)}
-  rescue
-    ArgumentError -> :error
   end
 
   defp encode_plugin_command_reply({:error, message}), do: encode_reply({:error, message})

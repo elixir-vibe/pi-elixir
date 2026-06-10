@@ -136,6 +136,26 @@ describe('extension registration', () => {
       expect.arrayContaining(['elixir:debug', 'elixir:dogfood'])
     )
   })
+
+  it('runs quack against the local embedded bridge instead of external MCP', async () => {
+    const project = makeProject('project')
+    const { pi } = fakePi()
+    extension(pi as any)
+    vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:project', kind: 'embedded' })
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({ ok: 'quack ok' }),
+      isError: false
+    })
+
+    const command = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:quack')?.[1]
+    await command.handler('status', fakeCtx(project))
+
+    expect(resolveUrl).toHaveBeenCalledWith(project, { ignoreExternal: true })
+    expect(callTool).toHaveBeenCalledWith('stdio:project', 'pi_plugin_command', {
+      name: 'quack',
+      args: 'status'
+    })
+  })
 })
 
 describe('extension status lifecycle', () => {

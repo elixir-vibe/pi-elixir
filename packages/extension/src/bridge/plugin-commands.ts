@@ -22,6 +22,20 @@ function parsePluginCommandResult(text: string): PluginCommandResult {
   }
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
+async function resolveCommandUrl(beamCwd: string, commandName: string, attempt = 0) {
+  const options = { ignoreExternal: commandName === 'quack' }
+  const conn = await resolveUrl(beamCwd, options)
+
+  if (conn || !options.ignoreExternal || attempt >= 20) return conn
+
+  await delay(250)
+  return resolveCommandUrl(beamCwd, commandName, attempt + 1)
+}
+
 export function registerBridgeCommand(
   pi: ExtensionAPI,
   command: BridgePluginCommand,
@@ -29,14 +43,15 @@ export function registerBridgeCommand(
   resolveElixirCwd: (cwd: string) => string | null
 ) {
   const name = pluginCommandName(command)
-  if (!name || registered.has(name)) return
+  const commandName = command.name
+  if (!name || !commandName || registered.has(name)) return
 
   registered.add(name)
   pi.registerCommand(name, {
     description: command.description ?? `Run BEAM plugin command ${command.name}`,
     handler: async (args, ctx) => {
       const beamCwd = resolveElixirCwd(ctx.cwd)
-      const conn = beamCwd ? await resolveUrl(beamCwd) : null
+      const conn = beamCwd ? await resolveCommandUrl(beamCwd, commandName) : null
       if (!conn) {
         ctx.ui.notify('No BEAM connection for this project.', 'error')
         return

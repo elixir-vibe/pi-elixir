@@ -49,7 +49,7 @@ defmodule Pi.Plugin.Manager do
     GenServer.call(__MODULE__, :commands)
   end
 
-  def run_command(name, args) when is_atom(name) and is_binary(args) do
+  def run_command(name, args) when (is_atom(name) or is_binary(name)) and is_binary(args) do
     install()
     GenServer.call(__MODULE__, {:command, name, args}, :infinity)
   end
@@ -123,11 +123,14 @@ defmodule Pi.Plugin.Manager do
   end
 
   def handle_call({:command, name, args}, _from, state) do
+    command_name = to_string(name)
+
     reply =
       state.children
-      |> Enum.find_value({:error, "Unknown plugin command: #{name}"}, fn {_module, pid} ->
-        if Enum.any?(Worker.commands(pid), &(&1.name == name)) do
-          Worker.run_command(pid, name, args)
+      |> Enum.find_value({:error, "Unknown plugin command: #{command_name}"}, fn {_module, pid} ->
+        case Enum.find(Worker.commands(pid), &(to_string(&1.name) == command_name)) do
+          nil -> nil
+          command -> Worker.run_command(pid, command.name, args)
         end
       end)
 
