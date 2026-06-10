@@ -95,6 +95,14 @@ defmodule Pi.QuackTest do
   end
 
   defp start_mirror(_db) do
+    if System.get_env("CI") == "true" do
+      {:skip, "QuackDB mirror unavailable in CI"}
+    else
+      start_mirror_locally()
+    end
+  end
+
+  defp start_mirror_locally do
     previous_flag = Process.flag(:trap_exit, true)
 
     try do
