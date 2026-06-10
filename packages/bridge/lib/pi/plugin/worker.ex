@@ -33,7 +33,7 @@ defmodule Pi.Plugin.Worker do
   def commands(pid) when is_pid(pid), do: GenServer.call(pid, :commands)
 
   def run_command(pid, name, args) when is_pid(pid) and is_atom(name) and is_binary(args) do
-    GenServer.call(pid, {:command, name, args})
+    GenServer.call(pid, {:command, name, args}, :infinity)
   end
 
   def tool_call(pid, call, context) when is_pid(pid) and is_map(call) and is_map(context) do

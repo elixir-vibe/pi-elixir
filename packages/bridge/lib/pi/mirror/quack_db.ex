@@ -9,8 +9,12 @@ defmodule Pi.Mirror.QuackDB do
 
   use Pi.Plugin
 
+  alias Pi.Plugin.UI
+
   @table "pi_events"
   @default_batch_size 1
+  @sync_batch_size 5_000
+  @sync_progress_key :elixir_quack_sync
 
   @session_fields %{
     "cwd" => :cwd,
@@ -62,10 +66,10 @@ defmodule Pi.Mirror.QuackDB do
     args
     |> String.split(~r/\s+/, trim: true)
     |> case do
-      ["sync" | _rest] -> sync_current_session(state)
+      ["sync" | rest] -> sync_sessions(state, rest)
       ["status" | _rest] -> {{:ok, status_text(state)}, state}
       [] -> {{:ok, status_text(state)}, state}
-      _other -> {{:error, "Usage: /elixir:quack [status|sync]"}, state}
+      _other -> {{:error, "Usage: /elixir:quack [status|sync [current|PATH]]"}, state}
     end
   end
 
@@ -238,46 +242,166 @@ defmodule Pi.Mirror.QuackDB do
   defp status_text(%{error: error}), do: "QuackDB mirror unavailable · #{error}"
   defp status_text(_state), do: "QuackDB mirror disabled · PI_ELIXIR_MIRROR disables it"
 
-  defp sync_current_session(%{enabled?: true, session_file: session_file} = state)
-       when is_binary(session_file) and session_file != "" do
-    case sync_session_file(state, session_file) do
-      {:ok, count, state} ->
-        {{:ok, "QuackDB mirror synced #{count} entries from #{session_file}"}, state}
+  defp sync_sessions(%{enabled?: true} = state, []) do
+    sync_session_files(state, discover_session_files())
+  end
 
-      {:error, reason, state} ->
-        {{:error, reason}, state}
+  defp sync_sessions(%{enabled?: true} = state, ["current" | _rest]) do
+    sync_current_session(state)
+  end
+
+  defp sync_sessions(%{enabled?: true} = state, [path | _rest]) do
+    path = Path.expand(path)
+
+    cond do
+      File.dir?(path) -> sync_session_files(state, session_files_under(path))
+      File.regular?(path) -> sync_session_files(state, [path])
+      true -> {{:error, "Session path not found: #{path}"}, state}
     end
   end
 
-  defp sync_current_session(%{enabled?: true} = state) do
-    {{:error, "No session file observed yet; wait for session_start or a tool event."}, state}
+  defp sync_sessions(state, _args), do: {{:error, status_text(state)}, state}
+
+  defp sync_current_session(%{enabled?: true, session_file: session_file} = state)
+       when is_binary(session_file) and session_file != "" do
+    sync_session_files(state, [session_file])
   end
 
-  defp sync_current_session(state), do: {{:error, status_text(state)}, state}
+  defp sync_current_session(%{enabled?: true} = state) do
+    {{:error,
+      "No current session file observed yet; use /elixir:quack sync to backfill all sessions."},
+     state}
+  end
+
+  defp sync_session_files(state, []),
+    do: {{:ok, "QuackDB mirror synced 0 entries from 0 files"}, state}
+
+  defp sync_session_files(state, files) do
+    files = Enum.uniq(files)
+    total = length(files)
+    started_at = System.monotonic_time(:millisecond)
+
+    UI.set_progress(@sync_progress_key, title: "QuackDB sync", current: 0, total: total)
+    UI.set_status(@sync_progress_key, "QuackDB sync starting · #{total} files")
+
+    {entries, failed} =
+      files
+      |> Enum.with_index(1)
+      |> Enum.reduce({0, 0}, fn {file, index}, {entries, failed} ->
+        UI.set_progress(@sync_progress_key,
+          title: "QuackDB sync #{Path.basename(file)}",
+          current: index,
+          total: total
+        )
+
+        case sync_session_file(state, file) do
+          {:ok, count} ->
+            synced = entries + count
+
+            UI.set_status(
+              @sync_progress_key,
+              "QuackDB sync · #{index}/#{total} files · #{synced} rows"
+            )
+
+            {synced, failed}
+
+          {:error, _reason} ->
+            UI.set_status(
+              @sync_progress_key,
+              "QuackDB sync · #{index}/#{total} files · #{failed + 1} failed"
+            )
+
+            {entries, failed + 1}
+        end
+      end)
+
+    elapsed = max(System.monotonic_time(:millisecond) - started_at, 1)
+    ok_files = total - failed
+    rows_per_second = div(entries * 1_000, elapsed)
+
+    message =
+      "QuackDB mirror synced #{entries} entries from #{ok_files}/#{total} files · #{rows_per_second} rows/s"
+
+    UI.set_status(@sync_progress_key, message)
+    {{:ok, message}, state}
+  rescue
+    exception in [File.Error, RuntimeError, QuackDB.Error, DBConnection.ConnectionError] ->
+      message = Exception.message(exception)
+      UI.set_status(@sync_progress_key, "QuackDB sync failed · #{message}")
+      {{:error, message}, state}
+  end
 
   defp sync_session_file(state, session_file) do
     if File.regular?(session_file) do
       sync_regular_session_file(state, session_file)
     else
-      {:error, "Session file not found: #{session_file}", state}
+      {:error, "Session file not found: #{session_file}"}
     end
   rescue
     exception in [File.Error, RuntimeError, QuackDB.Error, DBConnection.ConnectionError] ->
-      {:error, Exception.message(exception), state}
+      {:error, Exception.message(exception)}
   end
 
-  defp sync_regular_session_file(state, session_file) do
-    {state, count} =
+  defp sync_regular_session_file(%{conn: conn} = state, session_file) do
+    state = flush(state)
+    delete_session_entries(state, session_file)
+
+    count =
       session_file
-      |> File.stream!(:line, [])
+      |> File.stream!(:line, read_ahead: 1_000_000)
       |> Stream.map(&String.trim_trailing(&1, "\n"))
       |> Stream.reject(&(&1 == ""))
-      |> Enum.reduce({state, 0}, fn line, {state, count} ->
-        {append_row(state, session_entry_row(session_file, line)), count + 1}
+      |> Stream.map(&session_entry_row(session_file, &1))
+      |> Stream.map(&normalize_row/1)
+      |> Stream.chunk_every(sync_batch_size())
+      |> Enum.reduce(0, fn rows, count ->
+        QuackDB.insert_rows!(conn, @table, rows,
+          columns: @columns,
+          batch_size: length(rows),
+          timeout: :infinity
+        )
+
+        count + length(rows)
       end)
 
-    {:ok, count, flush(state)}
+    {:ok, count}
   end
+
+  defp discover_session_files do
+    session_roots()
+    |> Enum.flat_map(&session_files_under/1)
+    |> Enum.uniq()
+  end
+
+  defp session_roots do
+    [
+      System.get_env("PI_CODING_AGENT_SESSION_DIR"),
+      Path.join([System.user_home!(), ".pi", "agent", "sessions"])
+    ]
+    |> Enum.reject(&(&1 in [nil, ""]))
+    |> Enum.map(&Path.expand/1)
+    |> Enum.uniq()
+  end
+
+  defp session_files_under(root) do
+    root
+    |> Path.join("**/*.jsonl")
+    |> Path.wildcard()
+    |> Enum.filter(&File.regular?/1)
+  end
+
+  defp delete_session_entries(%{conn: conn}, session_file) do
+    QuackDB.query!(conn, """
+    DELETE FROM #{@table}
+    WHERE event_type = 'session_entry' AND session_file = '#{sql_escape(session_file)}'
+    """)
+
+    :ok
+  end
+
+  defp delete_session_entries(_state, _session_file), do: :ok
+
+  defp sql_escape(value), do: String.replace(value, "'", "''")
 
   defp session_entry_row(session_file, line) do
     %{
@@ -398,6 +522,11 @@ defmodule Pi.Mirror.QuackDB do
 
   defp mirror_batch_size do
     System.get_env("PI_ELIXIR_MIRROR_BATCH_SIZE", Integer.to_string(@default_batch_size))
+    |> String.to_integer()
+  end
+
+  defp sync_batch_size do
+    System.get_env("PI_ELIXIR_MIRROR_SYNC_BATCH_SIZE", Integer.to_string(@sync_batch_size))
     |> String.to_integer()
   end
 

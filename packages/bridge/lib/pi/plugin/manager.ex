@@ -51,7 +51,7 @@ defmodule Pi.Plugin.Manager do
 
   def run_command(name, args) when is_atom(name) and is_binary(args) do
     install()
-    GenServer.call(__MODULE__, {:command, name, args})
+    GenServer.call(__MODULE__, {:command, name, args}, :infinity)
   end
 
   def tool_call(call, context \\ %{}) when is_map(call) and is_map(context) do
@@ -211,9 +211,11 @@ defmodule Pi.Plugin.Manager do
   end
 
   defp put_started_plugin(state, module) do
-    case PluginSupervisor.start_plugin(module) do
-      {:ok, pid} -> put_plugin(state, module, pid)
-      {:error, _reason} -> state
+    with {:module, ^module} <- Code.ensure_loaded(module),
+         {:ok, pid} <- PluginSupervisor.start_plugin(module) do
+      put_plugin(state, module, pid)
+    else
+      _reason -> state
     end
   end
 
