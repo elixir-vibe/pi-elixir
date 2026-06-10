@@ -392,6 +392,13 @@ function tableFooter(data: RenderTableData, visibleRows: number, hidden: number,
   return theme.fg('muted', shape + more + types)
 }
 
+function compactContinuationRow(columnCount: number, hidden: number) {
+  if (hidden <= 0) return []
+  return Array.from({ length: columnCount }, (_, index) =>
+    index === 0 ? `… ${hidden} more rows` : '…'
+  )
+}
+
 function renderMarkdownTable(
   part: OutputPart,
   theme: Theme,
@@ -401,14 +408,22 @@ function renderMarkdownTable(
   if (!data) return null
 
   const visibleRows = data.rows.slice(0, options.maxRows)
-  const markdown = markdownTable(data.columns, visibleRows, data.alignments)
   const hidden = Math.max(0, data.totalRows - visibleRows.length)
+  const rows = options.expanded
+    ? visibleRows
+    : [...visibleRows, compactContinuationRow(data.columns.length, hidden)].filter(
+        (row) => row.length > 0
+      )
+  const markdown = markdownTable(data.columns, rows, data.alignments)
 
   return {
     render: (width) => {
       const lines = new Markdown(markdown, 0, 0, getMarkdownTheme()).render(width)
-      const footer = tableFooter(data, visibleRows.length, hidden, theme)
-      if (footer) lines.push('', footer, ...(options.expanded ? [] : [expandHint(theme)]))
+      const footer = options.expanded
+        ? tableFooter(data, visibleRows.length, hidden, theme)
+        : undefined
+      if (footer) lines.push('', footer)
+      if (!options.expanded && hidden > 0) lines.push('', expandHint(theme))
       return ['', ...lines]
     },
     invalidate: () => undefined
