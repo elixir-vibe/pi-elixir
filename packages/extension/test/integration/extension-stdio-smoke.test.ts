@@ -33,7 +33,7 @@ function structuredPayload(result: { text: string }) {
   return JSON.parse(result.text) as {
     kind?: string
     text?: string
-    parts?: Array<{ kind?: string; body?: string; title?: string }>
+    parts?: Array<{ kind?: string; body?: string; title?: string; data?: Record<string, unknown> }>
   }
 }
 
@@ -145,6 +145,32 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
       expect(table?.title).toMatch(/\d+ rows × 2 columns/u)
       expect(table?.body).toContain('path')
       expect(table?.body).toContain('bytes')
+    })
+
+    it('renders web results as structured document output', async () => {
+      const result = await callEmbeddedTool(PROJECT_DIR, 'project_eval_structured', {
+        code: `%Pi.Web.Result{
+          url: "https://example.test",
+          final_url: "https://example.test/final",
+          status: 200,
+          content_type: "text/markdown",
+          format: :markdown,
+          title: "Example",
+          text: "# Example\\n\\nBody",
+          size_bytes: 16,
+          total_chars: 16,
+          redirected?: true
+        }`
+      })
+
+      expect(result.isError).toBe(false)
+      const payload = structuredPayload(result)
+      const document = payload.parts?.find((part) => part.kind === 'document')
+      expect(document?.title).toBe('Web fetch · 200 · Example')
+      expect(document?.body).toContain('# Example')
+      expect(document?.data?.document_kind).toBe('web_fetch')
+      expect(document?.data?.format).toBe('markdown')
+      expect(document?.data?.redirected).toBe(true)
     })
 
     it('routes Pi.LLM.stream through extension chunk/done messages', async () => {

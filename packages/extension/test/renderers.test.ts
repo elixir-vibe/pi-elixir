@@ -35,6 +35,11 @@ const theme = {
   fg: (_name: string, text: string) => text
 } as Theme
 
+const markerTheme = {
+  fg: (name: string, text: string) => `<${name}>${text}</${name}>`,
+  bold: (text: string) => `<bold>${text}</bold>`
+} as Theme
+
 function linesOf(component: Component, width = 120) {
   return component.render(width)
 }
@@ -360,6 +365,47 @@ describe('elixir result rendering', () => {
     )
     expect(compact).toContain('142 chars · not truncated · (ctrl+o to expand)')
     expect(compact).not.toContain('%Pi.Web.Result')
+  })
+
+  it('renders web fetch document parts without overusing accent color', () => {
+    const result = evalResult({
+      parts: [
+        {
+          kind: 'document',
+          body: 'Example Domain\nBody',
+          language: 'text',
+          data: {
+            document_kind: 'web_fetch',
+            url: 'https://example.com',
+            final_url: 'https://example.com',
+            status: 200,
+            content_type: 'text/html',
+            format: 'text',
+            title: 'Example Domain',
+            size_bytes: 559,
+            total_chars: 19,
+            truncated: false,
+            redirected: false
+          }
+        }
+      ]
+    })
+
+    const compact = textOf(
+      renderElixirResult(result, { expanded: false, isPartial: false }, markerTheme)
+    )
+    const expanded = textOf(
+      renderElixirResult(result, { expanded: true, isPartial: false }, markerTheme)
+    )
+
+    expect(compact).not.toContain('<accent>')
+    expect(compact).toContain('<muted>https://example.com</muted>')
+    expect(compact).toContain('<toolOutput>Example Domain</toolOutput>')
+    expect(expanded).not.toContain('<accent>')
+    expect(expanded).toContain('<bold><muted>Web fetch</muted></bold>')
+    expect(expanded).toContain(
+      '<muted>URL:         </muted> <toolOutput>https://example.com</toolOutput>'
+    )
   })
 
   it('renders web fetch document parts as expanded metadata plus body', () => {
