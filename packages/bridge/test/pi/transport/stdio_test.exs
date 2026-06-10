@@ -25,6 +25,15 @@ defmodule Pi.Transport.StdioTest do
 
     assert %{"ok" => message} = Jason.decode!(text)
     assert message =~ "QuackDB mirror"
+
+    assert {:ok, text} =
+             Stdio.__test_dispatch__("pi_plugin_command", %{
+               "name" => "quack.status",
+               "args" => ""
+             })
+
+    assert %{"ok" => message} = Jason.decode!(text)
+    assert message =~ "QuackDB mirror"
   end
 
   defp stop_plugin_processes do

@@ -27,7 +27,7 @@ function delay(ms: number): Promise<void> {
 }
 
 async function resolveCommandUrl(beamCwd: string, commandName: string, attempt = 0) {
-  const options = { ignoreExternal: commandName === 'quack' }
+  const options = { ignoreExternal: commandName === 'quack' || commandName.startsWith('quack.') }
   const conn = await resolveUrl(beamCwd, options)
 
   if (conn || !options.ignoreExternal || attempt >= 20) return conn

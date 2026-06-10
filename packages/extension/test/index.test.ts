@@ -133,7 +133,14 @@ describe('extension registration', () => {
     extension(pi as any)
 
     expect(pi.registerCommand.mock.calls.map(([name]) => name)).toEqual(
-      expect.arrayContaining(['elixir:debug', 'elixir:dogfood'])
+      expect.arrayContaining([
+        'elixir:debug',
+        'elixir:dogfood',
+        'elixir:quack.status',
+        'elixir:quack.sync',
+        'elixir:quack.index',
+        'elixir:quack.search'
+      ])
     )
   })
 

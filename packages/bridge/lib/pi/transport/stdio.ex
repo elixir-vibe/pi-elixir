@@ -174,11 +174,11 @@ defmodule Pi.Transport.Stdio do
 
   defp dispatch(name, args), do: Tools.dispatch(name, args)
 
-  defp run_plugin_command("quack", args) do
-    case Manager.run_command("quack", args) do
-      {:error, "Unknown plugin command: quack"} ->
+  defp run_plugin_command("quack" <> _rest = name, args) do
+    case Manager.run_command(name, args) do
+      {:error, "Unknown plugin command: " <> _command} ->
         _ = Manager.load(Pi.Mirror.QuackDB)
-        Manager.run_command("quack", args)
+        Manager.run_command(name, args)
 
       reply ->
         reply

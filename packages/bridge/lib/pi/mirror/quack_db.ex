@@ -60,7 +60,11 @@ defmodule Pi.Mirror.QuackDB do
     end
   end
 
-  command(name: :quack, description: "Inspect or backfill the built-in QuackDB event mirror")
+  command(name: :quack, description: "Show QuackDB mirror status")
+  command(name: :"quack.status", description: "Show QuackDB mirror status")
+  command(name: :"quack.sync", description: "Backfill pi sessions into the QuackDB mirror")
+  command(name: :"quack.index", description: "Rebuild the QuackDB mirror FTS index")
+  command(name: :"quack.search", description: "Search mirrored pi sessions with QuackDB FTS")
 
   @impl true
   def handle_event(event, %{enabled?: true} = state) when is_map(event) do
@@ -93,8 +97,29 @@ defmodule Pi.Mirror.QuackDB do
         {{:ok, status_text(state)}, state}
 
       _other ->
-        {{:error, "Usage: /elixir:quack [status|sync [current|PATH]|index|search QUERY]"}, state}
+        {{:error, "Usage: /elixir:quack[.status|.sync [current|PATH]|.index|.search QUERY]"},
+         state}
     end
+  end
+
+  def handle_command(:"quack.status", _args, state) do
+    state = ensure_enabled(state)
+    {{:ok, status_text(state)}, state}
+  end
+
+  def handle_command(:"quack.sync", args, state) do
+    state = ensure_enabled(state)
+    start_sync(state, String.split(args, ~r/\s+/, trim: true))
+  end
+
+  def handle_command(:"quack.index", _args, state) do
+    state = ensure_enabled(state)
+    rebuild_fts_command(state)
+  end
+
+  def handle_command(:"quack.search", args, state) do
+    state = ensure_enabled(state)
+    search_command(state, args)
   end
 
   @impl true

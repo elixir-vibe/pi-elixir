@@ -133,12 +133,15 @@ export default function (pi: ExtensionAPI) {
     registerSessionCommands(pi, registeredCommands, resolveElixirCwd)
   }
   if (flags.plugins()) {
-    registerBridgeCommand(
-      pi,
-      { name: 'quack', description: 'Inspect or sync the pi-elixir QuackDB session mirror' },
-      registeredCommands,
-      resolveElixirCwd
-    )
+    for (const command of [
+      { name: 'quack', description: 'Show pi-elixir QuackDB mirror status' },
+      { name: 'quack.status', description: 'Show pi-elixir QuackDB mirror status' },
+      { name: 'quack.sync', description: 'Backfill pi sessions into the QuackDB mirror' },
+      { name: 'quack.index', description: 'Rebuild the QuackDB mirror FTS index' },
+      { name: 'quack.search', description: 'Search mirrored pi sessions with QuackDB FTS' }
+    ]) {
+      registerBridgeCommand(pi, command, registeredCommands, resolveElixirCwd)
+    }
     registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
   }
 
