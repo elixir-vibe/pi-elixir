@@ -272,4 +272,10 @@ Pi.Docs.module(Pi.Output)
 |> Pi.Docs.source(context: 25)
 ```
 
+Use bounded web fetches when the result should stay typed/renderable and raw `Req` is too open-ended:
+
+```elixir
+Pi.Web.fetch!("https://example.com", format: :text)
+```
+
 More helpers should be added only when they produce safer/better bounded output than obvious stdlib code.

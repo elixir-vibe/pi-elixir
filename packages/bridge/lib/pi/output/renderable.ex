@@ -55,6 +55,74 @@ defimpl Pi.Output.Renderable, for: Pi.Docs.Entry do
   end
 end
 
+defimpl Pi.Output.Renderable, for: Pi.Web.Result do
+  def to_output(result, opts) do
+    preview = Keyword.get(opts, :preview, preview(result))
+
+    part =
+      case result.format do
+        :json ->
+          %Pi.Protocol.Tool.OutputPart{
+            format: :source,
+            output: result.text,
+            language: "json",
+            preview: preview,
+            metadata: metadata(result)
+          }
+
+        :html ->
+          %Pi.Protocol.Tool.OutputPart{
+            format: :source,
+            output: result.text,
+            language: "html",
+            preview: preview,
+            metadata: metadata(result)
+          }
+
+        :markdown ->
+          %Pi.Protocol.Tool.OutputPart{
+            format: :markdown,
+            output: result.text,
+            language: "markdown",
+            preview: preview,
+            metadata: metadata(result)
+          }
+
+        _text ->
+          %Pi.Protocol.Tool.OutputPart{
+            format: :text,
+            output: result.text,
+            preview: preview,
+            metadata: metadata(result)
+          }
+      end
+
+    %Pi.Output{parts: [part], text: result.text}
+  end
+
+  defp preview(result) do
+    title = if result.title in [nil, ""], do: result.final_url || result.url, else: result.title
+    status = result.status || "?"
+    suffix = if result.truncated?, do: " · truncated", else: ""
+    "GET #{status} #{title}#{suffix}"
+  end
+
+  defp metadata(result) do
+    %{
+      url: result.url,
+      final_url: result.final_url,
+      status: result.status,
+      content_type: result.content_type,
+      format: result.format,
+      title: result.title,
+      size_bytes: result.size_bytes,
+      total_chars: result.total_chars,
+      truncated: result.truncated?,
+      redirected: result.redirected?
+    }
+  end
+end
+
 defimpl Pi.Output.Renderable, for: Pi.Docs.Source do
   def to_output(source, opts) do
     Pi.Output.code(source.text, Keyword.get(opts, :language, :elixir),

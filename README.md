@@ -281,6 +281,12 @@ Pi.Docs.module(Pi.Output)
 |> Pi.Docs.source(context: 25)
 ```
 
+Bounded web fetches return structured values and do not expose raw `Req`:
+
+```elixir
+Pi.Web.fetch!("https://example.com", format: :text)
+```
+
 ## Install
 
 ```sh
