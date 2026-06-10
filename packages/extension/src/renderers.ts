@@ -336,6 +336,17 @@ function tableCell(value: unknown) {
   return typeof value === 'string' ? value : String(value ?? '')
 }
 
+function numericTableColumn(rows: string[][], index: number) {
+  const values = rows.map((row) => row[index] ?? '').filter(Boolean)
+  return values.length > 0 && values.every((value) => /^-?\d+(?:\.\d+)?$/u.test(value))
+}
+
+function padTableCell(value: string, width: number, align: 'left' | 'right') {
+  const truncatedValue = truncateLine(value, width)
+  const padding = ' '.repeat(Math.max(0, width - visibleWidth(truncatedValue)))
+  return align === 'right' ? padding + truncatedValue : truncatedValue + padding
+}
+
 function renderTablePart(part: OutputPart, theme: Theme): string[] | null {
   const table = parseJsonPart(part) as TablePayload | null
   const columns = table?.columns?.map(tableCell) ?? []
@@ -344,17 +355,23 @@ function renderTablePart(part: OutputPart, theme: Theme): string[] | null {
 
   const visibleRows = rows.slice(0, 20)
   const widths = columns.map((column, index) =>
-    Math.min(32, Math.max(column.length, ...visibleRows.map((row) => (row[index] ?? '').length)))
+    Math.min(
+      32,
+      Math.max(visibleWidth(column), ...visibleRows.map((row) => visibleWidth(row[index] ?? '')))
+    )
   )
+  const alignments = columns.map((_, index) => (numericTableColumn(rows, index) ? 'right' : 'left'))
 
-  const renderRow = (row: string[]) =>
+  const renderRow = (row: string[], header = false) =>
     row
-      .map((cell, index) => truncateLine(cell, widths[index] ?? 12).padEnd(widths[index] ?? 12))
+      .map((cell, index) =>
+        padTableCell(cell, widths[index] ?? 12, header ? 'left' : (alignments[index] ?? 'left'))
+      )
       .join('  ')
       .trimEnd()
 
   const lines = [
-    theme.fg('muted', renderRow(columns)),
+    theme.fg('muted', renderRow(columns, true)),
     theme.fg('muted', widths.map((width) => '─'.repeat(width)).join('  ')),
     ...visibleRows.map((row) => theme.fg('toolOutput', renderRow(row)))
   ]

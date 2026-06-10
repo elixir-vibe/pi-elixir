@@ -189,7 +189,7 @@ describe('elixir result rendering', () => {
 
     expect(compact).toBe('\n2 rows × 2 columns (ctrl+o to expand)')
     expect(expanded).toContain('bytes  path')
-    expect(expanded).toContain('123    lib/pi.ex')
+    expect(expanded).toContain('  123  lib/pi.ex')
   })
 
   it('renders structured tree parts when expanded', () => {
