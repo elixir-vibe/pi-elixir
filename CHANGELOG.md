@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+## 0.6.3 - 2026-06-10
+
+### Changed
+
+- Keep the Elixir/BEAM connection footer quiet during healthy or background startup states.
+- Report Elixir setup failures as session-history notices instead of persistent footer status.
+- Read the extension package version from disk at runtime to avoid stale JSON import cache after dogfood reloads.
+
+### Fixed
+
+- Incompatible `pi_bridge` dependency errors now remain native tool errors so pi renders the tool block with the error background.
+
 ## 0.6.2 - 2026-06-10
 
 ### Changed
