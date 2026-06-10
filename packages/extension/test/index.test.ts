@@ -106,6 +106,27 @@ describe('extension registration', () => {
     ])
   })
 
+  it('preserves eval timeout suffix in narrow call previews', () => {
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    const rendered = tool.renderCall(
+      {
+        code: 'Enum.map(1..1000, fn value -> %{value: value, doubled: value * 2} end)',
+        timeout: 30000
+      },
+      { fg: (_name: string, text: string) => text, bold: (text: string) => text },
+      {}
+    )
+
+    const line = rendered.render(48)[0]
+    expect(line).toContain('(30000ms)')
+    expect(line).toContain('…')
+  })
+
   it('registers dogfood and debug slash commands', () => {
     const { pi } = fakePi()
     extension(pi as any)
