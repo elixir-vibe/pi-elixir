@@ -278,6 +278,13 @@ defmodule Pi.Mirror.QuackDB do
         UI.notify(message, type: :error)
         UI.clear_status(@sync_progress_key)
     end
+  catch
+    kind, reason ->
+      message = Exception.format(kind, reason, __STACKTRACE__)
+      UI.notify("🦆 sync crashed · #{inspect(reason)}", type: :error)
+      UI.clear_status(@sync_progress_key)
+      File.write(Path.join(System.tmp_dir!(), "pi-elixir-quack-sync-crash.log"), message)
+      :ok
   end
 
   defp sync_files(_state, []), do: {:ok, discover_session_files()}
@@ -387,6 +394,8 @@ defmodule Pi.Mirror.QuackDB do
 
   defp sync_regular_session_file(%{conn: conn} = state, session_file, index, total) do
     state = flush(state)
+    label = session_file_label(session_file)
+    UI.set_status(@sync_progress_key, "🦆 sync #{label} · #{index}/#{total} files · checking")
     before_stat = session_file_stat!(session_file)
 
     case sync_plan(conn, session_file, before_stat) do
@@ -394,10 +403,17 @@ defmodule Pi.Mirror.QuackDB do
         :skipped
 
       {:append, offset, previous_count} ->
+        UI.set_status(@sync_progress_key, "🦆 sync #{label} · #{index}/#{total} files · appending")
         import_session_file(conn, session_file, offset, previous_count, before_stat, index, total)
 
       :replace ->
+        UI.set_status(
+          @sync_progress_key,
+          "🦆 sync #{label} · #{index}/#{total} files · deleting old rows"
+        )
+
         delete_session_entries(state, session_file)
+        UI.set_status(@sync_progress_key, "🦆 sync #{label} · #{index}/#{total} files · importing")
         import_session_file(conn, session_file, 0, 0, before_stat, index, total)
     end
   end
