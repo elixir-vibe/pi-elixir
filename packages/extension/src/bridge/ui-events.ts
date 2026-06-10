@@ -16,7 +16,7 @@ export function applyBridgeUIEvent(ctx: StatusContext, event: BridgeUIEvent) {
 
     switch (event.op) {
       case 'status':
-        ctx.ui.setStatus(key, event.text)
+        ctx.ui.setStatus(key, event.text ?? undefined)
         break
       case 'progress': {
         const title = event.title ?? key
