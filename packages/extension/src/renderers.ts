@@ -697,10 +697,14 @@ function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
       const more = hiddenLine(hidden, theme)
       return [
         '',
-        theme.fg('muted', truncateLine(webFetchMetaLine(part), width)),
-        ...webFetchUrlLines(part).map((line) => theme.fg('muted', truncateLine(line, width))),
+        theme.fg('mdCodeBlockBorder', truncateLine(webFetchMetaLine(part), width)),
+        ...webFetchUrlLines(part).map((line) => theme.fg('mdLinkUrl', truncateLine(line, width))),
         ...(title
-          ? ['', theme.fg('muted', '→ ') + theme.fg('toolOutput', truncateLine(title, width - 2))]
+          ? [
+              '',
+              theme.fg('mdCodeBlockBorder', '→ ') +
+                theme.fg('mdHeading', truncateLine(title, width - 2))
+            ]
           : []),
         ...(shownBody.length > 0
           ? ['', ...shownBody.map((line) => theme.fg('toolOutput', truncateLine(line, width)))]
@@ -720,7 +724,7 @@ function metadataRow(
   theme: Theme
 ) {
   if (value === undefined || value === null || value === '') return undefined
-  return `${theme.fg('muted', label.padEnd(13))} ${theme.fg('toolOutput', String(value))}`
+  return `${theme.fg('mdCodeBlockBorder', label.padEnd(13))} ${theme.fg('mdCodeBlock', String(value))}`
 }
 
 function yesNo(value: boolean | undefined) {
@@ -730,7 +734,7 @@ function yesNo(value: boolean | undefined) {
 function webFetchExpandedHeader(part: OutputPart, format: string, theme: Theme) {
   return [
     '',
-    theme.fg('accent', 'Web fetch'),
+    theme.fg('mdHeading', 'Web fetch'),
     metadataRow('Status:', statusLabel(numberMetadata(part.data?.status)), theme),
     metadataRow('URL:', stringMetadata(part.data?.url), theme),
     metadataRow('Final URL:', stringMetadata(part.data?.final_url ?? part.data?.finalUrl), theme),
@@ -760,8 +764,14 @@ function webFetchExpandedBodyLines(output: string, format: string, width: number
 function webFetchExpandedBodyHeader(part: OutputPart, theme: Theme) {
   const title = stringMetadata(part.data?.title)
   return title
-    ? ['', theme.fg('muted', 'Title'), theme.fg('toolOutput', title), '', theme.fg('muted', 'Body')]
-    : ['', theme.fg('muted', 'Body')]
+    ? [
+        '',
+        theme.fg('mdCodeBlockBorder', 'Title'),
+        theme.fg('mdHeading', title),
+        '',
+        theme.fg('mdCodeBlockBorder', 'Body')
+      ]
+    : ['', theme.fg('mdCodeBlockBorder', 'Body')]
 }
 
 function renderExpandedWebFetchPart(part: OutputPart, theme: Theme): Component {
