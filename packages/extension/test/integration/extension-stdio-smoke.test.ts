@@ -29,6 +29,14 @@ function hasElixir(): boolean {
   }
 }
 
+function structuredPayload(result: { text: string }) {
+  return JSON.parse(result.text) as {
+    kind?: string
+    text?: string
+    parts?: Array<{ format?: string; output?: string; preview?: string }>
+  }
+}
+
 function waitForReady(cwd: string, timeout = STARTUP_TIMEOUT): Promise<void> {
   const deadline = Date.now() + timeout
 
@@ -100,6 +108,43 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
 
       expect(result.isError).toBe(false)
       expect(result.text).toContain('extension fake completion')
+    })
+
+    it('exposes humane Dev helpers through eval aliases', async () => {
+      const result = await callEmbeddedTool(PROJECT_DIR, 'project_eval_structured', {
+        code: 'Dev.status()'
+      })
+
+      expect(result.isError).toBe(false)
+      const payload = structuredPayload(result)
+      expect(payload.text).toContain('app: :pi_demo_project')
+      expect(payload.text).toContain('restart_hint')
+      expect(payload.parts?.[0]?.format).toBe('tree')
+      expect(payload.parts?.[0]?.preview).toContain('map with')
+    })
+
+    it('compiles the fixture project through Dev.compile', async () => {
+      const result = await callEmbeddedTool(PROJECT_DIR, 'project_eval_structured', {
+        code: 'Dev.compile()'
+      })
+
+      expect(result.isError).toBe(false)
+      const payload = structuredPayload(result)
+      expect(payload.text).toContain('{:ok,')
+      expect(payload.text).toContain('count:')
+    })
+
+    it('renders typed file pipelines as structured table output', async () => {
+      const result = await callEmbeddedTool(PROJECT_DIR, 'project_eval_structured', {
+        code: 'Path.wildcard("lib/**/*.ex") |> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})'
+      })
+
+      expect(result.isError).toBe(false)
+      const payload = structuredPayload(result)
+      const table = payload.parts?.find((part) => part.format === 'table')
+      expect(table?.preview).toMatch(/\d+ rows × 2 columns/u)
+      expect(table?.output).toContain('path')
+      expect(table?.output).toContain('bytes')
     })
 
     it('routes Pi.LLM.stream through extension chunk/done messages', async () => {

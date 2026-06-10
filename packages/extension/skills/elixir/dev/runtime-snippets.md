@@ -39,6 +39,16 @@ end
 doc.(Ecto.Changeset, :cast, 4)
 ```
 
+## Dev reload helpers
+
+```elixir
+Dev.status()
+Dev.compile()
+Dev.reload(prefixes: ["Elixir.MyApp"])
+Dev.restart() # request /elixir:restart after eval returns
+Dev.refresh() # request /elixir:refresh after eval returns
+```
+
 ## Source locations
 
 ```elixir

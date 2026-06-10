@@ -13,7 +13,7 @@ exports(MyApp.Context)
 i(%MyApp.Schema{})
 ```
 
-Use Elixir/OTP stdlib directly for ordinary runtime and file work:
+Use Elixir/OTP stdlib directly for ordinary runtime and file work. Prefer eval pipelines over shell pipelines when you want typed lists/maps, follow-up transformations, or pi-elixir structured rendering:
 
 ```elixir
 System.version()
@@ -23,6 +23,10 @@ Process.registered() |> Enum.sort()
 File.ls!("lib")
 Path.wildcard("lib/**/*.ex")
 File.read!("mix.exs")
+Path.wildcard("lib/**/*.ex")
+|> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})
+|> Enum.sort_by(& &1.bytes, :desc)
+|> Enum.take(10)
 ```
 
 Use `Pi.*` shortcuts only when they provide bounded summaries or avoid repetitive introspection boilerplate:
@@ -33,7 +37,7 @@ Pi.logs(tail: 50)
 Pi.clear_logs()
 ```
 
-Reserve shell for tools with no BEAM equivalent: `git`, `mix`, `rg` for non-structural text search, package managers, and external CLIs.
+Reserve shell for tools with no BEAM equivalent or where the native CLI is the product: `git`, `mix` gates, `rg` for raw text search, package managers, and external CLIs. If shell output would immediately be parsed/grouped/enriched, consider eval instead.
 
 ## AST tools for Elixir code structure and refactoring
 

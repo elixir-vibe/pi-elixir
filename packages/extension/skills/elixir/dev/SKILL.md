@@ -15,6 +15,8 @@ Use the BEAM as the primary control plane. Keep the model-facing Elixir tool sur
 
 Use Elixir docs APIs from `elixir_eval` before guessing framework/library behavior. Prefer `Code.fetch_docs/1`, `h(Module.fun/arity)`, `exports(Module)`, and `i(term)` over web search for installed modules. Web search is for missing or external docs, not the first step for code that is already loaded in the project.
 
+Treat `elixir_eval` as a typed Elixir shell: prefer plain Elixir expressions and pipelines for BEAM/runtime inspection, installed docs, OTP state, app config, and structured filesystem work where typed maps/lists help follow-up reasoning. Use `bash` for external CLIs and raw text tools; use eval when the result should remain typed and renderable.
+
 Use Elixir/OTP stdlib directly from `elixir_eval` for ordinary runtime, file, and process work. Reach for `Pi.*` shortcuts only when they provide bounded summaries or remove repetitive boilerplate.
 
 Read the focused guidance files as needed:
