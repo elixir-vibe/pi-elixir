@@ -9,14 +9,23 @@ defmodule Pi.Output do
 
   @doc "Wraps rows as a structured table output."
   def table(rows, opts \\ []) when is_list(rows) do
-    {columns, row_values} = table_data(rows, opts)
+    %{columns: columns, rows: row_values, types: types, alignments: alignments} =
+      table_data(rows, opts)
+
     preview = Keyword.get(opts, :preview) || table_preview(length(row_values), length(columns))
 
     %__MODULE__{
       parts: [
         %OutputPart{
           format: :table,
-          output: Jason.encode!(%{columns: columns, rows: row_values}),
+          output:
+            encode_output_payload(%{
+              columns: columns,
+              rows: row_values,
+              total_rows: length(row_values),
+              column_types: types,
+              alignments: alignments
+            }),
           preview: preview
         }
       ],
@@ -32,7 +41,7 @@ defmodule Pi.Output do
       parts: [
         %OutputPart{
           format: :tree,
-          output: Jason.encode!(tree_value(value, 0, Keyword.get(opts, :depth, 4))),
+          output: encode_output_payload(tree_value(value, 0, Keyword.get(opts, :depth, 4))),
           preview: preview
         }
       ],
@@ -86,16 +95,29 @@ defmodule Pi.Output do
   def text_for(%__MODULE__{text: text}) when is_binary(text), do: text
   def text_for(_value), do: nil
 
+  defp encode_output_payload(payload) do
+    payload
+    |> JSONCodec.dump()
+    |> Jason.encode!()
+  end
+
   defp table_data(rows, opts) do
     columns = Keyword.get(opts, :columns) || infer_columns(rows)
     column_strings = Enum.map(columns, &to_string/1)
 
-    row_values =
+    raw_values =
       Enum.map(rows, fn row ->
-        Enum.map(columns, fn column -> cell(row, column) end)
+        Enum.map(columns, fn column -> raw_cell(row, column) end)
       end)
 
-    {column_strings, row_values}
+    row_values = Enum.map(raw_values, fn row -> Enum.map(row, &cell_text/1) end)
+
+    %{
+      columns: column_strings,
+      rows: row_values,
+      types: column_types(raw_values),
+      alignments: column_alignments(raw_values)
+    }
   end
 
   defp infer_columns(rows) do
@@ -109,14 +131,12 @@ defmodule Pi.Output do
     |> Enum.sort_by(&to_string/1)
   end
 
-  defp cell(row, column) when is_map(row) do
-    row
-    |> Map.get(column, Map.get(row, to_string(column)))
-    |> cell_text()
+  defp raw_cell(row, column) when is_map(row) do
+    Map.get(row, column, Map.get(row, to_string(column)))
   end
 
-  defp cell(row, column) when is_list(row), do: row |> Keyword.get(column) |> cell_text()
-  defp cell(_row, _column), do: ""
+  defp raw_cell(row, column) when is_list(row), do: Keyword.get(row, column)
+  defp raw_cell(_row, _column), do: nil
 
   defp cell_text(nil), do: ""
   defp cell_text(value) when is_binary(value), do: value
@@ -125,6 +145,45 @@ defmodule Pi.Output do
     do: inspect(value)
 
   defp cell_text(value), do: inspect(value, inspect_opts())
+
+  defp column_types(rows) do
+    rows
+    |> transpose()
+    |> Enum.map(&column_type/1)
+  end
+
+  defp column_type(values) do
+    values
+    |> Enum.reject(&is_nil/1)
+    |> Enum.map(&value_type/1)
+    |> Enum.uniq()
+    |> case do
+      [] -> "empty"
+      [type] -> type
+      _types -> "mixed"
+    end
+  end
+
+  defp value_type(value) when is_integer(value), do: "integer"
+  defp value_type(value) when is_float(value), do: "float"
+  defp value_type(value) when is_boolean(value), do: "boolean"
+  defp value_type(value) when is_atom(value), do: "atom"
+  defp value_type(value) when is_binary(value), do: "string"
+  defp value_type(value) when is_list(value), do: "list"
+  defp value_type(value) when is_map(value), do: "map"
+  defp value_type(value) when is_tuple(value), do: "tuple"
+  defp value_type(_value), do: "term"
+
+  defp column_alignments(rows) do
+    rows
+    |> transpose()
+    |> Enum.map(fn values ->
+      if values |> Enum.reject(&is_nil/1) |> Enum.all?(&is_number/1), do: "right", else: "left"
+    end)
+  end
+
+  defp transpose([]), do: []
+  defp transpose(rows), do: rows |> Enum.zip() |> Enum.map(&Tuple.to_list/1)
 
   defp table_like?([first | _]) when is_map(first), do: true
   defp table_like?([first | _]) when is_list(first), do: Keyword.keyword?(first)

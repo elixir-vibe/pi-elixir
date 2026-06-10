@@ -53,7 +53,15 @@ raise "boom"|)
              payload.parts
 
     assert preview == "1 rows × 2 columns"
-    assert %{"columns" => columns, "rows" => [["123", "lib/pi.ex"]]} = Jason.decode!(output)
+
+    assert %{
+             "columns" => columns,
+             "rows" => [["123", "lib/pi.ex"]],
+             "total_rows" => 1,
+             "column_types" => ["integer", "string"],
+             "alignments" => ["right", "left"]
+           } = Jason.decode!(output)
+
     assert columns == ["bytes", "path"]
   end
 

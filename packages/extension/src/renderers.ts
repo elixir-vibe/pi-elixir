@@ -318,6 +318,11 @@ function partHasSemanticHiddenOutput(part: OutputPart) {
 interface TablePayload {
   columns?: unknown[]
   rows?: unknown[][]
+  total_rows?: unknown
+  totalRows?: unknown
+  column_types?: unknown[]
+  columnTypes?: unknown[]
+  alignments?: unknown[]
 }
 
 interface TreeNode {
@@ -337,24 +342,54 @@ function tableCell(value: unknown) {
   return typeof value === 'string' ? value : String(value ?? '')
 }
 
-function tableData(part: OutputPart): { columns: string[]; rows: string[][] } | null {
+interface RenderTableData {
+  columns: string[]
+  rows: string[][]
+  totalRows: number
+  columnTypes: string[]
+  alignments: string[]
+}
+
+function tableStringList(values: unknown[] | undefined) {
+  return values?.map(tableCell) ?? []
+}
+
+function tableNumber(value: unknown, fallback: number) {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback
+}
+
+function tableData(part: OutputPart): RenderTableData | null {
   const table = parseJsonPart(part) as TablePayload | null
   const columns = table?.columns?.map(tableCell) ?? []
   const rows = table?.rows?.map((row) => row.map(tableCell)) ?? []
-  return columns.length > 0 ? { columns, rows } : null
+  const totalRows = tableNumber(table?.total_rows ?? table?.totalRows, rows.length)
+  const columnTypes = tableStringList(table?.column_types ?? table?.columnTypes)
+  const alignments = tableStringList(table?.alignments)
+  return columns.length > 0 ? { columns, rows, totalRows, columnTypes, alignments } : null
 }
 
 function markdownTableCell(value: string) {
   return value.replace(/\r?\n/gu, ' ').replace(/\|/gu, '\\|')
 }
 
-function markdownTable(columns: string[], rows: string[][]) {
+function markdownAlignmentMarker(alignment: string | undefined) {
+  return alignment === 'right' ? '---:' : '---'
+}
+
+function markdownTable(columns: string[], rows: string[][], alignments: string[]) {
   const header = `| ${columns.map(markdownTableCell).join(' | ')} |`
-  const separator = `| ${columns.map(() => '---').join(' | ')} |`
+  const separator = `| ${columns.map((_, index) => markdownAlignmentMarker(alignments[index])).join(' | ')} |`
   const body = rows.map(
     (row) => `| ${columns.map((_, index) => markdownTableCell(row[index] ?? '')).join(' | ')} |`
   )
   return [header, separator, ...body].join('\n')
+}
+
+function tableFooter(data: RenderTableData, visibleRows: number, hidden: number, theme: Theme) {
+  const shape = `${visibleRows}/${data.totalRows} rows · ${data.columns.length} columns`
+  const types = data.columnTypes.length > 0 ? ` · ${data.columnTypes.join(', ')}` : ''
+  const more = hidden > 0 ? ` · ${hidden} more` : ''
+  return theme.fg('muted', shape + more + types)
 }
 
 function renderMarkdownTable(
@@ -366,14 +401,14 @@ function renderMarkdownTable(
   if (!data) return null
 
   const visibleRows = data.rows.slice(0, options.maxRows)
-  const markdown = markdownTable(data.columns, visibleRows)
-  const hidden = data.rows.length - visibleRows.length
+  const markdown = markdownTable(data.columns, visibleRows, data.alignments)
+  const hidden = Math.max(0, data.totalRows - visibleRows.length)
 
   return {
     render: (width) => {
       const lines = new Markdown(markdown, 0, 0, getMarkdownTheme()).render(width)
-      const more = hiddenLine(hidden, theme)
-      if (more) lines.push('', more, ...(options.expanded ? [] : [expandHint(theme)]))
+      const footer = tableFooter(data, visibleRows.length, hidden, theme)
+      if (footer) lines.push('', footer, ...(options.expanded ? [] : [expandHint(theme)]))
       return ['', ...lines]
     },
     invalidate: () => undefined

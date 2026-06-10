@@ -198,7 +198,10 @@ describe('elixir result rendering', () => {
             rows: [
               ['123', 'lib/pi.ex'],
               ['456', 'lib/pi/eval.ex']
-            ]
+            ],
+            total_rows: 2,
+            column_types: ['integer', 'string'],
+            alignments: ['right', 'left']
           }),
           preview: '2 rows × 2 columns'
         }
@@ -211,11 +214,12 @@ describe('elixir result rendering', () => {
     expect(compact).toContain('┌───────┬───────────┐')
     expect(compact).toContain('│ bytes │ path      │')
     expect(compact).toContain('│ 123   │ lib/pi.ex │')
-    expect(compact).toContain('… 1 more')
+    expect(compact).toContain('1/2 rows · 2 columns · 1 more · integer, string')
     expect(compact).toContain('ctrl+o to expand')
     expect(expanded).toContain('┌───────┬────────────────┐')
     expect(expanded).toContain('│ bytes │ path           │')
     expect(expanded).toContain('│ 123   │ lib/pi.ex      │')
+    expect(expanded).toContain('2/2 rows · 2 columns · integer, string')
   })
 
   it('renders structured tree parts when expanded', () => {
