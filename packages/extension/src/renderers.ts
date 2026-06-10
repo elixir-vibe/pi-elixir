@@ -699,7 +699,9 @@ function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
         '',
         theme.fg('muted', truncateLine(webFetchMetaLine(part), width)),
         ...webFetchUrlLines(part).map((line) => theme.fg('muted', truncateLine(line, width))),
-        ...(title ? ['', truncateLine(`→ ${title}`, width)] : []),
+        ...(title
+          ? ['', theme.fg('muted', '→ ') + theme.fg('toolOutput', truncateLine(title, width - 2))]
+          : []),
         ...(shownBody.length > 0
           ? ['', ...shownBody.map((line) => theme.fg('toolOutput', truncateLine(line, width)))]
           : []),
@@ -712,31 +714,40 @@ function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
   }
 }
 
-function metadataRow(label: string, value: string | number | boolean | undefined | null) {
+function metadataRow(
+  label: string,
+  value: string | number | boolean | undefined | null,
+  theme: Theme
+) {
   if (value === undefined || value === null || value === '') return undefined
-  return `${label.padEnd(13)} ${String(value)}`
+  return `${theme.fg('muted', label.padEnd(13))} ${theme.fg('toolOutput', String(value))}`
 }
 
 function yesNo(value: boolean | undefined) {
   return value ? 'yes' : 'no'
 }
 
-function webFetchExpandedHeader(part: OutputPart, format: string) {
+function webFetchExpandedHeader(part: OutputPart, format: string, theme: Theme) {
   return [
     '',
-    'Web fetch',
-    metadataRow('Status:', statusLabel(numberMetadata(part.data?.status))),
-    metadataRow('URL:', stringMetadata(part.data?.url)),
-    metadataRow('Final URL:', stringMetadata(part.data?.final_url ?? part.data?.finalUrl)),
-    metadataRow('Content-Type:', stringMetadata(part.data?.content_type ?? part.data?.contentType)),
-    metadataRow('Format:', format),
+    theme.fg('accent', 'Web fetch'),
+    metadataRow('Status:', statusLabel(numberMetadata(part.data?.status)), theme),
+    metadataRow('URL:', stringMetadata(part.data?.url), theme),
+    metadataRow('Final URL:', stringMetadata(part.data?.final_url ?? part.data?.finalUrl), theme),
+    metadataRow(
+      'Content-Type:',
+      stringMetadata(part.data?.content_type ?? part.data?.contentType),
+      theme
+    ),
+    metadataRow('Format:', format, theme),
     metadataRow(
       'Size:',
-      formatBytes(numberMetadata(part.data?.size_bytes ?? part.data?.sizeBytes))
+      formatBytes(numberMetadata(part.data?.size_bytes ?? part.data?.sizeBytes)),
+      theme
     ),
-    metadataRow('Chars:', numberMetadata(part.data?.total_chars ?? part.data?.totalChars)),
-    metadataRow('Redirected:', yesNo(booleanMetadata(part.data?.redirected))),
-    metadataRow('Truncated:', yesNo(booleanMetadata(part.data?.truncated)))
+    metadataRow('Chars:', numberMetadata(part.data?.total_chars ?? part.data?.totalChars), theme),
+    metadataRow('Redirected:', yesNo(booleanMetadata(part.data?.redirected)), theme),
+    metadataRow('Truncated:', yesNo(booleanMetadata(part.data?.truncated)), theme)
   ].filter((line): line is string => line !== undefined)
 }
 
@@ -746,9 +757,11 @@ function webFetchExpandedBodyLines(output: string, format: string, width: number
   return output.split('\n').map((line) => theme.fg('toolOutput', line))
 }
 
-function webFetchExpandedBodyHeader(part: OutputPart) {
+function webFetchExpandedBodyHeader(part: OutputPart, theme: Theme) {
   const title = stringMetadata(part.data?.title)
-  return title ? ['', 'Title', title, '', 'Body'] : ['', 'Body']
+  return title
+    ? ['', theme.fg('muted', 'Title'), theme.fg('toolOutput', title), '', theme.fg('muted', 'Body')]
+    : ['', theme.fg('muted', 'Body')]
 }
 
 function renderExpandedWebFetchPart(part: OutputPart, theme: Theme): Component {
@@ -757,8 +770,8 @@ function renderExpandedWebFetchPart(part: OutputPart, theme: Theme): Component {
       const output = stripFinalNewline(part.body ?? '')
       const format = stringMetadata(part.data?.format) ?? part.language ?? 'text'
       return [
-        ...webFetchExpandedHeader(part, format),
-        ...webFetchExpandedBodyHeader(part),
+        ...webFetchExpandedHeader(part, format, theme),
+        ...webFetchExpandedBodyHeader(part, theme),
         ...webFetchExpandedBodyLines(output, format, width, theme)
       ]
     },
