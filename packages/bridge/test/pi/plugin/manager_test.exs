@@ -31,11 +31,15 @@ defmodule Pi.Plugin.ManagerTest do
       do: {{:ok, %{"content" => "patched result"}}, state}
   end
 
-  setup do
-    if pid = Process.whereis(Manager), do: stop_if_alive(pid, &GenServer.stop/1)
+  defmodule NoopHookDemo do
+    use Pi.Plugin
 
-    if pid = Process.whereis(Pi.Plugin.Supervisor),
-      do: stop_if_alive(pid, &DynamicSupervisor.stop/1)
+    def tool_result(_result, _context, state), do: {:ok, state}
+  end
+
+  setup do
+    stop_plugin_processes()
+    on_exit(&stop_plugin_processes/0)
 
     :ok
   end
@@ -74,6 +78,16 @@ defmodule Pi.Plugin.ManagerTest do
     assert {:ok, %{"content" => "patched result"}} = Manager.tool_result(%{}, %{})
   end
 
+  test "tool result hooks return only patches" do
+    {:ok, _pid} = Manager.start_link(plugins: [NoopHookDemo])
+
+    assert {:ok, %{}} =
+             Manager.tool_result(
+               %{"content" => String.duplicate("large read result", 100)},
+               %{}
+             )
+  end
+
   test "restarts a plugin worker after process exit" do
     {:ok, pid} = Manager.start_link(plugins: [Demo])
     first_worker = pid |> :sys.get_state() |> Map.fetch!(:children) |> Map.fetch!(Demo)
@@ -98,6 +112,13 @@ defmodule Pi.Plugin.ManagerTest do
   end
 
   defp eventually(_fun, 0), do: false
+
+  defp stop_plugin_processes do
+    if pid = Process.whereis(Manager), do: stop_if_alive(pid, &GenServer.stop/1)
+
+    if pid = Process.whereis(Pi.Plugin.Supervisor),
+      do: stop_if_alive(pid, &DynamicSupervisor.stop/1)
+  end
 
   defp stop_if_alive(pid, stop) do
     if Process.alive?(pid), do: stop.(pid)

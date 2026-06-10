@@ -193,13 +193,21 @@ defmodule Pi.Plugin.Manager do
   defp update_plugin_hook_input(call, _patch), do: call
 
   defp run_tool_result_pipeline(state, result, context) do
-    Enum.reduce(state.children, {:ok, result}, fn {_module, pid}, {:ok, current_result} ->
-      case Worker.tool_result(pid, current_result, context) do
-        {:ok, patch} when is_map(patch) -> {:ok, Map.merge(current_result, patch)}
-        :ok -> {:ok, current_result}
-        _other -> {:ok, current_result}
-      end
-    end)
+    {_result, patch} =
+      Enum.reduce(state.children, {result, %{}}, fn {_module, pid}, {current_result, patch_acc} ->
+        case Worker.tool_result(pid, current_result, context) do
+          {:ok, patch} when is_map(patch) ->
+            {Map.merge(current_result, patch), Map.merge(patch_acc, patch)}
+
+          :ok ->
+            {current_result, patch_acc}
+
+          _other ->
+            {current_result, patch_acc}
+        end
+      end)
+
+    {:ok, patch}
   end
 
   defp put_started_plugin(state, module) do
