@@ -57,6 +57,8 @@ defmodule Pi.Mirror.QuackDB do
 
   @impl true
   def handle_command(:quack, args, state) do
+    state = ensure_enabled(state)
+
     args
     |> String.split(~r/\s+/, trim: true)
     |> case do
@@ -134,6 +136,21 @@ defmodule Pi.Mirror.QuackDB do
     else
       {:error, reason} ->
         {:ok, %{enabled?: false, error: inspect(reason)}}
+    end
+  end
+
+  defp ensure_enabled(%{enabled?: true} = state), do: state
+
+  defp ensure_enabled(state) do
+    if enabled?() do
+      session_state = Map.take(state, Map.values(@session_fields))
+
+      case start_mirror() do
+        {:ok, %{enabled?: true} = next_state} -> Map.merge(next_state, session_state)
+        {:ok, next_state} -> next_state
+      end
+    else
+      state
     end
   end
 
