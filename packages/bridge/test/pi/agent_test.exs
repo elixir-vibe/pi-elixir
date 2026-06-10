@@ -10,6 +10,8 @@ defmodule Pi.AgentTest do
   alias Pi.Session.Supervisor, as: SessionSupervisor
 
   setup do
+    if pid = Process.whereis(Pi.Agent.Manager), do: GenServer.stop(pid)
+    if pid = Process.whereis(Pi.Agent.JobSupervisor), do: GenServer.stop(pid)
     if pid = Process.whereis(Broker), do: GenServer.stop(pid)
     if pid = Process.whereis(SessionSupervisor), do: GenServer.stop(pid)
     :persistent_term.put({Pi.Transport.Stdio, :pid}, self())
@@ -68,6 +70,42 @@ defmodule Pi.AgentTest do
     children = Enum.filter(states, &(&1.parent_id == parent.id))
     assert [_, _] = children
     assert Enum.map(children, & &1.name) |> Enum.sort() == ["docs", "tests"]
+  end
+
+  test "supervised jobs expose lifecycle result and child session" do
+    assert {:ok, job} = Agent.start("review job", role: :reviewer)
+    assert job.status == :running
+    assert {:ok, running} = Agent.status(job.id)
+    assert running.child_session_id == job.child_session_id
+
+    request = receive_request(:llm_complete)
+    Broker.deliver(request.id, %Response{ok: true, result: "job done"})
+
+    assert {:ok, done} = Agent.await(job, 1_000)
+    assert done.status == :done
+    assert done.result == "job done"
+    assert Agent.result(done.id) == {:ok, "job done"}
+
+    assert %Pi.Session.State{messages: messages} = RuntimeSession.state(done.child_session_id)
+    assert Enum.map(messages, & &1.content) == ["review job", "job done"]
+  end
+
+  test "run_many starts multiple supervised jobs" do
+    assert {:ok, jobs} =
+             Agent.run_many([
+               %{task: "review tests", role: :reviewer},
+               "review docs"
+             ])
+
+    assert [first_job, second_job] = jobs
+    assert Enum.all?([first_job, second_job], &match?(%Pi.Agent.Job{status: :running}, &1))
+
+    first = receive_request(:llm_complete)
+    second = receive_request(:llm_complete)
+    Broker.deliver(first.id, %Response{ok: true, result: "one"})
+    Broker.deliver(second.id, %Response{ok: true, result: "two"})
+
+    assert Enum.map(jobs, &Agent.await(&1, 1_000)) |> Enum.all?(&match?({:ok, _}, &1))
   end
 
   test "lists runtime sessions and reads canonical runtime history" do

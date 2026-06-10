@@ -3,26 +3,11 @@ defmodule Pi.Session.Supervisor do
 
   use DynamicSupervisor
 
-  def start_link(opts \\ []) do
-    DynamicSupervisor.start_link(__MODULE__, opts, name: __MODULE__)
-  end
+  alias Pi.Supervisor.Install
 
-  def install do
-    case Process.whereis(__MODULE__) do
-      nil ->
-        case start_link([]) do
-          {:ok, pid} ->
-            Process.unlink(pid)
-            {:ok, pid}
+  def start_link(opts \\ []), do: Install.start_link(__MODULE__, opts)
 
-          other ->
-            other
-        end
-
-      _pid ->
-        :ok
-    end
-  end
+  def install, do: Install.dynamic(__MODULE__)
 
   def start_session(opts) when is_list(opts) do
     install()

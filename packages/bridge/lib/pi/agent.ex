@@ -1,6 +1,8 @@
 defmodule Pi.Agent do
   @moduledoc "Unified BEAM abstraction for top-level agents and child agents."
 
+  alias Pi.Agent.Job
+  alias Pi.Agent.Manager
   alias Pi.Agent.Result
   alias Pi.Agent.Run
   alias Pi.Agent.Step
@@ -23,11 +25,36 @@ defmodule Pi.Agent do
     end
   end
 
+  def start(task, opts \\ []) when is_binary(task), do: Manager.start_job(task, opts)
+
+  def jobs, do: Manager.jobs()
+
+  def status(%Job{id: id}), do: status(id)
+  def status(id) when is_binary(id), do: Manager.status(id)
+
+  def result(%Job{id: id}), do: result(id)
+  def result(id) when is_binary(id), do: Manager.result(id)
+
+  def cancel(%Job{id: id}), do: cancel(id)
+  def cancel(id) when is_binary(id), do: Manager.cancel(id)
+
+  def run_many(specs, opts \\ []) when is_list(specs) do
+    jobs = Enum.map(specs, &start_job_spec(&1, opts))
+
+    case Enum.find(jobs, &match?({:error, _reason}, &1)) do
+      nil -> {:ok, Enum.map(jobs, fn {:ok, job} -> job end)}
+      error -> error
+    end
+  end
+
   def async(prompt_or_opts, opts \\ []) do
     Task.async(fn -> run(prompt_or_opts, opts) end)
   end
 
-  def await(task, timeout \\ 60_000), do: Task.await(task, timeout)
+  def await(task_or_job_or_id, timeout \\ 60_000)
+  def await(%Task{} = task, timeout), do: Task.await(task, timeout)
+  def await(%Job{id: id}, timeout), do: await(id, timeout)
+  def await(id, timeout) when is_binary(id), do: await_job(id, deadline(timeout))
 
   def await_many(tasks, timeout \\ 60_000) do
     Enum.map(tasks, &await(&1, timeout))
@@ -92,6 +119,37 @@ defmodule Pi.Agent do
   end
 
   def session(%State{} = session, _opts), do: session
+
+  defp start_job_spec(task, opts) when is_binary(task), do: start(task, opts)
+
+  defp start_job_spec(%{task: task} = spec, opts) when is_binary(task) do
+    start(task, Keyword.merge(opts, Map.to_list(Map.delete(spec, :task))))
+  end
+
+  defp start_job_spec(spec, _opts), do: {:error, {:invalid_job_spec, spec}}
+
+  defp await_job(id, deadline) do
+    case status(id) do
+      {:ok, %Job{status: :running}} ->
+        if System.monotonic_time(:millisecond) >= deadline do
+          {:error, :timeout}
+        else
+          Process.sleep(25)
+          await_job(id, deadline)
+        end
+
+      {:ok, %Job{status: :done} = job} ->
+        {:ok, job}
+
+      {:ok, %Job{status: status} = job} when status in [:failed, :cancelled] ->
+        {:error, job}
+
+      {:error, reason} ->
+        {:error, reason}
+    end
+  end
+
+  defp deadline(timeout), do: System.monotonic_time(:millisecond) + timeout
 
   defp child_opts(run, opts, index) do
     opts = Keyword.delete(opts, :name)

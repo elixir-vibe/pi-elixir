@@ -36,20 +36,16 @@ defmodule Pi.AST do
     with :ok <- ensure_ex_ast() do
       path = Keyword.get(opts, :path)
       paths = paths(path)
+      named_patterns = normalize_named_patterns(patterns)
 
       matches =
-        patterns
-        |> Enum.flat_map(fn {name, pattern} ->
-          paths
-          |> ex_ast_search(pattern, search_opts(opts))
-          |> Enum.map(&Map.put(&1, :pattern, to_string(name)))
-        end)
-        |> maybe_limit(Keyword.get(opts, :limit))
+        paths
+        |> ex_ast_search_many(named_patterns, search_opts(opts))
         |> Enum.map(&match_payload/1)
 
       {:ok,
        %Search{
-         pattern: inspect(patterns, limit: 20),
+         pattern: inspect(named_patterns, limit: 20),
          path: path,
          matches: matches,
          total: length(matches),
@@ -89,6 +85,31 @@ defmodule Pi.AST do
     end
   end
 
+  defp normalize_named_patterns(patterns) when is_map(patterns) and map_size(patterns) <= 50 do
+    Map.new(patterns, fn {name, pattern} -> {pattern_name(name), pattern} end)
+  end
+
+  defp normalize_named_patterns(patterns) when is_map(patterns) do
+    raise ArgumentError, "expected at most 50 named AST patterns"
+  end
+
+  defp normalize_named_patterns(patterns) when is_list(patterns), do: patterns
+
+  defp pattern_name(name) when is_atom(name), do: name
+
+  defp pattern_name(name) when is_binary(name) and byte_size(name) <= 64 do
+    if String.match?(name, ~r/^[A-Za-z_][A-Za-z0-9_]*$/u) do
+      String.to_existing_atom(name)
+    else
+      raise ArgumentError, "expected named AST pattern keys to be identifier-like strings"
+    end
+  end
+
+  defp pattern_name(_name) do
+    raise ArgumentError,
+          "expected named AST pattern keys to be atoms or existing atom-name strings"
+  end
+
   defp search_opts(opts) do
     []
     |> maybe_put(:inside, Keyword.get(opts, :inside))
@@ -100,21 +121,18 @@ defmodule Pi.AST do
   defp maybe_put(opts, _key, nil), do: opts
   defp maybe_put(opts, key, value), do: Keyword.put(opts, key, value)
 
-  defp match_payload(%{file: file, line: line, source: source, captures: captures}) do
-    %Match{file: file, line: line, source: source, captures: render_captures(captures)}
-  end
-
   defp match_payload(%{file: file, line: line, source: source} = match) do
-    captures =
-      match
-      |> Map.take([:pattern])
-      |> Map.new(fn {key, value} -> {to_string(key), value} end)
-
-    %Match{file: file, line: line, source: source, captures: captures}
+    %Match{
+      file: file,
+      line: line,
+      source: source,
+      pattern: match_pattern(match),
+      captures: match |> Map.get(:captures, %{}) |> render_captures()
+    }
   end
 
-  defp maybe_limit(matches, nil), do: matches
-  defp maybe_limit(matches, limit) when is_integer(limit), do: Enum.take(matches, limit)
+  defp match_pattern(%{pattern: pattern}), do: to_string(pattern)
+  defp match_pattern(_match), do: nil
 
   defp search_display(matches) do
     %Display{
@@ -219,6 +237,9 @@ defmodule Pi.AST do
   end
 
   defp ex_ast_search(paths, pattern, opts), do: apply(ExAST, :search, [paths, pattern, opts])
+
+  defp ex_ast_search_many(paths, patterns, opts),
+    do: apply(ExAST, :search_many, [paths, patterns, opts])
 
   defp ex_ast_replace(paths, pattern, replacement, opts),
     do: apply(ExAST, :replace, [paths, pattern, replacement, opts])
