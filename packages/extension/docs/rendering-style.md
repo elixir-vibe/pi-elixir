@@ -17,7 +17,7 @@ Use core tool colors first:
 - `toolOutput` — normal result/body text and ordinary scalar values.
 - `muted` — metadata labels, secondary status text, dividers, hidden-count lines, durations, expansion hints.
 - `dim` — very low-emphasis hints only.
-- `accent` — clickable or identity-like references: paths, URLs, module names, final target names. Use sparingly in compact views; too many accent lines compete with the tool call.
+- `accent` — clickable or identity-like references: paths, module names, final target names. Use sparingly in compact views; too many accent lines compete with the tool call. Do not color ordinary URL metadata blue unless it is an actionable primary target.
 - `warning` — warnings, truncation notices, line ranges, unusual but non-failing status.
 - `error` — failures only.
 - `success` — success state only when it adds information; do not color every `200 OK` green.
@@ -30,8 +30,8 @@ Use Markdown colors only when rendering Markdown or Markdown-shaped syntax:
 
 ## Typography
 
-- Bold is for call titles and rare high-level headers only.
-- Section labels inside results (`Title`, `Body`, `Status`) should be muted, not bold/white.
+- Bold is for call titles and rare high-level section headers only.
+- Section labels inside results (`Title`, `Body`) may be muted bold when they improve scanning; field labels (`Status:`, `URL:`) should stay plain muted.
 - Avoid all-white blocks: every line should communicate whether it is title, metadata, body, hint, warning, or error.
 - Avoid rainbow metadata: grouped metadata should be mostly muted labels plus normal/accent values.
 
@@ -41,7 +41,7 @@ Compact web/document-like output:
 
 ```text
 Web fetch · 200 OK · text/html · 559 B   # muted
-https://example.com                     # muted in compact, accent in expanded metadata if needed
+https://example.com                     # muted/toolOutput; not accent unless primary target
 → Example Domain                        # muted arrow + toolOutput title
 
 Body preview text...                    # toolOutput

@@ -717,11 +717,16 @@ function renderCompactWebFetchPart(part: OutputPart, theme: Theme): Component {
 function metadataRow(
   label: string,
   value: string | number | boolean | undefined | null,
-  theme: Theme,
-  valueColor: 'toolOutput' | 'accent' = 'toolOutput'
+  theme: Theme
 ) {
   if (value === undefined || value === null || value === '') return undefined
-  return `${theme.fg('muted', label.padEnd(13))} ${theme.fg(valueColor, String(value))}`
+  return `${theme.fg('muted', label.padEnd(13))} ${theme.fg('toolOutput', String(value))}`
+}
+
+function sectionHeader(label: string, theme: Theme) {
+  const muted = theme.fg('muted', label)
+  const bold = (theme as Theme & { bold?: (text: string) => string }).bold
+  return bold ? bold(muted) : muted
 }
 
 function yesNo(value: boolean | undefined) {
@@ -731,15 +736,10 @@ function yesNo(value: boolean | undefined) {
 function webFetchExpandedHeader(part: OutputPart, format: string, theme: Theme) {
   return [
     '',
-    theme.fg('muted', 'Web fetch'),
+    sectionHeader('Web fetch', theme),
     metadataRow('Status:', statusLabel(numberMetadata(part.data?.status)), theme),
-    metadataRow('URL:', stringMetadata(part.data?.url), theme, 'accent'),
-    metadataRow(
-      'Final URL:',
-      stringMetadata(part.data?.final_url ?? part.data?.finalUrl),
-      theme,
-      'accent'
-    ),
+    metadataRow('URL:', stringMetadata(part.data?.url), theme),
+    metadataRow('Final URL:', stringMetadata(part.data?.final_url ?? part.data?.finalUrl), theme),
     metadataRow(
       'Content-Type:',
       stringMetadata(part.data?.content_type ?? part.data?.contentType),
@@ -766,8 +766,14 @@ function webFetchExpandedBodyLines(output: string, format: string, width: number
 function webFetchExpandedBodyHeader(part: OutputPart, theme: Theme) {
   const title = stringMetadata(part.data?.title)
   return title
-    ? ['', theme.fg('muted', 'Title'), theme.fg('toolOutput', title), '', theme.fg('muted', 'Body')]
-    : ['', theme.fg('muted', 'Body')]
+    ? [
+        '',
+        sectionHeader('Title', theme),
+        theme.fg('toolOutput', title),
+        '',
+        sectionHeader('Body', theme)
+      ]
+    : ['', sectionHeader('Body', theme)]
 }
 
 function renderExpandedWebFetchPart(part: OutputPart, theme: Theme): Component {
