@@ -1,12 +1,13 @@
 import {
   getLanguageFromPath,
+  getMarkdownTheme,
   highlightCode,
   keyHint,
   type AgentToolResult,
   type ToolRenderResultOptions,
   type Theme
 } from '@earendil-works/pi-coding-agent'
-import { Text, visibleWidth, type Component } from '@earendil-works/pi-tui'
+import { Markdown, Text, visibleWidth, type Component } from '@earendil-works/pi-tui'
 
 import { truncateLine } from './helpers.ts'
 
@@ -336,48 +337,47 @@ function tableCell(value: unknown) {
   return typeof value === 'string' ? value : String(value ?? '')
 }
 
-function numericTableColumn(rows: string[][], index: number) {
-  const values = rows.map((row) => row[index] ?? '').filter(Boolean)
-  return values.length > 0 && values.every((value) => /^-?\d+(?:\.\d+)?$/u.test(value))
-}
-
-function padTableCell(value: string, width: number, align: 'left' | 'right') {
-  const truncatedValue = truncateLine(value, width)
-  const padding = ' '.repeat(Math.max(0, width - visibleWidth(truncatedValue)))
-  return align === 'right' ? padding + truncatedValue : truncatedValue + padding
-}
-
-function renderTablePart(part: OutputPart, theme: Theme): string[] | null {
+function tableData(part: OutputPart): { columns: string[]; rows: string[][] } | null {
   const table = parseJsonPart(part) as TablePayload | null
   const columns = table?.columns?.map(tableCell) ?? []
   const rows = table?.rows?.map((row) => row.map(tableCell)) ?? []
-  if (columns.length === 0) return null
+  return columns.length > 0 ? { columns, rows } : null
+}
 
-  const visibleRows = rows.slice(0, 20)
-  const widths = columns.map((column, index) =>
-    Math.min(
-      32,
-      Math.max(visibleWidth(column), ...visibleRows.map((row) => visibleWidth(row[index] ?? '')))
-    )
+function markdownTableCell(value: string) {
+  return value.replace(/\r?\n/gu, ' ').replace(/\|/gu, '\\|')
+}
+
+function markdownTable(columns: string[], rows: string[][]) {
+  const header = `| ${columns.map(markdownTableCell).join(' | ')} |`
+  const separator = `| ${columns.map(() => '---').join(' | ')} |`
+  const body = rows.map(
+    (row) => `| ${columns.map((_, index) => markdownTableCell(row[index] ?? '')).join(' | ')} |`
   )
-  const alignments = columns.map((_, index) => (numericTableColumn(rows, index) ? 'right' : 'left'))
+  return [header, separator, ...body].join('\n')
+}
 
-  const renderRow = (row: string[], header = false) =>
-    row
-      .map((cell, index) =>
-        padTableCell(cell, widths[index] ?? 12, header ? 'left' : (alignments[index] ?? 'left'))
-      )
-      .join('  ')
-      .trimEnd()
+function renderMarkdownTable(
+  part: OutputPart,
+  theme: Theme,
+  options: { maxRows: number; expanded: boolean }
+): Component | null {
+  const data = tableData(part)
+  if (!data) return null
 
-  const lines = [
-    theme.fg('muted', renderRow(columns, true)),
-    theme.fg('muted', widths.map((width) => '─'.repeat(width)).join('  ')),
-    ...visibleRows.map((row) => theme.fg('toolOutput', renderRow(row)))
-  ]
-  const more = hiddenLine(rows.length - visibleRows.length, theme)
-  if (more) lines.push(more)
-  return lines
+  const visibleRows = data.rows.slice(0, options.maxRows)
+  const markdown = markdownTable(data.columns, visibleRows)
+  const hidden = data.rows.length - visibleRows.length
+
+  return {
+    render: (width) => {
+      const lines = new Markdown(markdown, 0, 0, getMarkdownTheme()).render(width)
+      const more = hiddenLine(hidden, theme)
+      if (more) lines.push('', more, ...(options.expanded ? [] : [expandHint(theme)]))
+      return ['', ...lines]
+    },
+    invalidate: () => undefined
+  }
 }
 
 function renderTreeValue(value: unknown, theme: Theme, indent = 0): string[] {
@@ -401,9 +401,22 @@ function renderTreePart(part: OutputPart, theme: Theme): string[] | null {
   return renderTreeValue(tree, theme).slice(0, 40)
 }
 
+function renderOnlyTablePart(
+  visibleParts: OutputPart[],
+  expanded: boolean,
+  theme: Theme
+): Component | null {
+  const onlyPart = visibleParts.length === 1 ? visibleParts[0] : undefined
+  if (onlyPart?.format !== 'table') return null
+  return renderMarkdownTable(onlyPart, theme, { maxRows: expanded ? 20 : 1, expanded })
+}
+
 function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
   const visibleParts = parts.filter((part) => part.output)
   if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
+
+  const table = renderOnlyTablePart(visibleParts, expanded, theme)
+  if (table) return table
 
   if (!expanded) {
     const preview = visibleParts
@@ -423,7 +436,7 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
     const output = stripFinalNewline(part.output ?? '')
     const format = part.format ?? 'text'
     if (format === 'table') {
-      lines.push(...(renderTablePart(part, theme) ?? [theme.fg('toolOutput', output)]))
+      lines.push(theme.fg('toolOutput', output))
     } else if (format === 'tree') {
       lines.push(...(renderTreePart(part, theme) ?? [theme.fg('toolOutput', output)]))
     } else if (format === 'inspect' || format === 'source') {

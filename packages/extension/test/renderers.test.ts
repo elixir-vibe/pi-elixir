@@ -3,9 +3,30 @@ import type { AgentToolResult, Theme } from '@earendil-works/pi-coding-agent'
 import type { Component } from '@earendil-works/pi-tui'
 import { describe, expect, it, vi } from 'vitest'
 
+const { identity } = vi.hoisted(() => ({ identity: (text: string) => text }))
+
 vi.mock('@earendil-works/pi-coding-agent', async (importOriginal) => {
   const original = await importOriginal<typeof PiCodingAgent>()
-  return { ...original, keyHint: (_id: string, label: string) => `ctrl+o ${label}` }
+  return {
+    ...original,
+    keyHint: (_id: string, label: string) => `ctrl+o ${label}`,
+    getMarkdownTheme: () => ({
+      heading: identity,
+      link: identity,
+      linkUrl: identity,
+      code: identity,
+      codeBlock: identity,
+      codeBlockBorder: identity,
+      quote: identity,
+      quoteBorder: identity,
+      hr: identity,
+      listBullet: identity,
+      bold: identity,
+      italic: identity,
+      strikethrough: identity,
+      underline: identity
+    })
+  }
 })
 
 const { renderElixirResult } = await import('#src/renderers.ts')
@@ -187,9 +208,14 @@ describe('elixir result rendering', () => {
     const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
     const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
 
-    expect(compact).toBe('\n2 rows × 2 columns (ctrl+o to expand)')
-    expect(expanded).toContain('bytes  path')
-    expect(expanded).toContain('  123  lib/pi.ex')
+    expect(compact).toContain('┌───────┬───────────┐')
+    expect(compact).toContain('│ bytes │ path      │')
+    expect(compact).toContain('│ 123   │ lib/pi.ex │')
+    expect(compact).toContain('… 1 more')
+    expect(compact).toContain('ctrl+o to expand')
+    expect(expanded).toContain('┌───────┬────────────────┐')
+    expect(expanded).toContain('│ bytes │ path           │')
+    expect(expanded).toContain('│ 123   │ lib/pi.ex      │')
   })
 
   it('renders structured tree parts when expanded', () => {
