@@ -57,6 +57,10 @@ defmodule Pi.Session do
     start(Keyword.put_new(opts, :parent_id, parent_state.id))
   end
 
+  @doc "Emits a structured event into a BEAM session without changing its status."
+  def emit_event(session, %Pi.Session.Event{} = event),
+    do: session |> resolve!() |> Worker.emit_event(event)
+
   @doc "Cancels active work in a BEAM session."
   def cancel(session), do: session |> resolve!() |> Worker.cancel()
 

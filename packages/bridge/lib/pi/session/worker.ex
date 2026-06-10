@@ -30,6 +30,7 @@ defmodule Pi.Session.Worker do
   end
 
   def append(pid, message), do: GenServer.call(pid, {:append, message})
+  def emit_event(pid, %Event{} = event), do: GenServer.call(pid, {:emit_event, event})
   def cancel(pid), do: GenServer.call(pid, :cancel)
 
   def rerun(pid, opts \\ []),
@@ -68,6 +69,11 @@ defmodule Pi.Session.Worker do
 
   def handle_call({:append, message}, _from, data) do
     data = update_state(data, fn state -> append_message(state, message) end)
+    {:reply, :ok, data}
+  end
+
+  def handle_call({:emit_event, %Event{} = event}, _from, data) do
+    data = append_event(data, event)
     {:reply, :ok, data}
   end
 
@@ -315,6 +321,12 @@ defmodule Pi.Session.Worker do
        do: started_at
 
   defp current_started_at(_metadata, _current), do: DateTime.utc_now()
+
+  defp append_event(data, event) do
+    update_state(data, fn state ->
+      %{state | events: state.events ++ [event], updated_at: event.at}
+    end)
+  end
 
   defp transition(data, status, event) do
     update_state(data, fn state ->

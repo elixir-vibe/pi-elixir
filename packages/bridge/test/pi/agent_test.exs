@@ -90,6 +90,27 @@ defmodule Pi.AgentTest do
     assert Enum.map(messages, & &1.content) == ["review job", "job done"]
   end
 
+  test "supervised jobs emit parent-visible lifecycle events" do
+    assert {:ok, parent} = RuntimeSession.start(name: :parent)
+    parent_id = RuntimeSession.state(parent).id
+
+    assert {:ok, job} = Agent.start("review child", parent_session_id: parent_id, role: :reviewer)
+
+    started = wait_for_event(parent, :agent_job_started)
+    assert started.data.child_session_id == job.child_session_id
+    assert started.data.parent_session_id == parent_id
+    assert started.data.status == :running
+
+    request = receive_request(:llm_complete)
+    Broker.deliver(request.id, %Response{ok: true, result: "child done"})
+
+    assert {:ok, done} = Agent.await(job, 1_000)
+    finished = wait_for_event(parent, :agent_job_finished)
+    assert finished.data.child_session_id == done.child_session_id
+    assert finished.data.status == :done
+    assert finished.data.result == "child done"
+  end
+
   test "run_many starts multiple supervised jobs" do
     assert {:ok, jobs} =
              Agent.run_many([
@@ -123,6 +144,24 @@ defmodule Pi.AgentTest do
              %Message{role: :user, content: "review this"},
              %Message{role: :assistant, content: "done"}
            ]
+  end
+
+  defp wait_for_event(session, type, attempts \\ 40)
+  defp wait_for_event(_session, type, 0), do: flunk("expected #{type} event")
+
+  defp wait_for_event(session, type, attempts) do
+    session
+    |> RuntimeSession.state()
+    |> Map.fetch!(:events)
+    |> Enum.find(&(&1.type == type))
+    |> case do
+      nil ->
+        Process.sleep(25)
+        wait_for_event(session, type, attempts - 1)
+
+      event ->
+        event
+    end
   end
 
   defp receive_request(op) do

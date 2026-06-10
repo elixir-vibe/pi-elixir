@@ -5,6 +5,7 @@ defmodule Pi.Agent.Job do
 
   alias Pi.Agent.Manager
   alias Pi.Session, as: RuntimeSession
+  alias Pi.Session.Event
 
   @enforce_keys [:id, :task, :child_session_id]
   defstruct [
@@ -82,6 +83,7 @@ defmodule Pi.Agent.Job do
     case start_session(state.job, state.opts) do
       {:ok, session} ->
         {:ok, _session_state} = RuntimeSession.subscribe(session, self())
+        emit_parent_event(state.job, :agent_job_started, job_data(state.job))
         timeout = Keyword.get(state.opts, :timeout, @default_timeout)
 
         task =
@@ -169,9 +171,41 @@ defmodule Pi.Agent.Job do
         duration_ms: System.monotonic_time(:millisecond) - state.started_at
     }
 
+    emit_parent_event(job, :agent_job_finished, job_data(job))
     Manager.job_finished(job)
     job
   end
+
+  defp emit_parent_event(%{parent_session_id: nil}, _type, _data), do: :ok
+
+  defp emit_parent_event(%{parent_session_id: parent_session_id}, type, data) do
+    with {:ok, parent} <- RuntimeSession.lookup(parent_session_id) do
+      RuntimeSession.emit_event(parent, Event.new(type, data))
+    end
+
+    :ok
+  end
+
+  defp job_data(job) do
+    %{
+      id: job.id,
+      task: job.task,
+      role: job.role,
+      model: job.model,
+      parent_session_id: job.parent_session_id,
+      child_session_id: job.child_session_id,
+      status: job.status,
+      result: job.result,
+      error: job.error,
+      started_at: datetime(job.started_at),
+      finished_at: datetime(job.finished_at),
+      duration_ms: job.duration_ms
+    }
+  end
+
+  defp datetime(nil), do: nil
+  defp datetime(%DateTime{} = datetime), do: DateTime.to_iso8601(datetime)
+  defp datetime(value), do: value
 
   defp id, do: "job_#{System.unique_integer([:positive])}"
   defp session_id, do: "session_#{System.unique_integer([:positive])}"
