@@ -95,9 +95,23 @@ defmodule Pi.QuackTest do
   end
 
   defp start_mirror(_db) do
-    Mirror.init([])
-  catch
-    :exit, reason -> {:skip, "QuackDB mirror unavailable: #{Exception.format_exit(reason)}"}
+    previous_flag = Process.flag(:trap_exit, true)
+
+    try do
+      {:ok, state} = Mirror.init([])
+
+      receive do
+        {:EXIT, _pid, reason} ->
+          {:skip, "QuackDB mirror unavailable: #{Exception.format_exit(reason)}"}
+      after
+        100 ->
+          {:ok, state}
+      end
+    catch
+      :exit, reason -> {:skip, "QuackDB mirror unavailable: #{Exception.format_exit(reason)}"}
+    after
+      Process.flag(:trap_exit, previous_flag)
+    end
   end
 
   defp fixture_sessions!(content) do
