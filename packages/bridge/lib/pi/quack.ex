@@ -38,6 +38,7 @@ defmodule Pi.Quack do
     """
     import Ecto.Query
     use QuackDB.Ecto
+    alias Pi.Self, as: Self
     alias Pi.Quack, as: Q
     require Q
     alias Pi.Quack.Event, as: E
@@ -179,6 +180,18 @@ defmodule Pi.Quack do
   @doc "The generated DuckDB FTS schema for `pi_events`."
   def fts_schema, do: @fts_schema
 
+  @doc "Returns compact status for the QuackDB mirror."
+  def status do
+    ensure!()
+
+    %{
+      database: mirror_database(),
+      events: count!(@events_table),
+      session_files: count!("pi_session_files"),
+      fts_schema: @fts_schema
+    }
+  end
+
   @doc "Rebuilds the FTS index for the mirror events table."
   def rebuild_fts! do
     ensure!()
@@ -186,6 +199,18 @@ defmodule Pi.Quack do
     QuackDB.query!(@conn, QuackDB.FTS.load())
     QuackDB.query!(@conn, QuackDB.FTS.create_index(@events_table, :id, :all, overwrite: true))
     :ok
+  end
+
+  defp count!(table) do
+    case QuackDB.query!(@conn, ["SELECT count(*) FROM ", QuackDB.Type.quote_identifier(table)]).rows do
+      [[count]] -> count
+      _other -> 0
+    end
+  end
+
+  defp mirror_database do
+    System.get_env("PI_ELIXIR_MIRROR_DB") ||
+      Path.join([System.user_home!(), ".pi", "elixir", "session-mirror.duckdb"])
   end
 
   defp result_maps(%QuackDB.Result{columns: columns, rows: rows})

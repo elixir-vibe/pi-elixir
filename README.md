@@ -199,8 +199,12 @@ Eval also preloads token-efficient aliases for QuackDB session analytics:
 
 ```elixir
 # preloaded: import Ecto.Query; use QuackDB.Ecto
+# preloaded: alias Pi.Self, as: Self
 # preloaded: alias Pi.Quack, as: Q; require Q
 # preloaded: alias Pi.Quack.Event, as: E; alias Pi.Quack.SessionFile, as: SF
+
+Self.status()
+Self.context("why did sync crash?", limit: 5)
 
 q = "function_clause"
 

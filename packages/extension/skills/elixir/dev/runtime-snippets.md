@@ -90,10 +90,21 @@ Eval preloads short aliases for token-efficient analytical queries:
 # available by default in eval
 # import Ecto.Query
 # use QuackDB.Ecto
+# alias Pi.Self, as: Self
 # alias Pi.Quack, as: Q
 # require Q
 # alias Pi.Quack.Event, as: E
 # alias Pi.Quack.SessionFile, as: SF
+```
+
+Use `Self` for bridge self-introspection and context recall:
+
+```elixir
+Self.status()
+Self.quack()
+Self.bindings()
+Self.sessions()
+Self.context("why did the last sync crash?", limit: 5)
 ```
 
 Use the QuackDB mirror as a real analytical DB, not only slash commands:

@@ -68,6 +68,7 @@ defmodule Pi.Bridge.Info do
       "alias Pi.Dev, as: Dev, warn: false",
       "alias Pi.Docs, as: Docs, warn: false",
       "alias Pi.Web, as: Web, warn: false",
+      "alias Pi.Self, as: Self, warn: false",
       "alias Pi.Quack, as: Q, warn: false",
       "require Q",
       "alias Pi.Quack.Event, as: E, warn: false",
