@@ -498,6 +498,23 @@ function renderTreePart(part: OutputPart, theme: Theme): string[] | null {
   return renderTreeValue(tree, theme).slice(0, 40)
 }
 
+function renderCompactTreePart(part: OutputPart, theme: Theme): Component | null {
+  const tree = renderTreePart(part, theme)
+  if (!tree) return null
+
+  return {
+    render: (width) => {
+      const maxLines = 6
+      const shown = tree.slice(0, maxLines).map((line) => truncateLine(line, width))
+      const hidden = tree.length - shown.length
+      const title = partPreview(part) + inlineExpandHint(theme)
+      const more = hiddenLine(hidden, theme)
+      return ['', truncateLine(title, width), ...shown, ...(more ? [more] : [])]
+    },
+    invalidate: () => undefined
+  }
+}
+
 function renderOnlyTablePart(
   visibleParts: OutputPart[],
   expanded: boolean,
@@ -580,6 +597,12 @@ function renderOnlySourcePart(visibleParts: OutputPart[], expanded: boolean, the
   return renderCompactSourcePart(onlyPart, theme)
 }
 
+function renderOnlyTreePart(visibleParts: OutputPart[], expanded: boolean, theme: Theme) {
+  const onlyPart = visibleParts.length === 1 ? visibleParts[0] : undefined
+  if (expanded || onlyPart?.format !== 'tree') return null
+  return renderCompactTreePart(onlyPart, theme)
+}
+
 function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
   const visibleParts = parts.filter((part) => part.output)
   if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
@@ -589,6 +612,9 @@ function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme)
 
   const source = renderOnlySourcePart(visibleParts, expanded, theme)
   if (source) return source
+
+  const tree = renderOnlyTreePart(visibleParts, expanded, theme)
+  if (tree) return tree
 
   if (!expanded) {
     const preview = visibleParts

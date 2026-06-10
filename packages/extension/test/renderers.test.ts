@@ -293,6 +293,30 @@ describe('elixir result rendering', () => {
     expect(expanded).toContain('13  def tree')
   })
 
+  it('renders compact tree parts with real data preview', () => {
+    const result = evalResult({
+      parts: [
+        {
+          format: 'tree',
+          output: JSON.stringify([
+            { key: ':status', value: '200' },
+            { key: ':title', value: 'Example Domain' },
+            { key: ':format', value: ':text' },
+            { key: ':truncated?', value: 'false' }
+          ]),
+          preview: 'map with 4 keys'
+        }
+      ]
+    })
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+
+    expect(compact).toContain('map with 4 keys (ctrl+o to expand)')
+    expect(compact).toContain(':status: 200')
+    expect(compact).toContain(':title: Example Domain')
+    expect(compact).toContain(':truncated?: false')
+  })
+
   it('renders structured tree parts when expanded', () => {
     const result = evalResult({
       parts: [
