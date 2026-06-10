@@ -197,12 +197,50 @@ function livePreview(session: SessionSnapshot) {
   return session.recentOutput?.at(-1) ?? session.latest
 }
 
+function eventData(event: { data?: unknown }) {
+  return typeof event.data === 'object' && event.data !== null
+    ? (event.data as Record<string, unknown>)
+    : {}
+}
+
+function eventString(data: Record<string, unknown>, key: string) {
+  const value = data[key]
+  return typeof value === 'string' && value.trim() ? value : undefined
+}
+
+function agentJobEventSummary(event: { type?: string; data?: unknown }) {
+  if (event.type !== 'agent_job_started' && event.type !== 'agent_job_finished') return undefined
+  const data = eventData(event)
+  const role = eventString(data, 'role')
+  const task = eventString(data, 'task')
+  const status = eventString(data, 'status')
+  const result = eventString(data, 'result')
+  const error = eventString(data, 'error')
+  const label = role ?? 'agent'
+
+  if (event.type === 'agent_job_started') {
+    return task ? `${label} started: ${compact(task, 48)}` : `${label} started`
+  }
+
+  if (status === 'done') return `${label} done${result ? `: ${compact(result, 48)}` : ''}`
+  if (status === 'cancelled') return `${label} cancelled`
+  if (status === 'failed') return `${label} failed${error ? `: ${compact(error, 48)}` : ''}`
+  return `${label} finished`
+}
+
+function latestAgentJobEventSummary(session: SessionSnapshot) {
+  return session.events?.toReversed().find((event) => agentJobEventSummary(event))
+}
+
 function sessionPreview(session: SessionSnapshot) {
   if (session.status === 'running') return compact(livePreview(session))
   if (session.status === 'failed')
     return compact(session.error ?? session.response ?? session.latest)
   if (session.status === 'cancelled') return compact(session.latest ?? session.prompt)
-  return compact(session.response ?? session.latest)
+  return (
+    compact(session.response ?? session.latest) ||
+    agentJobEventSummary(latestAgentJobEventSummary(session) ?? {})
+  )
 }
 
 export function hasActiveSession(
@@ -321,6 +359,11 @@ function sessionDetailLines(session: SessionSnapshot, latest: string, theme: The
   const error = compact(session.error)
   if (error && error !== latest) lines.push(theme.fg('error', `✗ ${error}`))
 
+  for (const event of session.events ?? []) {
+    const summary = agentJobEventSummary(event)
+    if (summary) lines.push(theme.fg('muted', `↳ ${summary}`))
+  }
+
   const timeline = sessionTimeline(session)
   const duration = formatDurationMs(session.durationMs)
   const turns =
@@ -360,7 +403,7 @@ function sessionWidgetLines(sessions: SessionSnapshot[], theme: Theme, expanded 
   const lines: string[] = []
   const render = (session: SessionSnapshot, prefix = '', isLast = true, isRoot = false) => {
     const { branch, detail, child: childPrefix } = treePrefixes(prefix, isLast, isRoot)
-    const latest = sessionPreview(session)
+    const latest = sessionPreview(session) ?? ''
     lines.push(sessionRow(session, children, theme, branch))
 
     const summary = synthesis(session, children, theme)

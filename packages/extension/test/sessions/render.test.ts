@@ -72,6 +72,52 @@ describe('BEAM session renderer', () => {
      started → llm → cancelled · 21ms`)
   })
 
+  it('renders parent-visible agent job lifecycle events', () => {
+    const eventSessions: SessionSnapshot[] = [
+      {
+        id: 'parent',
+        name: 'parent',
+        status: 'idle',
+        events: [
+          {
+            type: 'agent_job_started',
+            data: {
+              role: 'reviewer',
+              task: 'Review child module',
+              status: 'running',
+              child_session_id: 'child'
+            }
+          },
+          {
+            type: 'agent_job_finished',
+            data: {
+              role: 'reviewer',
+              task: 'Review child module',
+              status: 'done',
+              result: 'looks good',
+              child_session_id: 'child'
+            }
+          }
+        ]
+      },
+      {
+        id: 'child',
+        parentId: 'parent',
+        name: 'reviewer',
+        status: 'done',
+        response: 'looks good'
+      }
+    ]
+
+    expect(textOf(renderSessionWidget(eventSessions, theme, false))).toContain(
+      '✓ parent  reviewer done: looks good'
+    )
+
+    expect(textOf(renderSessionWidget(eventSessions, theme, true))).toContain(
+      '    ↳ reviewer started: Review child module\n    ↳ reviewer done: looks good'
+    )
+  })
+
   it('renders running live previews from current activity and recent output', () => {
     vi.useFakeTimers()
     vi.setSystemTime(new Date('2026-01-01T00:00:10.000Z'))
