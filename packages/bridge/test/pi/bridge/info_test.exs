@@ -7,7 +7,7 @@ defmodule Pi.Bridge.InfoTest do
   alias Pi.Transport.Stdio
 
   test "snapshot returns a strict protocol struct" do
-    assert %BridgeInfo{project: :pi_bridge, version: "0.6.0", transport: :stdio} =
+    assert %BridgeInfo{project: :pi_bridge, version: "0.6.1", transport: :stdio} =
              Info.snapshot(:stdio)
   end
 
@@ -15,7 +15,7 @@ defmodule Pi.Bridge.InfoTest do
     ready = %Ready{type: :ready, info: Info.snapshot(:stdio)}
     encoded = Jason.encode!(Stdio.__test_payload__(ready))
 
-    assert %{"type" => "ready", "info" => %{"project" => "pi_bridge", "version" => "0.6.0"}} =
+    assert %{"type" => "ready", "info" => %{"project" => "pi_bridge", "version" => "0.6.1"}} =
              Jason.decode!(encoded)
   end
 end

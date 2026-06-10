@@ -256,7 +256,7 @@ pi install npm:pi-elixir
 When a Mix project needs embedded runtime access, pi asks before adding the exact dev-only Hex dependency:
 
 ```elixir
-{:pi_bridge, "== 0.6.0", only: :dev}
+{:pi_bridge, "== 0.6.1", only: :dev}
 ```
 
 The exact version matters: npm `pi-elixir` and Hex `pi_bridge` are released together and must speak the same protocol.

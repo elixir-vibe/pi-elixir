@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.6.1 - 2026-06-10
+
+### Changed
+
+- Publish workflow now relies on npm trusted publishing instead of passing an empty npm auth token.
+
+### Fixed
+
+- Eval error rendering now uses structured BEAM exception metadata for compact inline origins and expanded stack frames.
+- `elixir_eval` failures now reliably drive pi's native tool error state.
+
 ## 0.6.0 - 2026-06-10
 
 ### Added
