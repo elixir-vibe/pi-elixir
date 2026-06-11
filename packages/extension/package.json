@@ -18,6 +18,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:integration": "vitest run --config vitest.integration.config.ts",
+    "test:integration:smoke": "vitest run --config vitest.integration.config.ts test/integration/extension-stdio-smoke.test.ts",
     "test:dupes": "jscpd src --min-lines 5 --min-tokens 50 --format typescript --threshold 0",
     "check": "pnpm run lint && pnpm run typecheck && pnpm run fmt:check && pnpm run test && pnpm run test:dupes"
   },
