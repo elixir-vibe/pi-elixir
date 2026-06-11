@@ -2,10 +2,29 @@
 
 ## Unreleased
 
+## 0.6.6 - 2026-06-11
+
 ### Added
 
 - Reach-backed `Pi.CodeMap` / preloaded `CodeMap` for semantic project maps, target context, callers/callees, smells, and post-edit `CodeMap.reflect/1` workflows.
+- Supervised BEAM agent jobs via `Pi.Agent.start/2`, `Pi.Agent.await/2`, `Pi.Agent.result/1`, `Pi.Agent.cancel/1`, and `Pi.Agent.run_many/2`.
+- Parent-visible BEAM agent job lifecycle events in session snapshots and the extension session renderer.
+- Lightweight embedded stdio integration smoke in the default release gate.
+
+### Changed
+
+- Split host pi session RPC helpers into `Pi.Host`, keeping `Pi.Session` focused on BEAM runtime sessions.
+- Switched ReqLLM examples and helpers to `Pi.ReqLLM.current_model/0` instead of the legacy `"pi:current"` string.
+- Split extension renderers by domain while keeping the existing renderer barrel for compatibility.
 - Elixir development guidance now requires `CodeMap.reflect(changed: true)` after non-trivial Elixir edits when Reach is available.
+
+### Fixed
+
+- Preserved labels for named Elixir AST searches across the JSON boundary.
+- Captured automatic `mix deps.get` output and surfaced it only on failure instead of leaking install noise into the TUI.
+- Hardened Elixir tool availability outside Mix projects and when Elixir/Mix is missing from `PATH`.
+- Added abort cleanup and a hard timeout for embedded BEAM tool calls so stuck calls do not hang forever.
+- Precompiled the fixture project in the stdio smoke setup so cold CI compile time is not counted as bridge startup time.
 
 ## 0.6.5 - 2026-06-10
 
