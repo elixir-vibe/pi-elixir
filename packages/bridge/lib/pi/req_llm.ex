@@ -9,6 +9,11 @@ defmodule Pi.ReqLLM do
     end
   end
 
+  @doc "Returns ReqLLM's inline model struct for the active pi session."
+  def current_model do
+    ReqLLM.model!(%{provider: :pi, id: "current"})
+  end
+
   def generate_text(messages, opts \\ []) do
     Pi.LLM.complete(messages, opts)
   end

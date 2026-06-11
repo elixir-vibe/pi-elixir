@@ -139,7 +139,22 @@ pi Node/TUI
             └─ Pi.Session.Worker
 ```
 
-`Pi.Agent.parallel/2` and `fanout/2` run through child `Pi.Session` workers. Sessions emit `pi_session` snapshots over stdio. Active/running work appears in a compact below-editor widget; completed root session trees are rendered inline in the transcript so the result is part of conversation history rather than a permanent footer.
+`Pi.Agent.parallel/2` and `fanout/2` run through child `Pi.Session` workers. Supervised job APIs return lifecycle handles while child `Pi.Session` workers own transcripts:
+
+```elixir
+{:ok, parent} = Pi.Session.start(name: :review)
+parent_id = Pi.Session.state(parent).id
+
+{:ok, jobs} =
+  Pi.Agent.run_many([
+    %{task: "Review tests", role: :reviewer, parent_session_id: parent_id},
+    %{task: "Review API", role: :reviewer, parent_session_id: parent_id}
+  ])
+
+Enum.map(jobs, &Pi.Agent.await(&1, 60_000))
+```
+
+Jobs attached to a parent session emit `:agent_job_started` and `:agent_job_finished` events. Sessions emit `pi_session` snapshots over stdio. Active/running work appears in a compact below-editor widget; completed root session trees are rendered inline in the transcript so the result is part of conversation history rather than a permanent footer.
 
 Rows are intentionally minimal and label-light:
 

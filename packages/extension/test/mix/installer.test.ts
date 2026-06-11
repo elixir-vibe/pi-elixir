@@ -3,10 +3,17 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 
 import { ensurePiBeamDependency } from '#src/mix/installer.ts'
-import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 let tempRoot: string
 const oldEnv = { ...process.env }
+
+function writeFakeMix(binDir: string, body: string) {
+  fs.mkdirSync(binDir, { recursive: true })
+  const mixPath = path.join(binDir, 'mix')
+  fs.writeFileSync(mixPath, `#!/usr/bin/env bash\n${body}\n`)
+  fs.chmodSync(mixPath, 0o755)
+}
 
 function writeMixExs(dir: string) {
   fs.writeFileSync(
@@ -71,5 +78,34 @@ describe('ensurePiBeamDependency', () => {
     })
 
     expect(dependency).toBe('{:pi_bridge, path: "./bridge", only: :dev}')
+  })
+
+  it('runs mix deps.get without inheriting terminal output', async () => {
+    const binDir = path.join(tempRoot, 'bin')
+    writeFakeMix(binDir, 'echo noisy stdout; echo noisy stderr >&2; exit 0')
+    process.env.PATH = `${binDir}${path.delimiter}${oldEnv.PATH ?? ''}`
+
+    const stdoutSpy = vi.spyOn(process.stdout, 'write')
+    const stderrSpy = vi.spyOn(process.stderr, 'write')
+
+    const ok = await ensurePiBeamDependency(tempRoot, {
+      confirmInstall: async () => true
+    })
+
+    expect(ok).toBe(true)
+    expect(stdoutSpy).not.toHaveBeenCalledWith(expect.stringContaining('noisy stdout'))
+    expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('noisy stderr'))
+  })
+
+  it('includes captured mix deps.get output when installation fails', async () => {
+    const binDir = path.join(tempRoot, 'bin')
+    writeFakeMix(binDir, 'echo deps stdout; echo deps stderr >&2; exit 42')
+    process.env.PATH = `${binDir}${path.delimiter}${oldEnv.PATH ?? ''}`
+
+    await expect(
+      ensurePiBeamDependency(tempRoot, {
+        confirmInstall: async () => true
+      })
+    ).rejects.toThrow('deps stdout\ndeps stderr')
   })
 })

@@ -190,9 +190,14 @@ Pi.Eval.reset()
 Pi.LLM.complete("Summarize this module")
 Pi.LLM.stream("Draft a migration plan")
 Pi.ReqLLM.install()
+ReqLLM.generate_text(Pi.ReqLLM.current_model(), "Summarize this module")
 
 Pi.Session.start(name: :reviewer)
 Pi.Agent.parallel(["Review API", "Review tests", "Review OTP risks"])
+
+{:ok, job} = Pi.Agent.start("Review this module", role: :reviewer)
+{:ok, done} = Pi.Agent.await(job, 60_000)
+{:ok, text} = Pi.Agent.result(done)
 ```
 
 Eval also preloads token-efficient aliases for QuackDB session analytics:

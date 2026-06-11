@@ -111,6 +111,50 @@ defmodule Pi.AgentTest do
     assert finished.data.result == "child done"
   end
 
+  test "cancelling running jobs is terminal and ignores late LLM delivery" do
+    assert {:ok, parent} = RuntimeSession.start(name: :parent)
+    parent_id = RuntimeSession.state(parent).id
+
+    assert {:ok, job} = Agent.start("cancel me", parent_session_id: parent_id, role: :reviewer)
+    request = receive_request(:llm_complete)
+
+    assert :ok = Agent.cancel(job)
+    assert {:ok, cancelled} = wait_for_job_status(job.id, :cancelled)
+    assert Agent.await(job, 100) == {:error, cancelled}
+    assert Agent.result(job.id) == {:error, :cancelled}
+
+    finished = wait_for_event(parent, :agent_job_finished)
+    assert finished.data.child_session_id == job.child_session_id
+    assert finished.data.status == :cancelled
+    assert finished.data.error == :cancelled
+
+    assert %Pi.Session.State{status: :cancelled} = RuntimeSession.state(job.child_session_id)
+
+    Broker.deliver(request.id, %Response{ok: true, result: "too late"})
+    Process.sleep(25)
+
+    assert {:ok, still_cancelled} = Agent.status(job.id)
+    assert still_cancelled.status == :cancelled
+    assert still_cancelled.result == nil
+    assert Agent.result(job.id) == {:error, :cancelled}
+  end
+
+  test "cancelling completed jobs is a no-op" do
+    assert {:ok, job} = Agent.start("finish before cancel", role: :reviewer)
+
+    request = receive_request(:llm_complete)
+    Broker.deliver(request.id, %Response{ok: true, result: "already done"})
+
+    assert {:ok, done} = Agent.await(job, 1_000)
+    assert done.status == :done
+
+    assert :ok = Agent.cancel(job.id)
+    assert {:ok, still_done} = Agent.status(job.id)
+    assert still_done.status == :done
+    assert still_done.result == "already done"
+    assert Agent.result(job.id) == {:ok, "already done"}
+  end
+
   test "run_many starts multiple supervised jobs" do
     assert {:ok, jobs} =
              Agent.run_many([
@@ -161,6 +205,20 @@ defmodule Pi.AgentTest do
 
       event ->
         event
+    end
+  end
+
+  defp wait_for_job_status(id, status, attempts \\ 40)
+  defp wait_for_job_status(_id, status, 0), do: flunk("expected #{status} job")
+
+  defp wait_for_job_status(id, status, attempts) do
+    case Agent.status(id) do
+      {:ok, %Pi.Agent.Job{status: ^status} = job} ->
+        {:ok, job}
+
+      _other ->
+        Process.sleep(25)
+        wait_for_job_status(id, status, attempts - 1)
     end
   end
 

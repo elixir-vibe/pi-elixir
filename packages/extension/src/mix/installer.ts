@@ -44,11 +44,26 @@ function dependencyLine(cwd: string): string {
 
 function runMixDepsGet(cwd: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = childProcess.spawn('mix', ['deps.get'], { cwd, stdio: 'inherit' })
+    const proc = childProcess.spawn('mix', ['deps.get'], { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    let stdout = ''
+    let stderr = ''
+
+    proc.stdout?.on('data', (chunk: Buffer) => {
+      stdout += chunk.toString('utf8')
+    })
+    proc.stderr?.on('data', (chunk: Buffer) => {
+      stderr += chunk.toString('utf8')
+    })
     proc.on('error', reject)
     proc.on('exit', (code) => {
-      if (code === 0) resolve()
-      else reject(new Error(`mix deps.get exited with code ${code}`))
+      if (code === 0) {
+        resolve()
+        return
+      }
+
+      const output = [stdout.trim(), stderr.trim()].filter(Boolean).join('\n')
+      const suffix = output ? `\n\n${output}` : ''
+      reject(new Error(`mix deps.get exited with code ${code}${suffix}`))
     })
   })
 }

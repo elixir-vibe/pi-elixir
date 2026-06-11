@@ -101,10 +101,10 @@ ReqLLM can route through the active pi session as an adapter on top of that pi-o
 
 ```elixir
 Pi.ReqLLM.install()
-ReqLLM.generate_text("pi:current", "Summarize the current project")
+ReqLLM.generate_text(Pi.ReqLLM.current_model(), "Summarize the current project")
 ```
 
-ReqLLM may warn that `pi:current` is not in its public model catalog. That is expected: `pi:current` is a local provider/model route into the active pi session, not a hosted catalog model.
+`Pi.ReqLLM.current_model/0` returns ReqLLM's inline model struct for the active pi session. Use it instead of the string `"pi:current"` so ReqLLM does not try to verify the dynamic local route against its public model catalog.
 
 > **Feature flag:** `PI_ELIXIR_LLM=0` disables BEAM-initiated LLM requests.
 
@@ -164,14 +164,54 @@ For supervised delegation, start jobs. A job owns lifecycle; its child `Pi.Sessi
 
 ```elixir
 {:ok, job} = Pi.Agent.start("Review this module", role: :reviewer)
-{:ok, done} = Pi.Agent.await(job)
+job.status
+#=> :running
+
+{:ok, done} = Pi.Agent.await(job, 60_000)
+done.status
+#=> :done
+
 {:ok, text} = Pi.Agent.result(done)
 Pi.Session.state(done.child_session_id)
-
-{:ok, jobs} = Pi.Agent.run_many([%{task: "Review tests", role: :reviewer}, "Review docs"])
 ```
 
-`Pi.Agent.run/2` keeps the single-run shape `{:ok, %Pi.Agent.Result{}} | {:error, %Pi.Agent.Result{}}`. `chain/2`, `parallel/2`, and `fanout/2` return `{:ok, %Pi.Agent.Run{}} | {:error, %Pi.Agent.Run{}}` so orchestration metadata and partial results are explicit. Job APIs return `%Pi.Agent.Job{}` lifecycle handles with `status`, `result`, `error`, and `child_session_id`.
+Run multiple jobs when the tasks are independent:
+
+```elixir
+{:ok, jobs} =
+  Pi.Agent.run_many([
+    %{task: "Review tests", role: :reviewer},
+    %{task: "Review API", role: :reviewer},
+    "Review docs"
+  ])
+
+Enum.map(jobs, &Pi.Agent.await(&1, 60_000))
+```
+
+Attach jobs to a parent session when you want parent-visible lifecycle events in the session widget:
+
+```elixir
+{:ok, parent} = Pi.Session.start(name: :review)
+parent_id = Pi.Session.state(parent).id
+
+{:ok, job} = Pi.Agent.start("Review tests", role: :reviewer, parent_session_id: parent_id)
+{:ok, done} = Pi.Agent.await(job, 60_000)
+
+Pi.Session.state(parent).events
+# includes :agent_job_started and :agent_job_finished
+```
+
+Cancel long-running work through the job lifecycle handle:
+
+```elixir
+{:ok, job} = Pi.Agent.start("Explore a risky option", role: :researcher)
+:ok = Pi.Agent.cancel(job)
+{:error, cancelled} = Pi.Agent.await(job, 100)
+cancelled.status
+#=> :cancelled
+```
+
+`Pi.Agent.run/2` keeps the single-run shape `{:ok, %Pi.Agent.Result{}} | {:error, %Pi.Agent.Result{}}`. `chain/2`, `parallel/2`, and `fanout/2` return `{:ok, %Pi.Agent.Run{}} | {:error, %Pi.Agent.Run{}}` so orchestration metadata and partial results are explicit. Job APIs return `%Pi.Agent.Job{}` lifecycle handles with `status`, `result`, `error`, `parent_session_id`, and `child_session_id`.
 
 ## Plugin command/event/hook lifecycle
 

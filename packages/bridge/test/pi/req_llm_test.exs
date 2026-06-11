@@ -18,7 +18,11 @@ defmodule Pi.ReqLLMTest do
   end
 
   test "backs ReqLLM.generate_text with the active Pi model" do
-    task = Task.async(fn -> ReqLLM.generate_text("pi:current", "hello") end)
+    model = Pi.ReqLLM.current_model()
+    assert model.provider == :pi
+    assert model.id == "current"
+
+    task = Task.async(fn -> ReqLLM.generate_text(model, "hello") end)
 
     request = receive_request()
     assert messages(request) == [%{content: "hello", role: "user"}]
