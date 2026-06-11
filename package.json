@@ -11,7 +11,7 @@
     "type": "git",
     "url": "https://github.com/elixir-vibe/pi-elixir"
   },
-  "packageManager": "pnpm@10.26.1",
+  "packageManager": "pnpm@11.5.3",
   "files": [
     "README.md",
     "CHANGELOG.md",

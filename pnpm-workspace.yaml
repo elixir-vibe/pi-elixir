@@ -1,2 +1,5 @@
 packages:
   - packages/extension
+allowBuilds:
+  '@google/genai': true
+  protobufjs: true
