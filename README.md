@@ -458,3 +458,14 @@ pnpm run pack:check
 ```
 
 `pnpm run check` is the release-readiness gate.
+
+## Part of Elixir Vibe
+
+pi-elixir gives the pi coding agent a live door into the BEAM: stateful eval, AST tools, and composable runtime APIs.
+
+It is one building block of a larger stack — tools that make AI-generated
+software checkable: structural search, dependence analysis, duplication and
+slop detection, session replay, and ecosystem-wide code search. See the
+[Elixir Vibe](https://github.com/elixir-vibe) organization for the rest, and
+[Building Blocks for the Future Web](https://github.com/elixir-vibe/building-blocks)
+for the thesis, architecture, and roadmap that tie them together.
