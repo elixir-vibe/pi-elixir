@@ -15,9 +15,15 @@ const PROJECT_DIR =
   process.env.PI_ELIXIR_INTEGRATION_PROJECT ??
   path.resolve(__dirname, '../../../fixtures/demo_project')
 const STARTUP_TIMEOUT = 20_000
+const SETUP_TIMEOUT = 10_000
+const HOOK_TIMEOUT = SETUP_TIMEOUT + STARTUP_TIMEOUT + 5_000
 
 function ensureDeps(): void {
-  execSync('mix deps.get', { cwd: PROJECT_DIR, stdio: 'pipe' })
+  execSync('mix deps.get', {
+    cwd: PROJECT_DIR,
+    stdio: 'pipe',
+    timeout: SETUP_TIMEOUT
+  })
 }
 
 function hasElixir(): boolean {
@@ -78,8 +84,8 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
       process.env.PI_TEST_LLM_COMPLETE_RESPONSE = 'extension fake completion'
       process.env.PI_TEST_LLM_STREAM_RESPONSE = 'stream |from |extension'
       startEmbeddedInBackground(PROJECT_DIR)
-      await waitForReady(PROJECT_DIR)
-    }, STARTUP_TIMEOUT)
+      await waitForReady(PROJECT_DIR, STARTUP_TIMEOUT)
+    }, HOOK_TIMEOUT)
 
     afterAll(() => {
       if (originalComplete === undefined) delete process.env.PI_TEST_LLM_COMPLETE_RESPONSE
