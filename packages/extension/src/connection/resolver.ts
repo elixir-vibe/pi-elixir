@@ -15,13 +15,17 @@ import {
   type InstallOptions,
   type InstallPrompt
 } from '#src/mix/installer.ts'
+import { elixirRuntimeProblem } from '#src/mix/runtime.ts'
 import type { BridgeEvent, ToolArgs, ToolResult } from '#src/protocol/types.ts'
 import { callHttpTool, discoverExternalMCP } from '#src/transport/http-json-rpc.ts'
 
 import {
+  clearUnavailable,
   connectionCache,
   getIncompatibleDependency,
+  getUnavailableReason,
   hasMissingDependency,
+  markUnavailable,
   type ConnectionKind
 } from './status.ts'
 
@@ -104,6 +108,17 @@ export async function resolveUrl(
       return null
     }
 
+    const runtimeProblem = elixirRuntimeProblem()
+    if (runtimeProblem) {
+      markUnavailable(cwd, runtimeProblem)
+      recordDiagnostic('resolve_url_phase', cwd, {
+        phase: 'elixir_runtime_unavailable',
+        reason: runtimeProblem
+      })
+      return null
+    }
+    clearUnavailable(cwd)
+
     const failedBeforeInstall = hasEmbeddedFailed(cwd)
     const missingBeforeInstall = hasMissingDependency(cwd)
     const dependencyReady = await withDiagnosticSpan(
@@ -141,6 +156,7 @@ export function getConnectionKind(cwd: string): ConnectionKind {
   const cached = connectionCache.get(cwd)
   if (cached) return cached.kind
   if (getIncompatibleDependency(cwd)) return 'incompatible'
+  if (getUnavailableReason(cwd)) return 'unavailable'
   if (hasMissingDependency(cwd)) return 'missing'
   return getEmbeddedKind(cwd)
 }

@@ -22,7 +22,7 @@ import {
   getConnectionKind,
   type InstallPrompt
 } from './connection/resolver.ts'
-import { getIncompatibleDependency } from './connection/status.ts'
+import { getIncompatibleDependency, getUnavailableReason } from './connection/status.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
 import type { ToolArgs, ToolResult } from './protocol/types.ts'
 
@@ -181,6 +181,34 @@ function incompatibleDependencyError(cwd: string) {
   }
 }
 
+function noMixProjectError() {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text: 'No Mix project found here. pi-elixir BEAM tools only run in Elixir/Mix projects, so this tool is unavailable for the current workspace.'
+      }
+    ],
+    isError: true,
+    details: {}
+  }
+}
+
+function runtimeUnavailableError(cwd: string) {
+  return {
+    content: [
+      {
+        type: 'text' as const,
+        text:
+          getUnavailableReason(cwd) ??
+          'Elixir/Mix is not available on PATH. Install Elixir/OTP before using pi-elixir BEAM tools.'
+      }
+    ],
+    isError: true,
+    details: {}
+  }
+}
+
 function noConnectionError() {
   return {
     content: [
@@ -208,6 +236,7 @@ function connectionError(cwd: string) {
   const kind = getConnectionKind(cwd)
   if (kind === 'starting') return stillCompilingError()
   if (kind === 'missing') return missingDependencyError()
+  if (kind === 'unavailable') return runtimeUnavailableError(cwd)
   if (kind === 'incompatible') return incompatibleDependencyError(cwd)
   return noConnectionError()
 }
@@ -245,7 +274,7 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
     parameters: tool.parameters,
     async execute(_id, params, signal, _onUpdate, ctx) {
       const beamCwd = resolveBeamToolCwd(ctx.cwd)
-      if (!beamCwd) return connectionError(ctx.cwd)
+      if (!beamCwd) return noMixProjectError()
 
       const conn = await resolveUrl(beamCwd, {
         confirmInstall: (prompt) =>

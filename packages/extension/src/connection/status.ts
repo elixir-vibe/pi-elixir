@@ -17,6 +17,7 @@ type StatusListener = (cwd: string, kind: ConnectionKind) => void
 
 const statusListeners = new Set<StatusListener>()
 const missingDependency = new Set<string>()
+const unavailableReason = new Map<string, string>()
 const incompatibleDependency = new Map<string, string>()
 export const connectionCache = new Map<string, CachedConnection>()
 
@@ -47,6 +48,18 @@ export function clearMissingDependency(cwd: string): void {
 
 export function hasMissingDependency(cwd: string): boolean {
   return missingDependency.has(cwd)
+}
+
+export function markUnavailable(cwd: string, message: string): void {
+  unavailableReason.set(cwd, message)
+}
+
+export function clearUnavailable(cwd: string): void {
+  unavailableReason.delete(cwd)
+}
+
+export function getUnavailableReason(cwd: string): string | undefined {
+  return unavailableReason.get(cwd)
 }
 
 export function markIncompatibleDependency(cwd: string, message: string): void {

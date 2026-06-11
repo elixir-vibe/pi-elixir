@@ -5,9 +5,11 @@ import {
   connectionCache,
   emitStatusChange,
   invalidateCache,
-  markIncompatibleDependency
+  markIncompatibleDependency,
+  markUnavailable
 } from '#src/connection/status.ts'
 import { recordDiagnostic, withDiagnosticSpan } from '#src/diagnostics.ts'
+import { elixirRuntimeProblem } from '#src/mix/runtime.ts'
 import type {
   BridgeBusEvent,
   BridgeEvent,
@@ -21,6 +23,7 @@ import type {
 import { isPiBridgeVersionCompatible, piBridgeVersionMismatchMessage } from '#src/version.ts'
 
 const START_STDIO_EXPR = 'Pi.Transport.Stdio.start()'
+const TOOL_CALL_TIMEOUT_MS = 120_000
 
 interface EmbeddedProcess {
   proc: childProcess.ChildProcess
@@ -303,6 +306,18 @@ export function startEmbeddedInBackground(cwd: string): void {
     return
   }
 
+  const runtimeProblem = elixirRuntimeProblem()
+  if (runtimeProblem) {
+    markUnavailable(cwd, runtimeProblem)
+    embeddedFailed.add(cwd)
+    recordDiagnostic('embedded_start_skipped', cwd, {
+      reason: 'elixir_runtime_unavailable',
+      message: runtimeProblem
+    })
+    emitStatusChange(cwd, 'unavailable')
+    return
+  }
+
   recordDiagnostic('embedded_start', cwd, {
     command: 'mix run --no-halt -e <stdio-start>',
     mixEnv: 'dev'
@@ -429,19 +444,42 @@ export function callEmbeddedTool(
     { name, id },
     async () =>
       new Promise((resolve, reject) => {
-        const abort = () => {
+        let settled = false
+        const timeout = setTimeout(() => {
+          resolveOnce({ text: 'Embedded BEAM tool call timed out.', isError: true })
+        }, TOOL_CALL_TIMEOUT_MS)
+
+        const cleanup = () => {
+          clearTimeout(timeout)
+          signal?.removeEventListener('abort', abort)
           entry.pending.delete(id)
-          resolve({ text: 'Tool call aborted.', isError: true })
+        }
+
+        const resolveOnce = (result: ToolResult) => {
+          if (settled) return
+          settled = true
+          cleanup()
+          resolve(result)
+        }
+
+        const rejectOnce = (error: Error) => {
+          if (settled) return
+          settled = true
+          cleanup()
+          reject(error)
+        }
+
+        const abort = () => {
+          resolveOnce({ text: 'Tool call aborted.', isError: true })
         }
 
         if (signal?.aborted) return abort()
 
-        entry.pending.set(id, { resolve, reject })
+        entry.pending.set(id, { resolve: resolveOnce, reject: rejectOnce })
         signal?.addEventListener('abort', abort, { once: true })
         stdin.write(payload, (error) => {
           if (!error) return
-          entry.pending.delete(id)
-          reject(error)
+          rejectOnce(error)
         })
       })
   )

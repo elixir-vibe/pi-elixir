@@ -9,6 +9,7 @@ vi.mock('../src/connection/resolver.ts', () => ({
 
 vi.mock('../src/connection/status.ts', () => ({
   getIncompatibleDependency: vi.fn(),
+  getUnavailableReason: vi.fn(),
   onStatusChange: vi.fn()
 }))
 
@@ -308,7 +309,7 @@ describe('extension status lifecycle', () => {
   it('returns project-neutral no-connection guidance', async () => {
     const projectA = makeProject('project-a')
     vi.mocked(resolveUrl).mockResolvedValue(null)
-    vi.mocked(getConnectionKind).mockReturnValue('unavailable')
+    vi.mocked(getConnectionKind).mockReturnValue(null)
 
     const { pi } = fakePi()
     extension(pi as any)
@@ -328,6 +329,34 @@ describe('extension status lifecycle', () => {
     expect(result.content[0].text).toContain('No pi_bridge connection')
     expect(result.content[0].text).toContain('embedded BEAM')
     expect(result.content[0].text).toContain('Only start `mix phx.server`')
+  })
+
+  it('returns a direct Elixir installation hint when runtime is unavailable', async () => {
+    const projectA = makeProject('project-a')
+    vi.mocked(resolveUrl).mockResolvedValue(null)
+    vi.mocked(getConnectionKind).mockReturnValue('unavailable')
+
+    const { getUnavailableReason } = await import('#src/connection/status.ts')
+    vi.mocked(getUnavailableReason).mockReturnValue(
+      'Elixir is not installed or not available on PATH.'
+    )
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    const result = await tool.execute(
+      'tool-1',
+      { code: 'Pi.project()' },
+      undefined,
+      undefined,
+      fakeCtx(projectA)
+    )
+
+    expect(result.isError).toBe(true)
+    expect(result.content[0].text).toContain('Elixir is not installed')
   })
 
   it('renders compact BEAM session widget from session snapshots', async () => {

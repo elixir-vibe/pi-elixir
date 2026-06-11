@@ -48,6 +48,9 @@ function emitStdout(proc: childProcess.ChildProcess, text: string): void {
 // We access them indirectly through the public API.
 function resetModuleState() {
   stopAllEmbedded()
+  vi.mocked(childProcess.spawnSync).mockReturnValue({
+    status: 0
+  } as childProcess.SpawnSyncReturns<Buffer>)
   // Clear env overrides
   delete process.env.PI_MCP_URL
   delete process.env.PI_DISABLE_EMBEDDED
