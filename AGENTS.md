@@ -1,5 +1,9 @@
 # Agent Notes
 
+## Planning
+
+Larger feature planning for this project happens in an internal repo. If you have access to a local checkout at `~/Development/vibe-program/`, read its `AGENTS.md` and follow the relevant roadmap/execution documents before designing new capabilities; do not redesign decisions made there. Without access, ask the user before planning new feature areas.
+
 ## Releases
 
 When releasing a new tagged version:
