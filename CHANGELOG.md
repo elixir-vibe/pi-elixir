@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.13 - 2026-06-12
+
+### Changed
+
+- Elixir tools now wait briefly for an embedded BEAM that is still starting before returning the compiling guidance.
+- Reduced optional compile warning noise for ReqLLM and Reach/Makeup integrations.
+
 ## 0.6.12 - 2026-06-12
 
 ### Changed
