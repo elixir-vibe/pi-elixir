@@ -98,6 +98,35 @@ describe('ensurePiBeamDependency', () => {
     expect(stderrSpy).not.toHaveBeenCalledWith(expect.stringContaining('noisy stderr'))
   })
 
+  it('uses a conservative Hex fetch concurrency for automatic dependency install', async () => {
+    const binDir = path.join(tempRoot, 'bin')
+    const envFile = path.join(tempRoot, 'hex-env')
+    writeFakeMix(binDir, `printf '%s' "$HEX_HTTP_CONCURRENCY" > ${envFile}; exit 0`)
+    process.env.PATH = `${binDir}${path.delimiter}${oldEnv.PATH ?? ''}`
+
+    const ok = await ensurePiBeamDependency(tempRoot, {
+      confirmInstall: async () => true
+    })
+
+    expect(ok).toBe(true)
+    expect(fs.readFileSync(envFile, 'utf8')).toBe('1')
+  })
+
+  it('preserves explicit Hex fetch concurrency', async () => {
+    const binDir = path.join(tempRoot, 'bin')
+    const envFile = path.join(tempRoot, 'hex-env')
+    writeFakeMix(binDir, `printf '%s' "$HEX_HTTP_CONCURRENCY" > ${envFile}; exit 0`)
+    process.env.PATH = `${binDir}${path.delimiter}${oldEnv.PATH ?? ''}`
+    process.env.HEX_HTTP_CONCURRENCY = '4'
+
+    const ok = await ensurePiBeamDependency(tempRoot, {
+      confirmInstall: async () => true
+    })
+
+    expect(ok).toBe(true)
+    expect(fs.readFileSync(envFile, 'utf8')).toBe('4')
+  })
+
   it('includes captured mix deps.get output when installation fails', async () => {
     const binDir = path.join(tempRoot, 'bin')
     writeFakeMix(binDir, 'echo deps stdout; echo deps stderr >&2; exit 42')

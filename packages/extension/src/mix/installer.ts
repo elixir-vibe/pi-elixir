@@ -42,9 +42,20 @@ function dependencyLine(cwd: string): string {
   return `{:pi_bridge, path: "${relativePiBeamPath(cwd, beamPath)}", only: :dev}`
 }
 
+function mixDepsGetEnv(): NodeJS.ProcessEnv {
+  return {
+    ...process.env,
+    HEX_HTTP_CONCURRENCY: process.env.HEX_HTTP_CONCURRENCY ?? '1'
+  }
+}
+
 function runMixDepsGet(cwd: string): Promise<void> {
   return new Promise((resolve, reject) => {
-    const proc = childProcess.spawn('mix', ['deps.get'], { cwd, stdio: ['ignore', 'pipe', 'pipe'] })
+    const proc = childProcess.spawn('mix', ['deps.get'], {
+      cwd,
+      env: mixDepsGetEnv(),
+      stdio: ['ignore', 'pipe', 'pipe']
+    })
     let stdout = ''
     let stderr = ''
 
