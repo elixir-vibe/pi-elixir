@@ -5,20 +5,11 @@ defmodule Pi.Eval.Evaluator do
 
   alias Pi.Bridge.Info
   alias Pi.Eval.{ExceptionInfo, Snapshot}
+  alias Pi.Eval.Output, as: EvalOutput
   alias Pi.Output
   alias Pi.Protocol.Tool.Eval, as: EvalPayload
   alias Pi.Protocol.Tool.OutputPart
-  alias Pi.Protocol.UI.Block
-  alias Pi.Protocol.UI.Display
 
-  @inspect_opts [charlists: :as_lists, limit: 50, pretty: true]
-  @preview_inspect_opts [
-    charlists: :as_lists,
-    limit: 20,
-    pretty: false,
-    printable_limit: 200,
-    width: 1_000_000
-  ]
   @control_key {Pi.Eval, :control}
   @binding_info_key {Pi.Eval, :binding_info}
   @session_id_key {Pi.Eval, :session_id}
@@ -111,7 +102,7 @@ defmodule Pi.Eval.Evaluator do
   end
 
   defp eval_with_captured_io(code, state) do
-    {{success?, result, state}, io} = capture_io(fn -> eval_code(code, state) end)
+    {{success?, result, state}, io} = EvalOutput.capture_io(fn -> eval_code(code, state) end)
 
     cond do
       success? ->
@@ -120,11 +111,17 @@ defmodule Pi.Eval.Evaluator do
         {{:ok, structured_result(result, io, state, persist_meta)}, state}
 
       io != "" ->
-        text = "IO:\n\n#{io}\n\nError:\n\n#{error_text(result)}"
-        {{:error, error_result(text, io, state, error_exception(result))}, state}
+        text = "IO:\n\n#{io}\n\nError:\n\n#{EvalOutput.error_text(result)}"
+        {{:error, error_result(text, io, state, EvalOutput.error_exception(result))}, state}
 
       true ->
-        {{:error, error_result(error_text(result), io, state, error_exception(result))}, state}
+        {{:error,
+          error_result(
+            EvalOutput.error_text(result),
+            io,
+            state,
+            EvalOutput.error_exception(result)
+          )}, state}
     end
   end
 
@@ -167,7 +164,7 @@ defmodule Pi.Eval.Evaluator do
       result: nil,
       text: io,
       parts: parts,
-      display: display(parts),
+      display: EvalOutput.display(parts),
       bindings: Snapshot.binding_info(state.binding),
       state: eval_state_meta(state, persist_meta)
     }
@@ -175,8 +172,8 @@ defmodule Pi.Eval.Evaluator do
 
   defp structured_result(result, io, state, persist_meta) do
     explicit_text = Output.text_for(result)
-    inspected = explicit_text || inspect(result, @inspect_opts)
-    preview = inspect(result, @preview_inspect_opts)
+    inspected = explicit_text || EvalOutput.inspect_value(result)
+    preview = EvalOutput.preview(result)
 
     value_parts =
       Output.parts_for(result) ||
@@ -184,7 +181,7 @@ defmodule Pi.Eval.Evaluator do
 
     parts =
       []
-      |> maybe_io_part(io)
+      |> EvalOutput.maybe_io_part(io)
       |> Kernel.++(value_parts)
 
     text =
@@ -196,20 +193,14 @@ defmodule Pi.Eval.Evaluator do
       result: inspected,
       text: text,
       parts: parts,
-      display: display(parts),
+      display: EvalOutput.display(parts),
       bindings: Snapshot.binding_info(state.binding),
       state: eval_state_meta(state, persist_meta)
     }
   end
 
-  defp error_text(%{text: text}) when is_binary(text), do: text
-  defp error_text(text) when is_binary(text), do: text
-
-  defp error_exception(%{exception: exception}) when is_map(exception), do: exception
-  defp error_exception(_), do: nil
-
   defp error_result(text, io, state, exception) do
-    parts = [] |> maybe_io_part(io) |> Kernel.++([OutputPart.error(text)])
+    parts = [] |> EvalOutput.maybe_io_part(io) |> Kernel.++([OutputPart.error(text)])
 
     %EvalPayload{
       io: io,
@@ -217,22 +208,11 @@ defmodule Pi.Eval.Evaluator do
       exception: exception,
       text: text,
       parts: parts,
-      display: display(parts),
+      display: EvalOutput.display(parts),
       bindings: Snapshot.binding_info(state.binding),
       state: eval_state_meta(state, %{persisted?: false})
     }
   end
-
-  defp maybe_io_part(parts, ""), do: parts
-  defp maybe_io_part(parts, io), do: parts ++ [OutputPart.text(io)]
-  defp display(parts), do: %Display{blocks: Enum.map(parts, &part_block/1)}
-
-  defp part_block(%OutputPart{} = part) do
-    struct(Block, type: block_type(part.kind), text: part.body, language: part.language)
-  end
-
-  defp block_type(:code), do: :source
-  defp block_type(kind), do: kind
 
   defp eval_state_meta(state, persist_meta) do
     %{
@@ -310,24 +290,6 @@ defmodule Pi.Eval.Evaluator do
         MapSet.member?(names, name)
       end)
     end)
-  end
-
-  defp capture_io(fun) do
-    {:ok, pid} = StringIO.open("")
-    original = Application.get_env(:elixir, :ansi_enabled)
-    original_gl = Process.group_leader()
-    Application.put_env(:elixir, :ansi_enabled, false)
-    Process.group_leader(self(), pid)
-
-    try do
-      result = fun.()
-      {_, content} = StringIO.contents(pid)
-      {result, content}
-    after
-      Process.group_leader(self(), original_gl)
-      StringIO.close(pid)
-      Application.put_env(:elixir, :ansi_enabled, original)
-    end
   end
 
   defp eval_file(session_id), do: "pi://eval/" <> session_id
