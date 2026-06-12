@@ -221,10 +221,9 @@ defmodule Pi.CodeMap do
   def context(target, opts \\ []) do
     project = Keyword.get_lazy(opts, :project, fn -> project(opts) end)
 
-    with {:ok, mfa, func} <- resolve(project, target) do
-      project
-      |> ReachContext.build(mfa, func, opts)
-      |> normalize()
+    with {:error, _reason} <- function_context(project, target, opts),
+         {:error, _reason} <- module_context(project, target, opts) do
+      {:error, "Function or module not found: #{inspect(target)}"}
     end
   end
 
@@ -302,6 +301,14 @@ defmodule Pi.CodeMap do
     |> Enum.sort()
   end
 
+  defp function_context(project, target, opts) do
+    with {:ok, mfa, func} <- resolve(project, target) do
+      project
+      |> ReachContext.build(mfa, func, opts)
+      |> normalize()
+    end
+  end
+
   defp resolve(project, target) do
     mfa = if Query.mfa?(target), do: target, else: Query.resolve_target(project, target)
 
@@ -312,6 +319,97 @@ defmodule Pi.CodeMap do
       _ -> {:error, "Function not found: #{inspect(target)}"}
     end
   end
+
+  defp module_context(project, target, opts) do
+    with name when is_binary(name) <- module_name(target),
+         metric when not is_nil(metric) <- module_metric(project, target, name, opts) do
+      file = metric["file"]
+
+      %{
+        kind: :module,
+        target: name,
+        module: metric,
+        functions: module_functions(project, target, name),
+        hotspots: hotspots(project: project, path: file, top: opts[:top] || @default_top),
+        boundaries: boundaries(project: project, path: file, top: opts[:top] || @default_top),
+        smells: smells(project: project, path: file, top: opts[:smell_top] || @default_top)
+      }
+      |> normalize()
+    else
+      _ -> {:error, "Module not found: #{inspect(target)}"}
+    end
+  end
+
+  defp module_name(module) when is_atom(module), do: module |> Atom.to_string() |> module_name()
+  defp module_name(module) when is_binary(module), do: String.trim_leading(module, "Elixir.")
+  defp module_name(_target), do: nil
+
+  defp module_metric(project, target, module_name, opts) do
+    reach_metric =
+      project
+      |> MapAnalysis.section_data(:modules, Keyword.put(opts, :top, 10_000), opts[:path])
+      |> normalize()
+      |> Enum.find(&(field(&1, "name") == module_name))
+
+    reach_metric || loaded_module_metric(target, module_name)
+  end
+
+  defp loaded_module_metric(target, module_name) do
+    with module when is_atom(module) <- loaded_module(target),
+         true <- Code.ensure_loaded?(module) do
+      functions = module.__info__(:functions)
+      macros = module.__info__(:macros)
+      file = module.module_info(:compile)[:source]
+
+      %{
+        "name" => module_name,
+        "file" => file && List.to_string(file),
+        "functions" => length(functions) + length(macros),
+        "public" => length(functions),
+        "public_count" => length(functions),
+        "macro_count" => length(macros)
+      }
+    else
+      _ -> nil
+    end
+  end
+
+  defp loaded_module(module) when is_atom(module), do: module
+
+  defp loaded_module(module) when is_binary(module) do
+    with name when is_binary(name) <- module_name(module) do
+      Module.concat([name])
+    end
+  rescue
+    ArgumentError -> nil
+  end
+
+  defp loaded_module(_target), do: nil
+
+  defp module_functions(project, target, module_name) do
+    reach_functions =
+      project.nodes
+      |> Enum.map(fn {_id, node} -> node end)
+      |> Enum.filter(&(function_def?(&1) and module_name(&1.meta[:module]) == module_name))
+      |> Enum.map(&function_summary/1)
+
+    (reach_functions ++ loaded_module_functions(target, module_name))
+    |> Enum.uniq_by(& &1.target)
+    |> Enum.sort_by(&{&1.file || "", &1.line || 0, &1.target || ""})
+  end
+
+  defp loaded_module_functions(target, module_name) do
+    with module when is_atom(module) <- loaded_module(target),
+         true <- Code.ensure_loaded?(module) do
+      for {name, arity} <- module.__info__(:functions) ++ module.__info__(:macros) do
+        %FunctionRef{target: "#{module_name}.#{name}/#{arity}", mfa: {module, name, arity}}
+      end
+    else
+      _ -> []
+    end
+  end
+
+  defp function_def?(node), do: node.type == :function_def
 
   defp reflection_paths(opts) do
     cond do

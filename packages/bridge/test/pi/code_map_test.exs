@@ -46,6 +46,20 @@ defmodule Pi.CodeMapTest do
     assert helper =~ "helper/1"
   end
 
+  test "returns module-level context for module targets", %{source_file: file} do
+    project = CodeMap.project(paths: [file])
+
+    assert %{
+             "kind" => ":module",
+             "target" => "Sample.CodeMapTarget",
+             "module" => %{"file" => ^file, "functions" => 2},
+             "functions" => functions
+           } = CodeMap.context(Sample.CodeMapTarget, project: project)
+
+    assert Enum.any?(functions, &(&1["target"] =~ "public/1"))
+    assert Enum.any?(functions, &(&1["target"] =~ "helper/1"))
+  end
+
   test "reflection returns a recommendation and evidence shape", %{source_file: file} do
     project = CodeMap.project(paths: [file])
 
