@@ -158,7 +158,7 @@ function missingDependencyError() {
     content: [
       {
         type: 'text' as const,
-        text: 'Pi BEAM tools are not installed in this Mix project. I can add the dev-only dependency to mix.exs and run `mix deps.get`, but I need explicit confirmation before editing the project.'
+        text: 'Pi BEAM tools are not installed in this Mix project. Run `/elixir:install` to add the dev-only dependency, or retry from a non-interactive session where pi-elixir can install it automatically.'
       }
     ],
     isError: true,
@@ -245,6 +245,10 @@ function installPromptMessage(prompt: InstallPrompt) {
   return `Pi BEAM tools are not installed in this Mix project.\n\nI can add the dev-only Pi BEAM dependency to ${prompt.mixExsPath} and run mix deps.get.\n\nProposed dependency:\n  ${prompt.dependency}\n\nProceed?`
 }
 
+function allowNonInteractiveInstall(): boolean {
+  return process.env.PI_ELIXIR_AUTO_INSTALL !== '0'
+}
+
 type ExecuteToolCall = (
   params: ToolArgs,
   url: string,
@@ -280,7 +284,7 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
         confirmInstall: (prompt) =>
           ctx.hasUI
             ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
-            : Promise.resolve(false)
+            : Promise.resolve(allowNonInteractiveInstall())
       })
       if (!conn) return connectionError(beamCwd)
 

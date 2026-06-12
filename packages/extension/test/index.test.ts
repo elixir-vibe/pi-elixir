@@ -101,6 +101,7 @@ describe('extension registration', () => {
 
   afterEach(() => {
     delete process.env.PI_MCP_URL
+    delete process.env.PI_ELIXIR_AUTO_INSTALL
     fs.rmSync(tempRoot, { recursive: true, force: true })
   })
 
@@ -311,6 +312,45 @@ describe('extension status lifecycle', () => {
 
     expect(result.isError).toBe(true)
     expect(result.content[0].text).toBe(message)
+  })
+
+  it('allows non-interactive Elixir tool calls to install the bridge dependency', async () => {
+    const projectA = makeProject('project-a')
+    const ctx = fakeCtx(projectA)
+    ctx.hasUI = false
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    await tool.execute('tool-1', { code: 'Pi.project()' }, undefined, undefined, ctx)
+
+    const options = vi.mocked(resolveUrl).mock.calls[0][1] as Parameters<typeof resolveUrl>[1]
+    await expect(
+      options?.confirmInstall?.({ dependency: ':dep', mixExsPath: 'mix.exs' })
+    ).resolves.toBe(true)
+  })
+
+  it('honors PI_ELIXIR_AUTO_INSTALL=0 for non-interactive Elixir tool calls', async () => {
+    const projectA = makeProject('project-a')
+    const ctx = fakeCtx(projectA)
+    ctx.hasUI = false
+    process.env.PI_ELIXIR_AUTO_INSTALL = '0'
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    await tool.execute('tool-1', { code: 'Pi.project()' }, undefined, undefined, ctx)
+
+    const options = vi.mocked(resolveUrl).mock.calls[0][1] as Parameters<typeof resolveUrl>[1]
+    await expect(
+      options?.confirmInstall?.({ dependency: ':dep', mixExsPath: 'mix.exs' })
+    ).resolves.toBe(false)
   })
 
   it('uses explicit PI_MCP_URL even when session cwd is not a Mix project', async () => {
