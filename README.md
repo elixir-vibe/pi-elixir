@@ -344,6 +344,30 @@ That adds an exact-versioned dependency such as:
 
 The exact version matters: npm `pi-elixir` and Hex `pi_bridge` are released together and must speak the same protocol. If you skip `/elixir:install`, the first Elixir tool call can still prompt to add the dependency.
 
+## Recommended project stack
+
+For new web applications, use Phoenix with Igniter and VibeKit, then add pi-elixir in the project:
+
+```sh
+mix archive.install hex phx_new
+mix archive.install hex igniter_new
+mix phx.new my_app
+cd my_app
+mix igniter.install vibe_kit --agents-md
+pi install npm:pi-elixir
+```
+
+For non-web Elixir projects and packages, use Igniter with VibeKit as the baseline:
+
+```sh
+mix archive.install hex igniter_new
+mix igniter.new my_lib --install vibe_kit --agents-md
+cd my_lib
+pi install npm:pi-elixir
+```
+
+VibeKit provides the project quality baseline (`mix ci`, Credo strict with ExSlop, Dialyzer, ExDNA, and Reach). pi-elixir provides the live BEAM tools used by agents while they work inside that project. In each generated project, run `/elixir:install` once to add the exact matching dev-only `:pi_bridge` dependency.
+
 For local development:
 
 ```sh

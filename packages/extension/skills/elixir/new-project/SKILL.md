@@ -10,19 +10,27 @@ Use this skill when creating or bootstrapping a new Elixir package/project.
 ## Default workflow
 
 1. Inspect `/Users/dannote/Development/vibe_kit` for the current installer behavior before starting.
-2. Prefer Igniter commands over manual project bootstrapping:
+2. For Phoenix/web applications, use Phoenix plus VibeKit:
 
 ```sh
-mix igniter.new my_lib --install vibe_kit
+mix phx.new my_app
+cd my_app
+mix igniter.install vibe_kit --agents-md
 ```
 
-3. For an existing Mix project, apply VibeKit with:
+3. For non-web Elixir projects/packages, prefer Igniter plus VibeKit:
 
 ```sh
-mix igniter.install vibe_kit
+mix igniter.new my_lib --install vibe_kit --agents-md
 ```
 
-4. Use VibeKit's strict defaults unless the user requests otherwise:
+4. For an existing Mix project, apply VibeKit with:
+
+```sh
+mix igniter.install vibe_kit --agents-md
+```
+
+5. Use VibeKit's strict defaults unless the user requests otherwise:
    - `mix ci` alias
    - compile warnings as errors
    - tests

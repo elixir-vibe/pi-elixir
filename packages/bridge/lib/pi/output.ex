@@ -205,6 +205,13 @@ defmodule Pi.Output do
     inspect(value, inspect_opts())
   end
 
+  defp tree_value(%struct{} = value, depth, max_depth) when is_atom(struct) do
+    value
+    |> Map.from_struct()
+    |> Map.put("__struct__", inspect(value.__struct__))
+    |> tree_value(depth, max_depth)
+  end
+
   defp tree_value(value, depth, max_depth) when is_map(value) do
     value
     |> Enum.map(fn {key, child} ->

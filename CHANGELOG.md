@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+### Added
+
+- Documented the recommended project stack: Phoenix + Igniter + VibeKit for web apps, and Igniter + VibeKit for other Elixir projects.
+
+### Fixed
+
+- Structured tree output now handles nested structs, fixing `Self.status()` rendering when bridge plugin commands are present.
+
 ## 0.6.8 - 2026-06-12
 
 ### Fixed
