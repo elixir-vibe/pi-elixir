@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.9 - 2026-06-12
+
 ### Added
 
 - Documented the recommended project stack: Phoenix + Igniter + VibeKit for web apps, and Igniter + VibeKit for other Elixir projects.
