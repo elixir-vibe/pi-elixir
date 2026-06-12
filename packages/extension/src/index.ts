@@ -119,6 +119,10 @@ function formatNotice(details: ElixirNoticeDetails): string {
   return `${details.title}: ${details.message}`
 }
 
+function isStaleContextError(error: unknown): boolean {
+  return error instanceof Error && error.message.includes('This extension ctx is stale')
+}
+
 export default function (pi: ExtensionAPI) {
   startEventLoopLagMonitor()
 
@@ -291,24 +295,28 @@ export default function (pi: ExtensionAPI) {
     return Array.from(statusSubscriptions.values()).some((subscription) => subscription.cwd === cwd)
   }
 
-  function reportConnectionNotice(ctx: ExtensionContext, cwd: string, kind: ConnectionKind) {
+  function reportConnectionNotice(scope: string, cwd: string, kind: ConnectionKind) {
     const notice = noticeKind(kind)
     if (!notice) return
 
     const details = noticeForKind(cwd, notice)
-    const key = `${subscriptionKey(ctx)}:${details.kind}:${details.message}`
+    const key = `${scope}:${details.kind}:${details.message}`
     if (emittedNotices.has(key)) return
     emittedNotices.add(key)
 
-    pi.sendMessage(
-      {
-        customType: 'elixir-notice',
-        content: `Error: ${formatNotice(details)}`,
-        display: true,
-        details
-      },
-      { triggerTurn: false }
-    )
+    try {
+      pi.sendMessage(
+        {
+          customType: 'elixir-notice',
+          content: `Error: ${formatNotice(details)}`,
+          display: true,
+          details
+        },
+        { triggerTurn: false }
+      )
+    } catch (error) {
+      if (!isStaleContextError(error)) throw error
+    }
   }
 
   pi.on('session_start', async (_event, ctx) => {
@@ -322,7 +330,7 @@ export default function (pi: ExtensionAPI) {
       const unsubscribeStatus = onStatusChange((cwd, kind) => {
         if (cwd !== sessionCwd) return
         updateStatus(ctx, kind)
-        reportConnectionNotice(ctx, sessionCwd, kind)
+        reportConnectionNotice(key, sessionCwd, kind)
       })
       const unsubscribeUI = onBridgeUIEvent((cwd, event) => {
         if (flags.plugins() && cwd === sessionCwd) applyBridgeUIEvent(ctx, event)
@@ -351,7 +359,7 @@ export default function (pi: ExtensionAPI) {
         const conn = await resolveUrl(sessionCwd)
         const kind = conn?.kind ?? getConnectionKind(sessionCwd) ?? 'unavailable'
         updateStatus(ctx, kind)
-        reportConnectionNotice(ctx, sessionCwd, kind)
+        reportConnectionNotice(key, sessionCwd, kind)
         if (conn) await loadSessionSnapshots(ctx, sessionCwd, conn.url)
         const info = getBridgeInfo(sessionCwd)
         showStartupInfo(ctx, info)
@@ -367,8 +375,7 @@ export default function (pi: ExtensionAPI) {
         recordDiagnostic('bridge_resolve_error', sessionCwd, {
           error: error instanceof Error ? error.message : String(error)
         })
-        updateStatus(ctx, 'unavailable')
-        reportConnectionNotice(ctx, sessionCwd, 'unavailable')
+        reportConnectionNotice(key, sessionCwd, 'unavailable')
       })
     })
   })

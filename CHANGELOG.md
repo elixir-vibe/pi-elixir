@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.6.8 - 2026-06-12
+
+### Fixed
+
+- Avoid stale extension context crashes from late embedded startup notices after session replacement or shutdown.
+
 ## 0.6.7 - 2026-06-12
 
 ### Added
