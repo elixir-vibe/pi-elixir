@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.10 - 2026-06-12
+
+### Changed
+
+- Updated the bridge lockfile to Reach 2.7.4 so module-only CodeMap context requests fail gracefully instead of crashing in Reach target resolution.
+- Updated ExDNA to 1.5.3 and extracted shared eval output helpers to keep the strict clone budget at zero.
+
 ## 0.6.9 - 2026-06-12
 
 ### Added
