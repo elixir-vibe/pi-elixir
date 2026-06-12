@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.6.12 - 2026-06-12
+
+### Changed
+
+- Automatic `pi_bridge` installs now default `mix deps.get` to `HEX_HTTP_CONCURRENCY=1` to reduce first-run Hex fetch flakiness while preserving explicit user settings.
+
 ## 0.6.11 - 2026-06-12
 
 ### Added
