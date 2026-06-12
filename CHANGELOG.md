@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 0.6.11 - 2026-06-12
+
+### Added
+
+- Non-interactive Elixir tool calls can install the dev-only `pi_bridge` dependency automatically, with `PI_ELIXIR_AUTO_INSTALL=0` as an opt-out.
+- `Pi.CodeMap.context/2` now returns module-level context for module targets, including macro-heavy modules such as Phoenix routers.
+
 ## 0.6.10 - 2026-06-12
 
 ### Changed
