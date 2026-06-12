@@ -222,6 +222,19 @@ function noConnectionError() {
   }
 }
 
+function startupRetryDelayMs(): number {
+  if (process.env.PI_ELIXIR_STARTUP_RETRY_MS) {
+    const parsed = Number.parseInt(process.env.PI_ELIXIR_STARTUP_RETRY_MS, 10)
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 750
+  }
+
+  return process.env.NODE_ENV === 'test' ? 0 : 750
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function stillCompilingError() {
   return {
     content: [
@@ -270,6 +283,22 @@ function resolveBeamToolCwd(cwd: string): string | null {
   return resolveMixProjectCwd(cwd)
 }
 
+async function resolveUrlWithStartupGrace(
+  beamCwd: string,
+  confirmInstall: (prompt: InstallPrompt) => Promise<boolean>
+) {
+  const options = { confirmInstall }
+  let conn = await resolveUrl(beamCwd, options)
+  if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
+
+  await delay(startupRetryDelayMs())
+  conn = await resolveUrl(beamCwd, options)
+  if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
+
+  await delay(startupRetryDelayMs())
+  return resolveUrl(beamCwd, options)
+}
+
 function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
   pi.registerTool({
     name: tool.name,
@@ -280,12 +309,11 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       const beamCwd = resolveBeamToolCwd(ctx.cwd)
       if (!beamCwd) return noMixProjectError()
 
-      const conn = await resolveUrl(beamCwd, {
-        confirmInstall: (prompt) =>
-          ctx.hasUI
-            ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
-            : Promise.resolve(allowNonInteractiveInstall())
-      })
+      const conn = await resolveUrlWithStartupGrace(beamCwd, (prompt) =>
+        ctx.hasUI
+          ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
+          : Promise.resolve(allowNonInteractiveInstall())
+      )
       if (!conn) return connectionError(beamCwd)
 
       const bridgeParams = tool.opts?.prepareParams?.(params, ctx, beamCwd, _id) ?? params

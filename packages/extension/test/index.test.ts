@@ -386,6 +386,36 @@ describe('extension status lifecycle', () => {
     )
   })
 
+  it('waits briefly for an embedded BEAM that is already starting', async () => {
+    const projectA = makeProject('project-a')
+    vi.mocked(resolveUrl)
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ url: 'stdio:test', kind: 'embedded' })
+    vi.mocked(getConnectionKind).mockReturnValue('starting')
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({ kind: 'eval', text: '42' }),
+      isError: false
+    })
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+
+    const result = await tool.execute(
+      'tool-1',
+      { code: 'Pi.project()' },
+      undefined,
+      undefined,
+      fakeCtx(projectA)
+    )
+
+    expect(result.isError).toBe(false)
+    expect(resolveUrl).toHaveBeenCalledTimes(2)
+    expect(callTool).toHaveBeenCalled()
+  })
+
   it('returns project-neutral no-connection guidance', async () => {
     const projectA = makeProject('project-a')
     vi.mocked(resolveUrl).mockResolvedValue(null)
