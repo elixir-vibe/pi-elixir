@@ -14,6 +14,7 @@ defmodule PiBridge.MixProject do
       elixirc_options: [
         no_warn_undefined: [
           {Dune, :eval_string, 2},
+          {ReqLLM, :model!, 1},
           {ReqLLM.Providers, :register, 1}
         ]
       ],
