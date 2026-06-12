@@ -3,6 +3,7 @@ import * as os from 'node:os'
 import * as path from 'node:path'
 
 import { ensurePiBeamDependency } from '#src/mix/installer.ts'
+import { expectedPiBridgeDependency } from '#src/version.ts'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 let tempRoot: string
@@ -59,7 +60,7 @@ describe('ensurePiBeamDependency', () => {
     })
 
     expect(ok).toBe(false)
-    expect(dependency).toBe('{:pi_bridge, "== 0.6.6", only: :dev}')
+    expect(dependency).toBe(expectedPiBridgeDependency())
   })
 
   it('allows an explicit local path dependency for development', async () => {

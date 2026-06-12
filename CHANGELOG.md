@@ -2,6 +2,24 @@
 
 ## Unreleased
 
+## 0.6.7 - 2026-06-12
+
+### Added
+
+- `/elixir:doctor` and `/elixir:install` commands for setup diagnostics and explicit per-project bridge installation.
+- Manual tmux/asciinema setup-flow coverage for non-Mix directories, missing bridge dependency, wrong Elixir startup failures, happy path tools, and duplicate package conflicts.
+
+### Changed
+
+- Local dogfood install now removes the published npm package first to avoid duplicate tool registration.
+- QuackDB mirror defaults to `localhost` for the client URI to match the server endpoint.
+
+### Fixed
+
+- Embedded stdio tool dispatch now returns logged error results for BEAM-side crashes instead of silently timing out.
+- Embedded startup failures now surface stderr in doctor output and clear stale unavailable state after successful restarts.
+- Integration smoke avoids unnecessary `mix deps.get` when fixture dependencies are already present.
+
 ## 0.6.6 - 2026-06-11
 
 ### Added

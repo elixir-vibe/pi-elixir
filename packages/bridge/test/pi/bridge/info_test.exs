@@ -7,15 +7,18 @@ defmodule Pi.Bridge.InfoTest do
   alias Pi.Transport.Stdio
 
   test "snapshot returns a strict protocol struct" do
-    assert %BridgeInfo{project: :pi_bridge, version: "0.6.6", transport: :stdio} =
+    version = Application.spec(:pi_bridge, :vsn) |> to_string()
+
+    assert %BridgeInfo{project: :pi_bridge, version: ^version, transport: :stdio} =
              Info.snapshot(:stdio)
   end
 
   test "ready event encodes bridge info at the transport boundary" do
+    version = Application.spec(:pi_bridge, :vsn) |> to_string()
     ready = %Ready{type: :ready, info: Info.snapshot(:stdio)}
     encoded = Jason.encode!(Stdio.__test_payload__(ready))
 
-    assert %{"type" => "ready", "info" => %{"project" => "pi_bridge", "version" => "0.6.6"}} =
+    assert %{"type" => "ready", "info" => %{"project" => "pi_bridge", "version" => ^version}} =
              Jason.decode!(encoded)
   end
 
