@@ -13,12 +13,17 @@ vi.mock('../src/connection/status.ts', () => ({
   onStatusChange: vi.fn()
 }))
 
+vi.mock('../src/mix/installer.ts', () => ({
+  ensurePiBeamDependency: vi.fn()
+}))
+
 vi.mock('../src/embedded/stdio-process.ts', () => ({
   stopEmbedded: vi.fn(),
   onBridgeBusEvent: vi.fn((_listener) => vi.fn()),
   onBridgeRequest: vi.fn((_listener) => vi.fn()),
   onBridgeUIEvent: vi.fn((_listener) => vi.fn()),
-  getBridgeInfo: vi.fn()
+  getBridgeInfo: vi.fn(),
+  getEmbeddedUrl: vi.fn(() => 'stdio:/tmp/project')
 }))
 
 import * as fs from 'node:fs'
@@ -29,6 +34,7 @@ import { callTool, resolveUrl, getConnectionKind } from '#src/connection/resolve
 import { getIncompatibleDependency, onStatusChange } from '#src/connection/status.ts'
 import { onBridgeBusEvent, onBridgeRequest, stopEmbedded } from '#src/embedded/stdio-process.ts'
 import extension from '#src/index.js'
+import { ensurePiBeamDependency } from '#src/mix/installer.ts'
 
 let tempRoot: string
 
@@ -76,6 +82,7 @@ function fakeCtx(cwd: string, sessionFile = `${cwd}/session.jsonl`) {
       },
       setStatus: vi.fn(),
       notify: vi.fn(),
+      confirm: vi.fn(async () => true),
       setWidget: vi.fn()
     }
   }
@@ -89,11 +96,44 @@ describe('extension registration', () => {
     vi.mocked(getConnectionKind).mockReturnValue('starting')
     vi.mocked(getIncompatibleDependency).mockReturnValue(undefined)
     vi.mocked(onStatusChange).mockImplementation((_listener) => vi.fn())
+    vi.mocked(ensurePiBeamDependency).mockResolvedValue(true)
   })
 
   afterEach(() => {
     delete process.env.PI_MCP_URL
     fs.rmSync(tempRoot, { recursive: true, force: true })
+  })
+
+  it('registers elixir install command', async () => {
+    const cwd = makeProject('install')
+    const { pi } = fakePi()
+    extension(pi as any)
+
+    const command = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:install')?.[1]
+    expect(command).toBeTruthy()
+
+    const ctx = fakeCtx(cwd)
+    await command.handler('', ctx)
+
+    expect(ensurePiBeamDependency).toHaveBeenCalledWith(cwd, {
+      confirmInstall: expect.any(Function)
+    })
+    expect(ctx.ui.notify).toHaveBeenCalledWith('Pi BEAM tools are installed', 'info')
+  })
+
+  it('registers elixir doctor command', async () => {
+    const cwd = makeProject('doctor')
+    const { pi } = fakePi()
+    extension(pi as any)
+
+    const command = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:doctor')?.[1]
+    expect(command).toBeTruthy()
+
+    const ctx = fakeCtx(cwd)
+    await command.handler('', ctx)
+
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('pi-elixir doctor'), 'info')
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining(`Mix cwd: ${cwd}`), 'info')
   })
 
   it('keeps the model-facing Elixir tool surface minimal', () => {

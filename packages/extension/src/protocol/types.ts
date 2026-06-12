@@ -16,6 +16,8 @@ export interface ToolResult {
 export interface PendingToolCall {
   resolve: (result: ToolResult) => void
   reject: (error: Error) => void
+  name?: string
+  startedAt?: number
 }
 
 export interface BridgeInfo {

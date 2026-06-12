@@ -2,6 +2,7 @@ import * as childProcess from 'node:child_process'
 
 import {
   clearIncompatibleDependency,
+  clearUnavailable,
   connectionCache,
   emitStatusChange,
   invalidateCache,
@@ -112,6 +113,7 @@ export function hasEmbeddedFailed(cwd: string): boolean {
 
 export function clearEmbeddedFailed(cwd: string): void {
   embeddedFailed.delete(cwd)
+  clearUnavailable(cwd)
 }
 
 export function embeddedUrl(cwd: string): string {
@@ -148,6 +150,7 @@ function markReady(cwd: string, entry: EmbeddedProcess, url?: string): void {
     stderrPreview: entry.stderrPreview.join('\n')
   })
   clearIncompatibleDependency(cwd)
+  clearUnavailable(cwd)
   invalidateCache(cwd)
   emitStatusChange(cwd, 'embedded')
 }
@@ -380,7 +383,16 @@ export function startEmbeddedInBackground(cwd: string): void {
     embeddedProcesses.delete(cwd)
     connectionCache.delete(cwd)
     failPending(entry, new Error('Embedded BEAM process exited'))
-    if (!entry.ready) embeddedFailed.add(cwd)
+    if (!entry.ready) {
+      embeddedFailed.add(cwd)
+      const stderr = entry.stderrPreview.join('\n').trim()
+      markUnavailable(
+        cwd,
+        stderr
+          ? `Embedded BEAM exited before ready: ${stderr}`
+          : `Embedded BEAM exited before ready with code ${code ?? 'unknown'}`
+      )
+    }
     emitStatusChange(cwd, null)
   })
 }
@@ -445,8 +457,27 @@ export function callEmbeddedTool(
     async () =>
       new Promise((resolve, reject) => {
         let settled = false
+        const startedAt = Date.now()
         const timeout = setTimeout(() => {
-          resolveOnce({ text: 'Embedded BEAM tool call timed out.', isError: true })
+          const elapsedMs = Date.now() - startedAt
+          const pendingCalls = Array.from(entry.pending.entries()).map(([pendingId, pending]) => ({
+            id: pendingId,
+            name: pending.name ?? 'unknown',
+            elapsedMs: pending.startedAt ? Date.now() - pending.startedAt : undefined
+          }))
+          recordDiagnostic('embedded_tool_call_timeout', cwd, {
+            name,
+            id,
+            elapsedMs,
+            timeoutMs: TOOL_CALL_TIMEOUT_MS,
+            pendingCalls,
+            stderrBytes: entry.stderrBytes,
+            stderrPreview: entry.stderrPreview.join('\n')
+          })
+          resolveOnce({
+            text: `Embedded BEAM tool call timed out after ${elapsedMs}ms while waiting for ${name}.`,
+            isError: true
+          })
         }, TOOL_CALL_TIMEOUT_MS)
 
         const cleanup = () => {
@@ -475,7 +506,7 @@ export function callEmbeddedTool(
 
         if (signal?.aborted) return abort()
 
-        entry.pending.set(id, { resolve: resolveOnce, reject: rejectOnce })
+        entry.pending.set(id, { resolve: resolveOnce, reject: rejectOnce, name, startedAt })
         signal?.addEventListener('abort', abort, { once: true })
         stdin.write(payload, (error) => {
           if (!error) return

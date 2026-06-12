@@ -492,7 +492,7 @@ describe('getConnectionKind', () => {
     expect(getConnectionKind('/external-kind-project')).toBe('external')
   })
 
-  it('returns null after embedded process exits without readiness', async () => {
+  it('returns unavailable after embedded process exits without readiness', async () => {
     vi.mocked(fetch).mockRejectedValue(new Error('connection refused'))
     vi.mocked(fs.readFileSync).mockImplementation(() => {
       throw new Error('ENOENT')
@@ -509,7 +509,7 @@ describe('getConnectionKind', () => {
     expect(getConnectionKind('/exit-project')).toBe('starting')
 
     fakeProc.emit('exit')
-    expect(getConnectionKind('/exit-project')).toBeNull()
+    expect(getConnectionKind('/exit-project')).toBe('unavailable')
   })
 })
 

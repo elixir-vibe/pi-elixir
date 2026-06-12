@@ -1,6 +1,8 @@
 defmodule Pi.Transport.StdioTest do
   use ExUnit.Case, async: false
 
+  import ExUnit.CaptureLog
+
   alias Pi.Plugin.Manager
   alias Pi.Transport.Stdio
 
@@ -17,6 +19,37 @@ defmodule Pi.Transport.StdioTest do
   test "ignores malformed known protocol payloads" do
     assert Stdio.__test_handle_line__(Jason.encode!(%{type: :call})) == :ok
     assert Stdio.__test_handle_line__(Jason.encode!(%{type: :llm_chunk})) == :ok
+  end
+
+  test "safe call converts raised exceptions to error replies" do
+    log =
+      capture_log(fn ->
+        assert {:error, message} =
+                 Stdio.__test_safe_call__("boom", fn ->
+                   raise "boom"
+                 end)
+
+        assert message =~ "RuntimeError"
+        assert message =~ "boom"
+      end)
+
+    assert log =~ "pi stdio test call failed: boom"
+    assert log =~ "RuntimeError"
+  end
+
+  test "safe call converts exits to error replies" do
+    log =
+      capture_log(fn ->
+        assert {:error, message} =
+                 Stdio.__test_safe_call__("exit", fn ->
+                   exit(:boom)
+                 end)
+
+        assert message =~ "** (exit) :boom"
+      end)
+
+    assert log =~ "pi stdio test call failed: exit"
+    assert log =~ "** (exit) :boom"
   end
 
   test "plugin commands dispatch from string names" do

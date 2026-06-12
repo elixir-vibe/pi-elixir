@@ -1,6 +1,7 @@
 defmodule Pi.Transport.Stdio do
   @moduledoc "Line-delimited JSON transport for extension-owned BEAM sessions."
 
+  require Logger
   require Pi.Features
 
   alias Pi.Bridge.Info
@@ -40,6 +41,11 @@ defmodule Pi.Transport.Stdio do
 
   @doc false
   def __test_handle_line__(line), do: handle_line(line)
+
+  @doc false
+  def __test_safe_call__(name, fun) when is_binary(name) and is_function(fun, 0) do
+    safe_call("pi stdio test call failed: #{name}", fun)
+  end
 
   def start do
     :persistent_term.put({__MODULE__, :pid}, self())
@@ -98,12 +104,27 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp handle_payload(%Call{} = call),
-    do: spawn(fn -> respond(call.id, dispatch(call.name, call.arguments)) end)
+    do: spawn(fn -> safe_respond(call.id, call.name, safe_dispatch(call)) end)
 
   defp handle_payload(%Response{} = response), do: Broker.deliver(response.id, response)
   defp handle_payload(%Chunk{} = chunk), do: Broker.deliver_stream(chunk.id, :chunk, chunk.delta)
   defp handle_payload(%Done{} = done), do: Broker.deliver_stream(done.id, :done, done.result)
   defp handle_payload(%Error{} = error), do: Broker.deliver_stream(error.id, :error, error.error)
+
+  defp safe_dispatch(%Call{} = call) do
+    safe_call("pi stdio tool call failed: #{call.name}", fn ->
+      dispatch(call.name, call.arguments)
+    end)
+  end
+
+  defp safe_call(log_prefix, fun) when is_binary(log_prefix) and is_function(fun, 0) do
+    fun.()
+  catch
+    kind, reason ->
+      message = Exception.format(kind, reason, __STACKTRACE__)
+      Logger.error("#{log_prefix}\n#{message}")
+      {:error, message}
+  end
 
   defp dispatch("pi_skills_list", _args) do
     if Pi.Features.skills?(),
@@ -220,6 +241,15 @@ defmodule Pi.Transport.Stdio do
   defp reply_payload(:ok), do: %{ok: %{}}
   defp reply_payload(value) when is_binary(value), do: %{ok: value}
   defp reply_payload(value) when is_map(value), do: value
+
+  defp safe_respond(id, name, reply) do
+    respond(id, reply)
+  catch
+    kind, reason ->
+      message = Exception.format(kind, reason, __STACKTRACE__)
+      Logger.error("pi stdio tool response failed: #{name}\n#{message}")
+      respond(id, {:error, message})
+  end
 
   defp respond(id, {:ok, text}) do
     write(%Result{type: :result, id: id, text: text, is_error: false})

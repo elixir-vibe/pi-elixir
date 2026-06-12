@@ -20,11 +20,13 @@ const COMPILE_TIMEOUT = 60_000
 const HOOK_TIMEOUT = DEPS_TIMEOUT + COMPILE_TIMEOUT + STARTUP_TIMEOUT + 5_000
 
 function ensureCompiledProject(): void {
-  execSync('mix deps.get', {
-    cwd: PROJECT_DIR,
-    stdio: 'pipe',
-    timeout: DEPS_TIMEOUT
-  })
+  if (!fs.existsSync(path.join(PROJECT_DIR, 'deps'))) {
+    execSync('mix deps.get', {
+      cwd: PROJECT_DIR,
+      stdio: 'pipe',
+      timeout: DEPS_TIMEOUT
+    })
+  }
   execSync('mix compile', {
     cwd: PROJECT_DIR,
     stdio: 'pipe',

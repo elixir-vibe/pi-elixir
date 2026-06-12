@@ -24,6 +24,7 @@ import {
   withDiagnosticSpan,
   writeDiagnosticDump
 } from './diagnostics.ts'
+import { buildElixirDoctorReport } from './diagnostics/doctor.ts'
 import {
   getBridgeInfo,
   onBridgeBusEvent,
@@ -33,6 +34,7 @@ import {
 } from './embedded/stdio-process.ts'
 import { flags } from './flags.ts'
 import { sessionContext } from './helpers.ts'
+import { ensurePiBeamDependency } from './mix/installer.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
 import { registerSessionCommands } from './sessions/commands.ts'
 import { renderSessionMessage } from './sessions/render.ts'
@@ -145,6 +147,43 @@ export default function (pi: ExtensionAPI) {
     registerBridgeToolHooks(pi, resolveElixirCwd, hasBridgePlugins)
   }
 
+  if (!registeredCommands.has('elixir:install')) {
+    registeredCommands.add('elixir:install')
+    pi.registerCommand('elixir:install', {
+      description: 'Install the pi_bridge dev dependency in this Mix project',
+      handler: async (_args, ctx) => {
+        const beamCwd = resolveElixirCwd(ctx.cwd)
+        if (!beamCwd) {
+          ctx.ui.notify('/elixir:install must be run from an Elixir/Mix project', 'error')
+          return
+        }
+
+        try {
+          const installed = await ensurePiBeamDependency(beamCwd, {
+            confirmInstall: async () => true
+          })
+          ctx.ui.notify(
+            installed ? 'Pi BEAM tools are installed' : 'Pi BEAM tools were not installed',
+            installed ? 'info' : 'warning'
+          )
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          ctx.ui.notify(`Pi BEAM tools install failed:\n${message}`, 'error')
+        }
+      }
+    })
+  }
+
+  if (!registeredCommands.has('elixir:doctor')) {
+    registeredCommands.add('elixir:doctor')
+    pi.registerCommand('elixir:doctor', {
+      description: 'Show pi-elixir environment and bridge diagnostics',
+      handler: async (_args, ctx) => {
+        ctx.ui.notify(buildElixirDoctorReport(ctx.cwd), 'info')
+      }
+    })
+  }
+
   if (!registeredCommands.has('elixir:debug')) {
     registeredCommands.add('elixir:debug')
     pi.registerCommand('elixir:debug', {
@@ -222,6 +261,7 @@ export default function (pi: ExtensionAPI) {
         }
 
         ctx.ui.notify('Installing local pi-elixir checkout...', 'info')
+        await pi.exec('pi', ['remove', 'npm:pi-elixir'], { cwd: ctx.cwd, timeout: 120_000 })
         const result = await pi.exec('pi', ['install', '.'], { cwd: ctx.cwd, timeout: 120_000 })
         if (result.code !== 0) {
           const output = [result.stderr.trim(), result.stdout.trim()].filter(Boolean).join('\n')

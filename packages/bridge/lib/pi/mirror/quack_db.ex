@@ -220,7 +220,7 @@ defmodule Pi.Mirror.QuackDB do
     token = "pi_elixir_mirror_#{System.unique_integer([:positive])}"
     port = mirror_port()
     endpoint = "quack:localhost:#{port}"
-    uri = System.get_env("PI_ELIXIR_MIRROR_QUACKDB_URI") || "http://[::1]:#{port}"
+    uri = System.get_env("PI_ELIXIR_MIRROR_QUACKDB_URI") || "http://localhost:#{port}"
 
     server_opts =
       [

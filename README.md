@@ -324,13 +324,25 @@ Pi.Web.fetch!("https://example.com", format: :text)
 pi install npm:pi-elixir
 ```
 
-When a Mix project needs embedded runtime access, pi asks before adding the exact dev-only Hex dependency:
+Verify the environment from inside pi:
 
-```elixir
-{:pi_bridge, "== 0.6.2", only: :dev}
+```text
+/elixir:doctor
 ```
 
-The exact version matters: npm `pi-elixir` and Hex `pi_bridge` are released together and must speak the same protocol.
+In each Mix project that should use BEAM tools, install the dev-only bridge dependency:
+
+```text
+/elixir:install
+```
+
+That adds an exact-versioned dependency such as:
+
+```elixir
+{:pi_bridge, "== <pi-elixir-version>", only: :dev}
+```
+
+The exact version matters: npm `pi-elixir` and Hex `pi_bridge` are released together and must speak the same protocol. If you skip `/elixir:install`, the first Elixir tool call can still prompt to add the dependency.
 
 For local development:
 
@@ -341,6 +353,39 @@ pnpm install
 cd packages/bridge && mix deps.get && cd ../..
 pi install "$PWD"
 ```
+
+If you also have `npm:pi-elixir` installed globally, remove it before dogfooding a checkout to avoid duplicate tool registration:
+
+```sh
+pi remove npm:pi-elixir
+pi install "$PWD"
+```
+
+From an already-running local checkout, `/elixir:dogfood` performs that switch for you.
+
+### Troubleshooting setup
+
+Use `/elixir:doctor` first. It reports the resolved Mix project, Elixir/Mix availability, `pi_bridge` dependency status, connection state, embedded startup failures, and a suggested next step.
+
+Common cases:
+
+| Symptom | What to do |
+|---|---|
+| `Mix cwd: not found` | Start pi from a Mix project directory, or from a supported repo root with a known nested Mix project. |
+| `Elixir is not installed or not available on PATH` | Start pi from a shell where Elixir/Mix are available. If you just changed `mise`/`asdf` versions, restart pi. |
+| Stale `mise` PATH warning | Restart the shell/pi process so removed tool install paths disappear from `PATH`. |
+| `pi_bridge dependency: missing` | Run `/elixir:install` in the Mix project. |
+| Embedded BEAM exited before ready | Fix the Mix/Elixir error shown in doctor, then run `/elixir:restart`. Wrong Elixir versions surface here as the real Mix error. |
+| `pi_bridge version mismatch` | Update the Mix dependency to the exact version expected by the installed `pi-elixir`, then run `mix deps.get`. |
+| Tool registration conflicts with another `pi-elixir` path | Remove the duplicate install, usually `pi remove npm:pi-elixir`, then install only the checkout or only the npm package. |
+
+For setup-flow regression testing in this repository:
+
+```sh
+scripts/manual-setup-flow.sh
+```
+
+It runs tmux/asciinema playground scenarios for non-Mix directories, missing bridge dependency, explicit install, wrong Elixir startup failure, happy path tools, and duplicate package conflicts.
 
 ## Connection model
 
