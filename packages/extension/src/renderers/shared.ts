@@ -71,9 +71,16 @@ function formatDuration(ms: number): string {
   return `${(ms / 1000).toFixed(1)}s`
 }
 
+export function clampRenderedLines(component: Component): Component {
+  return {
+    render: (width) => component.render(width).map((line) => truncateLine(line, width)),
+    invalidate: () => component.invalidate?.()
+  }
+}
+
 export function withTiming(component: Component, theme: Theme, context: unknown): Component {
   const ctx = timedContext(context)
-  if (!ctx?.state || ctx.state.startedAt === undefined) return component
+  if (!ctx?.state || ctx.state.startedAt === undefined) return clampRenderedLines(component)
 
   const state = ctx.state
   const startedAt = state.startedAt as number
@@ -83,7 +90,8 @@ export function withTiming(component: Component, theme: Theme, context: unknown)
   const timing = theme.fg('muted', `${label} ${formatDuration(endTime - startedAt)}`)
 
   return {
-    render: (width) => [...component.render(width), '', timing],
+    render: (width) =>
+      [...component.render(width), '', timing].map((line) => truncateLine(line, width)),
     invalidate: () => component.invalidate?.()
   }
 }

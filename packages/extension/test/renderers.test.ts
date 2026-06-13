@@ -284,7 +284,7 @@ describe('elixir result rendering', () => {
 
     expect(compact).toContain('async/1, async/2, await…')
     expect(compact).not.toContain('await_many/2')
-    expect(compact).toContain('1/2 rows · 2 columns · string, string · (ctrl+o to expand)')
+    expect(compact).toContain('1/2 rows · 2 columns · string, string · (ctrl+o to exp…')
   })
 
   it('renders compact source parts with code preview', () => {
