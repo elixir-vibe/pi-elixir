@@ -324,7 +324,13 @@ Pi.Web.fetch!("https://example.com", format: :text)
 pi install npm:pi-elixir
 ```
 
-Verify the environment from inside pi:
+Check the bridge from inside pi:
+
+```text
+/elixir:status
+```
+
+Use full diagnostics when something looks wrong:
 
 ```text
 /elixir:doctor
@@ -389,7 +395,7 @@ From an already-running local checkout, `/elixir:dogfood` performs that switch f
 
 ### Troubleshooting setup
 
-Use `/elixir:doctor` first. It reports the resolved Mix project, Elixir/Mix availability, `pi_bridge` dependency status, connection state, embedded startup failures, and a suggested next step.
+Use `/elixir:status` first for a short bridge summary. Use `/elixir:doctor` when setup looks wrong; it reports the resolved Mix project, Elixir/Mix availability, `pi_bridge` dependency status, connection state, embedded startup failures, and a suggested next step.
 
 Common cases:
 

@@ -26,6 +26,8 @@ Works with Phoenix apps, libraries, monorepos with a nested Mix project, and oth
 
 The exact version is deliberate: the TypeScript extension and BEAM bridge are released together and must speak the same stdio protocol. If the installed `pi_bridge` version differs from the extension version, pi reports the mismatch and asks you to update the Mix dependency.
 
+Check the current bridge quickly with `/elixir:status`. Use `/elixir:doctor` for full environment and startup diagnostics.
+
 ## How it connects
 
 The normal path is embedded stdio. The extension starts `Pi.Transport.Stdio` in the Mix project and sends line-delimited protocol messages over the child process pipes. If Pi BEAM tools are missing, the agent asks before editing `mix.exs` and running `mix deps.get`.
@@ -74,6 +76,8 @@ Feature flags are escape hatches:
 | Extra-short eval previews | off | `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` |
 
 ### Debugging
+
+Use `/elixir:status` for a concise bridge summary and next step. Use `/elixir:doctor` for full setup diagnostics.
 
 `pi-elixir` follows pi core's snapshot-first debugging style. Run this hidden slash command from pi to write the current in-memory extension diagnostics:
 
