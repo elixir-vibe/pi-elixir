@@ -311,6 +311,7 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       const beamCwd = resolveBeamToolCwd(ctx.cwd)
       if (!beamCwd) return noMixProjectError()
 
+      let installTranscript = ''
       const conn = await resolveUrlWithStartupGrace(
         beamCwd,
         (prompt) =>
@@ -318,12 +319,27 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
             ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
             : Promise.resolve(allowNonInteractiveInstall()),
         (message) => {
-          if (message)
+          if (message) {
+            installTranscript = message
             onUpdate?.({ content: [{ type: 'text' as const, text: message }], details: {} })
+          }
         },
         signal
       )
-      if (!conn) return connectionError(beamCwd)
+      if (!conn) {
+        const error = connectionError(beamCwd)
+        if (!installTranscript) return error
+
+        return {
+          ...error,
+          content: [
+            {
+              type: 'text' as const,
+              text: `${installTranscript}\n\n${error.content.map((part) => part.text).join('\n')}`
+            }
+          ]
+        }
+      }
 
       const bridgeParams = tool.opts?.prepareParams?.(params, ctx, beamCwd, _id) ?? params
       const { text: rawText, isError } = await tool.executeToolCall(bridgeParams, conn.url, signal)
