@@ -438,9 +438,9 @@ describe('extension status lifecycle', () => {
     )
 
     expect(result.isError).toBe(true)
-    expect(result.content[0].text).toContain('No pi_bridge connection')
+    expect(result.content[0].text).toContain('could not connect to pi_bridge')
     expect(result.content[0].text).toContain('embedded BEAM')
-    expect(result.content[0].text).toContain('Only start `mix phx.server`')
+    expect(result.content[0].text).toContain('use mix phx.server only')
   })
 
   it('returns a direct Elixir installation hint when runtime is unavailable', async () => {

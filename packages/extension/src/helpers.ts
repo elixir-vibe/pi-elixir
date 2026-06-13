@@ -14,6 +14,7 @@ import {
   type Theme
 } from '@earendil-works/pi-coding-agent'
 import { visibleWidth, type Component } from '@earendil-works/pi-tui'
+import dedent from 'dedent'
 import type { TObject } from 'typebox'
 
 import {
@@ -193,7 +194,16 @@ function noMixProjectError() {
     content: [
       {
         type: 'text' as const,
-        text: 'No Mix project found here. pi-elixir BEAM tools only run in Elixir/Mix projects, so this tool is unavailable for the current workspace.'
+        text: dedent`
+          pi-elixir could not find a Mix project or bundled bridge.
+
+          How pi-elixir chooses where to run:
+          1. current directory if it has mix.exs
+          2. a Mix project containing the tool path argument
+          3. the bundled pi_bridge fallback from the installed extension
+
+          Try running from a Mix project root, pass a path inside a Mix project, or run /elixir:doctor for environment details.
+        `
       }
     ],
     isError: true,
@@ -221,7 +231,17 @@ function noConnectionError() {
     content: [
       {
         type: 'text' as const,
-        text: 'No pi_bridge connection for this Mix project. pi-elixir normally starts an embedded BEAM automatically after the dev-only pi_bridge dependency is installed. If you just added deps, wait for compilation or run `mix deps.get && mix compile`, then try again. Only start `mix phx.server` if you intentionally use an external Phoenix/MCP server.'
+        text: dedent`
+          pi-elixir could not connect to pi_bridge for this project.
+
+          Normally pi-elixir starts an embedded BEAM automatically. If this is a cold project, it may still be compiling dependencies.
+
+          Next steps:
+          - wait a moment and retry the tool call
+          - run /elixir:doctor to see bridge/runtime diagnostics
+          - if dependencies were just changed, run mix deps.get && mix compile
+          - use mix phx.server only when intentionally exposing an external Phoenix/MCP bridge
+        `
       }
     ],
     isError: true,
@@ -249,7 +269,16 @@ function startupWaitBudgetMs(): number {
 function stillCompilingError() {
   return {
     content: [
-      { type: 'text' as const, text: 'The BEAM is still compiling. Wait a moment and try again.' }
+      {
+        type: 'text' as const,
+        text: dedent`
+          The embedded BEAM bridge is still starting.
+
+          Cold starts can compile Elixir dependencies. pi-elixir waits and streams Mix output when available; retry in a moment if the startup budget was exceeded.
+
+          Run /elixir:doctor if this keeps happening.
+        `
+      }
     ],
     isError: true,
     details: {}
@@ -266,7 +295,16 @@ function connectionError(cwd: string) {
 }
 
 function installPromptMessage(prompt: InstallPrompt) {
-  return `Pi BEAM tools are not installed in this Mix project.\n\nI can add the dev-only Pi BEAM dependency to ${prompt.mixExsPath} and run mix deps.get.\n\nProposed dependency:\n  ${prompt.dependency}\n\nProceed?`
+  return dedent`
+    Pi BEAM tools are not installed in this Mix project.
+
+    I can add the dev-only Pi BEAM dependency to ${prompt.mixExsPath} and run mix deps.get.
+
+    Proposed dependency:
+      ${prompt.dependency}
+
+    Proceed?
+  `
 }
 
 function allowNonInteractiveInstall(): boolean {
@@ -289,19 +327,40 @@ interface BeamToolRegistration {
   opts?: BridgeToolOpts
 }
 
+type BeamToolCwdSource = 'external-env' | 'workspace' | 'path-argument' | 'bundled-bridge'
+
+interface BeamToolTarget {
+  cwd: string
+  source: BeamToolCwdSource
+}
+
+function resolveBeamToolTarget(
+  pi: ExtensionAPI,
+  toolName: string,
+  params: ToolArgs,
+  ctx: ExtensionContext
+): BeamToolTarget | null {
+  if (process.env.PI_MCP_URL) return { cwd: ctx.cwd, source: 'external-env' }
+
+  const workspace = resolveMixProjectCwd(ctx.cwd)
+  if (workspace) return { cwd: workspace, source: 'workspace' }
+
+  const pathArgument = resolveMixProjectCwdFromToolPath(params, ctx.cwd)
+  if (pathArgument) return { cwd: pathArgument, source: 'path-argument' }
+
+  const bundled = resolveBundledBridgeCwd(pi, toolName)
+  if (bundled) return { cwd: bundled, source: 'bundled-bridge' }
+
+  return null
+}
+
 export function resolveBeamToolCwd(
   pi: ExtensionAPI,
   toolName: string,
   params: ToolArgs,
   ctx: ExtensionContext
 ): string | null {
-  if (process.env.PI_MCP_URL) return ctx.cwd
-
-  return (
-    resolveMixProjectCwd(ctx.cwd) ??
-    resolveMixProjectCwdFromToolPath(params, ctx.cwd) ??
-    resolveBundledBridgeCwd(pi, toolName)
-  )
+  return resolveBeamToolTarget(pi, toolName, params, ctx)?.cwd ?? null
 }
 
 function resolveMixProjectCwdFromToolPath(params: ToolArgs, cwd: string): string | null {
@@ -353,6 +412,38 @@ function bundledBridgeCandidates(...sources: Array<string | undefined>): string[
   return [...candidates]
 }
 
+function displayPathForUser(value: string): string {
+  const home = process.env.HOME
+  if (home && value === home) return '~'
+  if (home && value.startsWith(`${home}${path.sep}`)) return `~${value.slice(home.length)}`
+  return value
+}
+
+function beamSourceLabel(source: BeamToolCwdSource): string {
+  switch (source) {
+    case 'external-env':
+      return 'external PI_MCP_URL bridge'
+    case 'workspace':
+      return 'current Mix project'
+    case 'path-argument':
+      return 'Mix project from tool path'
+    case 'bundled-bridge':
+      return 'bundled pi_bridge fallback'
+  }
+
+  source satisfies never
+  throw new Error(`Unknown BEAM source: ${String(source)}`)
+}
+
+function bridgePreparationMessage(target: BeamToolTarget): string {
+  return dedent`
+    Preparing Elixir BEAM bridge…
+    Project: ${displayPathForUser(target.cwd)}
+    Source: ${beamSourceLabel(target.source)}
+    First run may compile dependencies; Mix output will stream below when available.
+  `
+}
+
 async function resolveUrlWithStartupGrace(
   beamCwd: string,
   confirmInstall: (prompt: InstallPrompt) => Promise<boolean>,
@@ -383,10 +474,15 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
     description: tool.description,
     parameters: tool.parameters,
     async execute(_id, params, signal, onUpdate, ctx) {
-      const beamCwd = resolveBeamToolCwd(pi, tool.name, params, ctx)
-      if (!beamCwd) return noMixProjectError()
+      const target = resolveBeamToolTarget(pi, tool.name, params, ctx)
+      if (!target) return noMixProjectError()
 
+      const beamCwd = target.cwd
       let installTranscript = ''
+      onUpdate?.({
+        content: [{ type: 'text' as const, text: bridgePreparationMessage(target) }],
+        details: { bridge: { cwd: beamCwd, source: target.source, phase: 'preparing' } }
+      })
       const conn = await resolveUrlWithStartupGrace(
         beamCwd,
         (prompt) =>
@@ -396,7 +492,10 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
         (message) => {
           if (message) {
             installTranscript = message
-            onUpdate?.({ content: [{ type: 'text' as const, text: message }], details: {} })
+            onUpdate?.({
+              content: [{ type: 'text' as const, text: message }],
+              details: { bridge: { cwd: beamCwd, source: target.source, phase: 'starting' } }
+            })
           }
         },
         signal
@@ -424,7 +523,12 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
       return {
         content: [{ type: 'text' as const, text: truncated(text) }],
         isError: isError || forcedError,
-        details: { args: params, mcpName: tool.name, ...extraDetails }
+        details: {
+          args: params,
+          mcpName: tool.name,
+          bridge: { cwd: beamCwd, source: target.source, connection: conn.kind },
+          ...extraDetails
+        }
       }
     },
     renderCall: (args, theme, context) => tool.renderCall(args as ToolArgs, theme, context),
