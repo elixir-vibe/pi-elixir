@@ -97,6 +97,7 @@ defmodule Pi.Skill.Loader do
   defp mix_dependency_skill_paths do
     if Code.ensure_loaded?(Mix.Dep) and Mix.Project.get() do
       Mix.Dep.cached()
+      |> Enum.reject(&loaded_app?/1)
       |> Enum.flat_map(fn dep ->
         [dep.opts[:build], dep.opts[:dest]]
         |> Enum.reject(&is_nil/1)
@@ -108,6 +109,12 @@ defmodule Pi.Skill.Loader do
   rescue
     _exception in [Mix.Error, ArgumentError] -> []
   end
+
+  defp loaded_app?(%Mix.Dep{app: app}) when is_atom(app) do
+    match?(path when is_list(path), :code.priv_dir(app))
+  end
+
+  defp loaded_app?(_dep), do: false
 
   defp app_skill_path(app) do
     case :code.priv_dir(app) do
