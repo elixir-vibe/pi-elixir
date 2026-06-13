@@ -336,6 +336,28 @@ function mixChildEnv(): NodeJS.ProcessEnv {
   }
 }
 
+interface Unrefable {
+  unref: () => void
+}
+
+function unrefIfSupported(value: unknown): void {
+  if (
+    typeof value === 'object' &&
+    value !== null &&
+    'unref' in value &&
+    typeof value.unref === 'function'
+  ) {
+    ;(value as Unrefable).unref()
+  }
+}
+
+function unrefChildProcess(proc: childProcess.ChildProcess): void {
+  unrefIfSupported(proc)
+  unrefIfSupported(proc.stdin)
+  unrefIfSupported(proc.stdout)
+  unrefIfSupported(proc.stderr)
+}
+
 export function startEmbeddedInBackground(cwd: string): void {
   if (embeddedProcesses.has(cwd)) {
     recordDiagnostic('embedded_start_skipped', cwd, { reason: 'already_started' })
@@ -363,6 +385,7 @@ export function startEmbeddedInBackground(cwd: string): void {
     stdio: ['pipe', 'pipe', 'pipe'],
     env: mixChildEnv()
   })
+  unrefChildProcess(proc)
 
   const entry: EmbeddedProcess = {
     proc,
