@@ -138,10 +138,23 @@ interface ReplacementLine {
   count: number
 }
 
+interface SemanticEdit {
+  op?: string
+  kind?: string
+  summary?: string
+  line?: number | null
+}
+
 interface AstReplacePayload {
   dry_run?: boolean
   replacements?: Array<{ file?: string; count?: number }>
-  diffs?: Array<{ file?: string; diff?: string; language?: string }>
+  diffs?: Array<{
+    file?: string
+    diff?: string
+    language?: string
+    semantic_edits?: SemanticEdit[]
+    semanticEdits?: SemanticEdit[]
+  }>
   total?: number
 }
 
@@ -165,16 +178,25 @@ function renderDiffLine(line: string, theme: Theme): string {
   return theme.fg('toolOutput', line)
 }
 
-function diffPreviewLines(payload: AstReplacePayload, theme: Theme, maxLines: number): string[] {
-  const lines: string[] = []
-  for (const diff of payload.diffs ?? []) {
-    const diffText = diff.diff?.trimEnd()
-    if (!diffText) continue
-    if (lines.length > 0) lines.push('')
-    lines.push(...diffText.split('\n').map((line) => renderDiffLine(line, theme)))
-    if (lines.length >= maxLines) break
-  }
-  return lines.slice(0, maxLines)
+function semanticEdits(payload: AstReplacePayload): SemanticEdit[] {
+  return (payload.diffs ?? []).flatMap((diff) => diff.semantic_edits ?? diff.semanticEdits ?? [])
+}
+
+function semanticEditLine(edit: SemanticEdit, theme: Theme): string {
+  const op = theme.fg('accent', (edit.op ?? 'edit').toUpperCase())
+  const kind = edit.kind ? theme.fg('muted', ` ${edit.kind}`) : ''
+  const line = edit.line ? theme.fg('muted', ` L${edit.line}`) : ''
+  return `${op}${kind}${line} ${theme.fg('toolOutput', edit.summary ?? 'syntax-aware edit')}`
+}
+
+function semanticPreviewLines(
+  payload: AstReplacePayload,
+  theme: Theme,
+  maxLines: number
+): string[] {
+  return semanticEdits(payload)
+    .slice(0, maxLines)
+    .map((edit) => semanticEditLine(edit, theme))
 }
 
 export function renderAstReplaceResult(
@@ -197,16 +219,14 @@ export function renderAstReplaceResult(
   const action = payload.dry_run ? 'dry-run' : 'updated'
 
   if (!expanded) {
-    const diffLines = diffPreviewLines(payload, theme, 8)
-    if (diffLines.length > 0) {
-      const totalDiffLines = (payload.diffs ?? []).reduce(
-        (sum, diff) => sum + (diff.diff ? diff.diff.trimEnd().split('\n').length : 0),
-        0
-      )
-      const hidden = totalDiffLines - diffLines.length
+    const semanticLines = semanticPreviewLines(payload, theme, 8)
+    if (semanticLines.length > 0) {
+      const hidden = semanticEdits(payload).length - semanticLines.length
       return renderLines([
-        ...diffLines,
-        ...(hidden > 0 ? ['', theme.fg('muted', `… ${hidden} more lines`), expandHint(theme)] : [])
+        ...semanticLines,
+        ...(hidden > 0
+          ? ['', theme.fg('muted', `… ${hidden} more AST edits`), expandHint(theme)]
+          : [])
       ])
     }
 
@@ -225,6 +245,12 @@ export function renderAstReplaceResult(
   }
   const more = hiddenLine(replacements.length - 20, theme)
   if (more) lines.push(more)
+
+  const semanticLines = semanticPreviewLines(payload, theme, 40)
+  if (semanticLines.length > 0) {
+    lines.push('', theme.fg('muted', 'Semantic diff'))
+    lines.push(...semanticLines)
+  }
 
   const diffs = payload.diffs ?? []
   for (const diff of diffs.slice(0, 3)) {

@@ -276,6 +276,12 @@ end)
 |> Pi.table(columns: [:api, :module, :total, :functions])
 ```
 
+For Elixir code review, prefer syntax-aware diff before reading large textual patches:
+
+```elixir
+AST.diff(changed: true)
+```
+
 Docs discovery is Enum-friendly for installed modules:
 
 ```elixir

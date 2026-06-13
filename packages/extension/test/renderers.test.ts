@@ -29,7 +29,7 @@ vi.mock('@earendil-works/pi-coding-agent', async (importOriginal) => {
   }
 })
 
-const { renderElixirResult } = await import('#src/renderers.ts')
+const { renderAstReplaceResult, renderElixirResult } = await import('#src/renderers.ts')
 
 const theme = {
   fg: (_name: string, text: string) => text
@@ -58,6 +58,47 @@ function evalResult(evalPayload: unknown): AgentToolResult<unknown> {
     details: { eval: evalPayload }
   } as AgentToolResult<unknown>
 }
+
+describe('AST result rendering', () => {
+  it('shows semantic edits before textual dry-run diffs', () => {
+    const result = {
+      content: [{ type: 'text' as const, text: 'ok' }],
+      details: {
+        astReplace: {
+          dry_run: true,
+          total: 1,
+          replacements: [{ file: 'lib/demo.ex', count: 1 }],
+          diffs: [
+            {
+              file: 'lib/demo.ex',
+              diff: '--- lib/demo.ex\n+++ lib/demo.ex\n-def run, do: :ok\n+def run, do: :error',
+              semantic_edits: [
+                {
+                  op: 'update',
+                  kind: 'function',
+                  line: 2,
+                  summary: 'updated function def run/0'
+                }
+              ]
+            }
+          ]
+        }
+      }
+    } as AgentToolResult<unknown>
+
+    const compact = textOf(
+      renderAstReplaceResult(result, { expanded: false, isPartial: false }, theme)
+    )
+    const expanded = textOf(
+      renderAstReplaceResult(result, { expanded: true, isPartial: false }, theme)
+    )
+
+    expect(compact).toContain('UPDATE function L2 updated function def run/0')
+    expect(compact).not.toContain('--- lib/demo.ex')
+    expect(expanded).toContain('Semantic diff')
+    expect(expanded).toContain('--- lib/demo.ex')
+  })
+})
 
 describe('elixir result rendering', () => {
   it('renders install transcripts like streaming command output', () => {

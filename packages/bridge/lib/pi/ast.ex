@@ -54,6 +54,31 @@ defmodule Pi.AST do
     end
   end
 
+  def diff(opts \\ []) do
+    with :ok <- ensure_ex_ast() do
+      paths = diff_paths(opts)
+
+      files =
+        paths
+        |> Enum.map(&semantic_file_diff/1)
+        |> Enum.reject(&(&1.edits == []))
+
+      total = Enum.reduce(files, 0, fn file, acc -> acc + length(file.edits) end)
+
+      Pi.Output.tree(
+        %{
+          summary: semantic_diff_summary(total, files),
+          total: total,
+          files: files
+        },
+        opts
+        |> Keyword.take([:depth])
+        |> Keyword.put_new(:depth, 6)
+        |> Keyword.put(:preview, semantic_diff_summary(total, files))
+      )
+    end
+  end
+
   def replace(pattern, replacement, opts \\ [])
       when is_binary(pattern) and is_binary(replacement) do
     with :ok <- ensure_ex_ast() do
@@ -180,9 +205,140 @@ defmodule Pi.AST do
       if source == replaced do
         []
       else
-        [%Diff{file: file, diff: unified_diff(source, replaced, file)}]
+        [
+          %Diff{
+            file: file,
+            diff: unified_diff(source, replaced, file),
+            semantic_edits: semantic_edits(source, replaced)
+          }
+        ]
       end
     end)
+  end
+
+  defp semantic_edits(old, new) do
+    edits =
+      old
+      |> ExAST.diff(new, include_moves: false)
+      |> Map.fetch!(:edits)
+
+    edits
+    |> high_signal_edits()
+    |> Enum.map(&semantic_edit/1)
+  end
+
+  defp high_signal_edits(edits) do
+    structural = Enum.filter(edits, &(&1.kind in [:module, :function]))
+    if structural == [], do: edits, else: structural
+  end
+
+  defp semantic_edit(edit) do
+    range = edit.old_range || edit.new_range
+
+    %{
+      op: edit.op,
+      kind: edit.kind,
+      summary: semantic_summary(edit),
+      line: range_line(range)
+    }
+  end
+
+  defp semantic_summary(%{kind: :function} = edit) do
+    case function_label(edit) do
+      nil -> edit.summary
+      label -> "#{edit.op} function #{label}"
+    end
+  end
+
+  defp semantic_summary(edit), do: edit.summary
+
+  defp function_label(edit) do
+    source = get_in(edit.meta, [:new]) || get_in(edit.meta, [:old])
+
+    with source when is_binary(source) <- source,
+         {:ok, ast} <- Code.string_to_quoted(source) do
+      function_label_from_ast(ast)
+    else
+      _ -> nil
+    end
+  end
+
+  defp function_label_from_ast({kind, _, [head | _]})
+       when kind in [:def, :defp, :defmacro, :defmacrop] do
+    {name, arity} = function_head_name_arity(head)
+    if name, do: "#{kind} #{name}/#{arity}"
+  end
+
+  defp function_label_from_ast(_ast), do: nil
+
+  defp function_head_name_arity({:when, _, [head | _guards]}), do: function_head_name_arity(head)
+
+  defp function_head_name_arity({:\\, _, [head, _default]}), do: function_head_name_arity(head)
+
+  defp function_head_name_arity({name, _, args}) when is_atom(name) and is_list(args),
+    do: {name, length(args)}
+
+  defp function_head_name_arity(_head), do: {nil, 0}
+
+  defp range_line(nil), do: nil
+  defp range_line(%{start: start}), do: start[:line]
+
+  defp semantic_diff_summary(0, _files), do: "Semantic diff: no Elixir AST changes"
+
+  defp semantic_diff_summary(total, files) do
+    "Semantic diff: #{total} AST edit(s) in #{length(files)} file(s)"
+  end
+
+  defp semantic_file_diff(path) do
+    git_path = git_tracked_path(path) || path
+    old = git_show("HEAD:#{git_path}") || ""
+    new = if File.exists?(path), do: File.read!(path), else: ""
+
+    %{file: path, edits: semantic_edits(old, new)}
+  end
+
+  defp diff_paths(opts) do
+    cond do
+      path = Keyword.get(opts, :path) -> path |> List.wrap() |> Enum.flat_map(&resolve_paths/1)
+      Keyword.get(opts, :changed, false) -> changed_elixir_paths()
+      true -> []
+    end
+    |> Enum.filter(&String.ends_with?(&1, [".ex", ".exs"]))
+    |> Enum.uniq()
+    |> Enum.sort()
+  end
+
+  defp changed_elixir_paths do
+    diff_names = git_lines(["diff", "--name-only", "HEAD", "--", "*.ex", "*.exs"])
+    untracked = git_lines(["ls-files", "--others", "--exclude-standard", "--", "*.ex", "*.exs"])
+    diff_names ++ untracked
+  end
+
+  defp git_lines(args) do
+    case System.cmd("git", args, stderr_to_stdout: true) do
+      {output, 0} -> String.split(output, "\n", trim: true)
+      _ -> []
+    end
+  rescue
+    _ in ErlangError -> []
+  end
+
+  defp git_tracked_path(path) do
+    case System.cmd("git", ["ls-files", "--full-name", "--", path], stderr_to_stdout: true) do
+      {output, 0} -> output |> String.split("\n", trim: true) |> List.first()
+      _ -> nil
+    end
+  rescue
+    _ in ErlangError -> nil
+  end
+
+  defp git_show(revision) do
+    case System.cmd("git", ["show", revision], stderr_to_stdout: true) do
+      {output, 0} -> output
+      _ -> nil
+    end
+  rescue
+    _ in ErlangError -> nil
   end
 
   defp unified_diff(old, new, file) do

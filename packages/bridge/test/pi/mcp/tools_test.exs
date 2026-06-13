@@ -157,13 +157,20 @@ defmodule Pi.MCP.ToolsTest do
                "dry_run" => true,
                "path" => "lib/pi/eval.ex",
                "replacements" => [%{"file" => "lib/pi/eval.ex", "count" => count}],
-               "diffs" => [%{"file" => "lib/pi/eval.ex", "diff" => diff}],
+               "diffs" => [
+                 %{
+                   "file" => "lib/pi/eval.ex",
+                   "diff" => diff,
+                   "semantic_edits" => semantic_edits
+                 }
+               ],
                "total" => total
              } = Jason.decode!(json)
 
       assert count > 0
       assert total == count
       assert diff =~ "--- lib/pi/eval.ex"
+      assert Enum.any?(semantic_edits, &(&1["kind"] == "function"))
     end
   end
 end

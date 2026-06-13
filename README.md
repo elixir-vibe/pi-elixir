@@ -108,7 +108,7 @@ ast edit Logger.debug(_) → Logger.info(_) lib/pi/eval/snapshot.ex · limit 2 �
 No matches found.
 ```
 
-The structure is Elixir AST. Captures, partial structs/maps, nested expressions, and broad-pattern guards are handled by ExAST, not a regex pretending to know Elixir. When a replacement matches, the same tool row renders semantic replacement counts and diff blocks in the expandable details.
+The structure is Elixir AST. Captures, partial structs/maps, nested expressions, and broad-pattern guards are handled by ExAST, not a regex pretending to know Elixir. When a replacement matches, the same tool row renders syntax-aware edit summaries before textual patch details. For ordinary code review, use `AST.diff(changed: true)` from eval to orient on changed modules/functions before reading large `git diff` output.
 
 ### Run OTP-backed child agents without spawning more pi processes
 

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+### Added
+
+- Added `AST.diff(changed: true)` / `Pi.AST.diff/1` for syntax-aware review of Elixir git changes before reading textual patches.
+- `elixir_ast_replace` dry-runs now include ExAST semantic edit summaries alongside textual patch details.
+
+### Changed
+
+- Elixir agent guidance now prefers semantic diffs for Elixir code review before large or truncated `git diff` output.
+
 ## 0.6.18 - 2026-06-13
 
 ### Added

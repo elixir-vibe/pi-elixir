@@ -70,6 +70,14 @@ replacement: 'Logger.debug(inspect(expr))'
 
 Use text search only when the question is textual, not syntactic: comments, literal strings, config keys, docs text, or filenames. For code structure, AST search first; for code rewrites, AST replace first, then exact text edits only when AST replacement cannot express the change.
 
+For Elixir code review, prefer semantic diffs before reading large/truncated textual diffs:
+
+```elixir
+AST.diff(changed: true)
+```
+
+Use `git diff` for exact patch details after the semantic diff has identified which modules/functions/calls changed.
+
 ## LSP for editor semantics
 
 Use LSP for diagnostics, definitions, references, hover/type info, workspace/file symbols, and code actions.

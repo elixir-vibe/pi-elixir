@@ -81,6 +81,13 @@ Eval preloads short aliases for token-efficient analytical queries:
 # alias Pi.Quack.SessionFile, as: SF
 ```
 
+Use `AST.diff/1` to orient on Elixir code changes before reading a large textual `git diff`:
+
+```elixir
+AST.diff(changed: true)
+AST.diff(path: "lib/my_app/module.ex")
+```
+
 Use `CodeMap` for Reach-backed semantic reflection after edits:
 
 ```elixir
