@@ -274,7 +274,7 @@ defmodule Pi.CodeMap do
   end
 
   @doc "Renders `reflect/1` as a compact tree output."
-  def reflect_output(opts \\ []), do: reflect(opts) |> Pi.output(preview: "CodeMap reflection")
+  def reflect_output(opts \\ []), do: reflect(opts) |> Pi.output(opts)
 
   defp section(key, opts), do: key |> raw_section(opts) |> normalize()
 
@@ -651,7 +651,7 @@ defimpl Pi.Output.Renderable, for: Pi.CodeMap.Reflection do
   def to_output(reflection, opts) do
     reflection
     |> Pi.CodeMap.to_plain()
-    |> Pi.Output.tree(Keyword.put_new(opts, :preview, "CodeMap reflection"))
+    |> Pi.Output.tree(opts)
   end
 end
 

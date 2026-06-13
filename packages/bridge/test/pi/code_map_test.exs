@@ -71,7 +71,8 @@ defmodule Pi.CodeMapTest do
     assert is_list(reflection.hotspots)
     assert is_list(reflection.smells)
     assert is_binary(reflection.recommendation)
-    assert %Pi.Output{} = Pi.Output.output(reflection)
+    assert %Pi.Output{} = output = Pi.Output.output(reflection)
+    refute output.parts |> hd() |> Map.fetch!(:title) == "CodeMap reflection"
   end
 
   test "eval prelude aliases CodeMap" do
