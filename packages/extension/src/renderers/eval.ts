@@ -5,12 +5,12 @@ import type {
 } from '@earendil-works/pi-coding-agent'
 import type { Component } from '@earendil-works/pi-tui'
 
+import { renderCommandOutput } from '../shared/command-output.ts'
 import { renderOutputParts, type OutputPart } from './output.ts'
 import {
   codeLines,
   compactText,
   decodeInspectedString,
-  expandHint,
   firstContentLine,
   renderCompactLine,
   renderLines,
@@ -127,8 +127,6 @@ function renderErrorBlock(
   ])
 }
 
-const INSTALL_PREVIEW_LINES = 5
-
 function isInstallTranscript(text: string) {
   return (
     text.includes('$ mix deps.get') ||
@@ -138,21 +136,7 @@ function isInstallTranscript(text: string) {
 }
 
 function renderInstallTranscript(text: string, expanded: boolean, theme: Theme) {
-  const lines = stripFinalNewline(text).split('\n')
-  if (expanded || lines.length <= INSTALL_PREVIEW_LINES) {
-    return renderLines(lines.map((line) => theme.fg('toolOutput', line)))
-  }
-
-  const shown = lines.slice(-INSTALL_PREVIEW_LINES)
-  const hidden = lines.length - shown.length
-  return {
-    render: (_width: number) => [
-      '',
-      `${theme.fg('muted', `... (${hidden} earlier lines) `)}${expandHint(theme)}`,
-      ...shown.map((line) => theme.fg('toolOutput', line))
-    ],
-    invalidate: () => undefined
-  }
+  return renderCommandOutput(stripFinalNewline(text), expanded, theme)
 }
 
 function renderEvalValue(value: string, expanded: boolean, theme: Theme) {
