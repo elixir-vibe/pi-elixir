@@ -117,7 +117,8 @@ describe('extension registration', () => {
     await command.handler('', ctx)
 
     expect(ensurePiBeamDependency).toHaveBeenCalledWith(cwd, {
-      confirmInstall: expect.any(Function)
+      confirmInstall: expect.any(Function),
+      onProgress: expect.any(Function)
     })
     expect(ctx.ui.notify).toHaveBeenCalledWith('Pi BEAM tools are installed', 'info')
   })

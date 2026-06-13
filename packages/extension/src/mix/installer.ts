@@ -21,6 +21,7 @@ export interface InstallPrompt {
 
 export interface InstallOptions {
   confirmInstall?: (prompt: InstallPrompt) => Promise<boolean>
+  onProgress?: (message: string) => void
 }
 
 function localPiBeamPath(): string | null {
@@ -49,7 +50,24 @@ function mixDepsGetEnv(): NodeJS.ProcessEnv {
   }
 }
 
-function runMixDepsGet(cwd: string): Promise<void> {
+function isHexNetworkFailure(output: string): boolean {
+  return (
+    output.includes('Failed to exchange API key for OAuth token') ||
+    output.includes(':failed_connect') ||
+    output.includes('{:failed_connect,')
+  )
+}
+
+function installFailureMessage(code: number | null, output: string): string {
+  const base = `mix deps.get exited with code ${code}`
+  const suffix = output ? `\n\n${output}` : ''
+
+  if (!isHexNetworkFailure(output)) return `${base}${suffix}`
+
+  return `${base}\n\nHex could not reach hex.pm while fetching pi_bridge. Check network/VPN/proxy access and retry the install. The mix.exs edit was rolled back so the next Elixir tool call can prompt again.${suffix}`
+}
+
+function runMixDepsGet(cwd: string, onProgress?: (message: string) => void): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = childProcess.spawn('mix', ['deps.get'], {
       cwd,
@@ -58,12 +76,17 @@ function runMixDepsGet(cwd: string): Promise<void> {
     })
     let stdout = ''
     let stderr = ''
+    onProgress?.('Running mix deps.get for pi_bridge...')
 
     proc.stdout?.on('data', (chunk: Buffer) => {
-      stdout += chunk.toString('utf8')
+      const text = chunk.toString('utf8')
+      stdout += text
+      onProgress?.(text.trim())
     })
     proc.stderr?.on('data', (chunk: Buffer) => {
-      stderr += chunk.toString('utf8')
+      const text = chunk.toString('utf8')
+      stderr += text
+      onProgress?.(text.trim())
     })
     proc.on('error', reject)
     proc.on('exit', (code) => {
@@ -73,8 +96,7 @@ function runMixDepsGet(cwd: string): Promise<void> {
       }
 
       const output = [stdout.trim(), stderr.trim()].filter(Boolean).join('\n')
-      const suffix = output ? `\n\n${output}` : ''
-      reject(new Error(`mix deps.get exited with code ${code}${suffix}`))
+      reject(new Error(installFailureMessage(code, output)))
     })
   })
 }
@@ -98,8 +120,16 @@ export async function ensurePiBeamDependency(cwd: string, options?: InstallOptio
   const updated = addPiDependency(mixExs, dependency)
   if (!updated) return false
 
+  options.onProgress?.(`Adding ${dependency} to mix.exs...`)
   fs.writeFileSync(mixExsPath, updated)
-  await runMixDepsGet(cwd)
+
+  try {
+    await runMixDepsGet(cwd, options.onProgress)
+  } catch (error) {
+    fs.writeFileSync(mixExsPath, mixExs)
+    markMissingDependency(cwd)
+    throw error
+  }
   clearMissingDependency(cwd)
   clearIncompatibleDependency(cwd)
   return true

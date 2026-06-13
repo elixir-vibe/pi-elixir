@@ -164,7 +164,10 @@ export default function (pi: ExtensionAPI) {
 
         try {
           const installed = await ensurePiBeamDependency(beamCwd, {
-            confirmInstall: async () => true
+            confirmInstall: async () => true,
+            onProgress: (message) => {
+              if (message) ctx.ui.notify(message, 'info')
+            }
           })
           ctx.ui.notify(
             installed ? 'Pi BEAM tools are installed' : 'Pi BEAM tools were not installed',

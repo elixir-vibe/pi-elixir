@@ -285,9 +285,10 @@ function resolveBeamToolCwd(cwd: string): string | null {
 
 async function resolveUrlWithStartupGrace(
   beamCwd: string,
-  confirmInstall: (prompt: InstallPrompt) => Promise<boolean>
+  confirmInstall: (prompt: InstallPrompt) => Promise<boolean>,
+  onProgress?: (message: string) => void
 ) {
-  const options = { confirmInstall }
+  const options = { confirmInstall, onProgress }
   let conn = await resolveUrl(beamCwd, options)
   if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
 
@@ -305,14 +306,20 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
     label: tool.label,
     description: tool.description,
     parameters: tool.parameters,
-    async execute(_id, params, signal, _onUpdate, ctx) {
+    async execute(_id, params, signal, onUpdate, ctx) {
       const beamCwd = resolveBeamToolCwd(ctx.cwd)
       if (!beamCwd) return noMixProjectError()
 
-      const conn = await resolveUrlWithStartupGrace(beamCwd, (prompt) =>
-        ctx.hasUI
-          ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
-          : Promise.resolve(allowNonInteractiveInstall())
+      const conn = await resolveUrlWithStartupGrace(
+        beamCwd,
+        (prompt) =>
+          ctx.hasUI
+            ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
+            : Promise.resolve(allowNonInteractiveInstall()),
+        (message) => {
+          if (message)
+            onUpdate?.({ content: [{ type: 'text' as const, text: message }], details: {} })
+        }
       )
       if (!conn) return connectionError(beamCwd)
 

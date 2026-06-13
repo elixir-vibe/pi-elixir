@@ -127,8 +127,9 @@ describe('ensurePiBeamDependency', () => {
     expect(fs.readFileSync(envFile, 'utf8')).toBe('4')
   })
 
-  it('includes captured mix deps.get output when installation fails', async () => {
+  it('includes captured mix deps.get output when installation fails and rolls back mix.exs', async () => {
     const binDir = path.join(tempRoot, 'bin')
+    const originalMixExs = fs.readFileSync(path.join(tempRoot, 'mix.exs'), 'utf8')
     writeFakeMix(binDir, 'echo deps stdout; echo deps stderr >&2; exit 42')
     process.env.PATH = `${binDir}${path.delimiter}${oldEnv.PATH ?? ''}`
 
@@ -137,5 +138,38 @@ describe('ensurePiBeamDependency', () => {
         confirmInstall: async () => true
       })
     ).rejects.toThrow('deps stdout\ndeps stderr')
+    expect(fs.readFileSync(path.join(tempRoot, 'mix.exs'), 'utf8')).toBe(originalMixExs)
+  })
+
+  it('reports Hex network failures with retry guidance', async () => {
+    const binDir = path.join(tempRoot, 'bin')
+    writeFakeMix(
+      binDir,
+      `echo '** (RuntimeError) Failed to exchange API key for OAuth token: {:failed_connect, [{:to_address, {~c"hex.pm", 443}}, {:inet, [:inet], :closed}]}' >&2; exit 1`
+    )
+    process.env.PATH = `${binDir}${path.delimiter}${oldEnv.PATH ?? ''}`
+
+    await expect(
+      ensurePiBeamDependency(tempRoot, {
+        confirmInstall: async () => true
+      })
+    ).rejects.toThrow('Check network/VPN/proxy access and retry the install')
+  })
+
+  it('emits progress while installing', async () => {
+    const binDir = path.join(tempRoot, 'bin')
+    const progress: string[] = []
+    writeFakeMix(binDir, 'echo fetching deps; exit 0')
+    process.env.PATH = `${binDir}${path.delimiter}${oldEnv.PATH ?? ''}`
+
+    const ok = await ensurePiBeamDependency(tempRoot, {
+      confirmInstall: async () => true,
+      onProgress: (message) => progress.push(message)
+    })
+
+    expect(ok).toBe(true)
+    expect(progress).toContain(`Adding ${expectedPiBridgeDependency()} to mix.exs...`)
+    expect(progress).toContain('Running mix deps.get for pi_bridge...')
+    expect(progress).toContain('fetching deps')
   })
 })
