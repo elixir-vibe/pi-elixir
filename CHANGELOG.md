@@ -2,15 +2,27 @@
 
 ## Unreleased
 
+## 0.6.18 - 2026-06-13
+
 ### Added
 
 - Added shared extension primitives copied from `dot-pi` as a staging point for a future shared library.
 - Elixir tools can now fall back to the bundled `pi_bridge` project using Pi tool provenance when no Mix project is active.
+- Added concise `/elixir:status` bridge diagnostics.
+- Added minimal Enum-friendly docs helpers: `Pi.Docs.entries/1` and `Pi.Docs.get/3`.
 
 ### Changed
 
 - Embedded BEAM startup now streams Mix stdout progress and waits longer for cold compilation.
 - Mix child processes use user-local Mix state to avoid system install permission issues.
+- BEAM bridge startup guidance is clearer, delayed for warm calls, and rendered as compact status output.
+- CodeMap reflection output now leads with a plain recommendation summary and keeps the full evidence tree behind expansion.
+- Skill and README docs now prefer `h/1`, `exports/1`, `Pi.Docs.entries/1`, and `Pi.Docs.get/3` over raw docs tuple handling.
+
+### Fixed
+
+- Embedded BEAM children no longer keep `pi --print` sessions alive after tool completion.
+- Expanded eval/tree output is clamped to terminal width to avoid TUI render crashes.
 
 ## 0.6.17 - 2026-06-13
 
