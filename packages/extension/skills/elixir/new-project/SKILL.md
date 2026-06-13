@@ -10,7 +10,7 @@ Use this skill when creating or bootstrapping a new Elixir package/project.
 ## Default workflow
 
 1. Inspect `/Users/dannote/Development/vibe_kit` for the current installer behavior before starting.
-2. For Phoenix/web applications, use Phoenix, then Igniter installers. Prefer the current published web stack unless the user asks otherwise:
+2. For Phoenix/web applications, use Phoenix first, then Igniter installers:
 
 ```sh
 mix phx.new my_app
@@ -20,21 +20,61 @@ mix igniter.install volt
 mix igniter.install phoenix_replay phoenix_iconify
 ```
 
-`volt` has an Igniter installer and should resolve to the current Volt line (`~> 0.14`), which pulls QuickBEAM `~> 0.10.15` without the old `QuickBEAM.VM.Compiler.*` tree. `phoenix_replay` and `phoenix_iconify` are published packages; if their Igniter installers are unavailable, keep them as deps and apply their documented Phoenix router/live-session/compiler setup manually. Do not add `phoenix_vapor` to the default stack yet.
+Use Phoenix + Igniter + VibeKit as the baseline. Add Volt with its Igniter installer; current published Volt should resolve to `volt ~> 0.14` and QuickBEAM `~> 0.10.15`, without the old `QuickBEAM.VM.Compiler.*` tree. `phoenix_replay` and `phoenix_iconify` are published packages. Current published releases install as dependencies through `mix igniter.install phoenix_replay phoenix_iconify` but emit missing-installer warnings for `phoenix_replay.install` and `phoenix_iconify.install`; this is expected. Apply the documented manual setup below after the deps are added.
 
-3. For non-web Elixir projects/packages, prefer Igniter plus VibeKit:
+Do not add `phoenix_vapor` to the default stack yet.
+
+3. PhoenixReplay manual setup, when the installer only adds the dependency:
+
+```elixir
+# lib/my_app_web/router.ex
+import PhoenixReplay.Router
+
+live_session :default, on_mount: [PhoenixReplay.Recorder] do
+  live "/dashboard", DashboardLive
+end
+
+scope "/" do
+  pipe_through [:browser, :require_admin]
+  phoenix_replay "/replay"
+end
+```
+
+Mount `/replay` only behind an authenticated/admin pipeline because recordings can contain business data.
+
+4. PhoenixIconify manual setup, when the installer only adds the dependency:
+
+```elixir
+# mix.exs
+def project do
+  [
+    compilers: Mix.compilers() ++ [:phoenix_iconify]
+  ]
+end
+```
+
+```elixir
+# lib/my_app_web.ex
+defp html_helpers do
+  quote do
+    import PhoenixIconify, only: [icon: 1]
+  end
+end
+```
+
+5. For non-web Elixir projects/packages, prefer Igniter plus VibeKit:
 
 ```sh
 mix igniter.new my_lib --install vibe_kit --agents-md
 ```
 
-4. For an existing Mix project, apply VibeKit with:
+6. For an existing Mix project, apply VibeKit with:
 
 ```sh
 mix igniter.install vibe_kit --agents-md
 ```
 
-5. Use VibeKit's strict defaults unless the user requests otherwise:
+7. Use VibeKit's strict defaults unless the user requests otherwise:
    - `mix ci` alias
    - compile warnings as errors
    - tests
@@ -43,12 +83,12 @@ mix igniter.install vibe_kit --agents-md
    - ExDNA zero-clone budget
    - Reach architecture/smell checks
 
-5. If the user says “see my vibe_kit package”, read at least:
+8. If the user says “see my vibe_kit package”, read at least:
    - `/Users/dannote/Development/vibe_kit/README.md`
    - `/Users/dannote/Development/vibe_kit/AGENTS.md`
    - `/Users/dannote/Development/vibe_kit/lib/vibe_kit/install.ex`
 
-6. After creation or installation, run:
+9. After creation or installation, run:
 
 ```sh
 mix deps.get
