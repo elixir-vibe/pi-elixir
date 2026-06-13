@@ -78,8 +78,8 @@ defmodule Pi.CodeMapTest do
              %Pi.Protocol.Tool.OutputPart{kind: :tree, title: title}
            ] = output.parts
 
-    assert summary =~ "Changed"
-    assert summary =~ "hotspots"
+    assert summary =~ "Review before final"
+    assert summary =~ "changed func"
     refute title == "CodeMap reflection"
   end
 

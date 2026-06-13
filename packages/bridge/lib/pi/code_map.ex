@@ -574,12 +574,38 @@ defmodule Pi.CodeMap do
     hotspots = length(reflection.hotspots)
     boundaries = length(reflection.boundaries)
     smells = length(reflection.smells)
-    leads = hotspots + boundaries + smells
 
-    suffix = if leads == 0, do: "no Reach review leads", else: "review leads present"
+    cond do
+      changed == 0 ->
+        "No changed functions detected; skip follow-up refactor unless edits were generated or non-code."
 
-    "Changed #{changed} · hotspots #{hotspots} · boundaries #{boundaries} · smells #{smells} · #{suffix}"
+      hotspots + boundaries + smells == 0 ->
+        "No follow-up refactor suggested: #{count(changed, "changed func")}, no hotspots/boundaries/smells."
+
+      true ->
+        "Review before final: #{count(changed, "changed func")}; #{lead_counts(hotspots, boundaries, smells)}."
+    end
   end
+
+  defp lead_counts(hotspots, boundaries, smells) do
+    [
+      count_if_present(hotspots, "hotspot"),
+      count_if_present(boundaries, "boundary", "boundaries"),
+      count_if_present(smells, "smell")
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> Enum.join(", ")
+  end
+
+  defp count_if_present(0, _singular), do: nil
+  defp count_if_present(value, singular), do: count(value, singular)
+  defp count_if_present(0, _singular, _plural), do: nil
+  defp count_if_present(value, singular, plural), do: count(value, singular, plural)
+
+  defp count(1, singular), do: "1 #{singular}"
+  defp count(value, singular), do: "#{value} #{singular}s"
+  defp count(1, singular, _plural), do: "1 #{singular}"
+  defp count(value, _singular, plural), do: "#{value} #{plural}"
 
   defp field(value, key) when is_struct(value), do: value |> Map.from_struct() |> Map.get(key)
 

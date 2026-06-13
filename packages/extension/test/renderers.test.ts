@@ -353,7 +353,7 @@ describe('elixir result rendering', () => {
       parts: [
         {
           kind: 'text',
-          body: 'Changed 2 · hotspots 0 · boundaries 0 · smells 0 · no Reach review leads'
+          body: 'No follow-up refactor suggested: 2 changed funcs, no hotspots/boundaries/smells.'
         },
         {
           kind: 'tree',
@@ -370,11 +370,11 @@ describe('elixir result rendering', () => {
     const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
 
     expect(compact).toBe(
-      '\nChanged 2 · hotspots 0 · boundaries 0 · smells 0 · no Reach review leads (ctrl+o to expand)'
+      '\nNo follow-up refactor suggested: 2 changed funcs, no hotspots/boundaries/smells. (ctrl+o to expand)'
     )
     expect(compact).not.toContain('map with 2 keys')
     expect(compact).not.toContain('changed_functions')
-    expect(expanded).toContain('Changed 2 · hotspots 0')
+    expect(expanded).toContain('No follow-up refactor suggested')
     expect(expanded).toContain('├─ changed_functions: []')
   })
 
