@@ -183,10 +183,8 @@ function semanticEdits(payload: AstReplacePayload): SemanticEdit[] {
 }
 
 function semanticEditLine(edit: SemanticEdit, theme: Theme): string {
-  const op = theme.fg('accent', (edit.op ?? 'edit').toUpperCase())
-  const kind = edit.kind ? theme.fg('muted', ` ${edit.kind}`) : ''
-  const line = edit.line ? theme.fg('muted', ` L${edit.line}`) : ''
-  return `${op}${kind}${line} ${theme.fg('toolOutput', edit.summary ?? 'syntax-aware edit')}`
+  const line = edit.line ? theme.fg('muted', `L${edit.line} `) : ''
+  return `${line}${theme.fg('toolOutput', edit.summary ?? 'syntax-aware edit')}`
 }
 
 function semanticPreviewLines(

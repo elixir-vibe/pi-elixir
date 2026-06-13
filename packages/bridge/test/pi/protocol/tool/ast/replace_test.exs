@@ -10,7 +10,7 @@ defmodule Pi.Protocol.Tool.AST.ReplaceTest do
              "kind" => "ast_replace",
              "dry_run" => true,
              "replacements" => [%{"file" => "lib/demo.ex", "count" => 1}],
-             "diffs" => [%{"semantic_edits" => [%{"summary" => "updated function def run/0"}]}]
+             "diffs" => [%{"semantic_edits" => [%{"summary" => "changed public run/0"}]}]
            } =
              Replace.to_map(%Replace{
                dry_run: true,
@@ -24,7 +24,7 @@ defmodule Pi.Protocol.Tool.AST.ReplaceTest do
                      %{
                        op: :update,
                        kind: :function,
-                       summary: "updated function def run/0",
+                       summary: "changed public run/0",
                        line: 1
                      }
                    ]

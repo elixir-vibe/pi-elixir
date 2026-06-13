@@ -209,14 +209,15 @@ defmodule Pi.AST do
           %Diff{
             file: file,
             diff: unified_diff(source, replaced, file),
-            semantic_edits: semantic_edits(source, replaced)
+            semantic_edits:
+              semantic_edits(source, replaced, module_name(replaced) || module_name(source))
           }
         ]
       end
     end)
   end
 
-  defp semantic_edits(old, new) do
+  defp semantic_edits(old, new, module_name) do
     edits =
       old
       |> ExAST.diff(new, include_moves: false)
@@ -224,7 +225,7 @@ defmodule Pi.AST do
 
     edits
     |> high_signal_edits()
-    |> Enum.map(&semantic_edit/1)
+    |> Enum.map(&semantic_edit(&1, module_name))
   end
 
   defp high_signal_edits(edits) do
@@ -232,44 +233,70 @@ defmodule Pi.AST do
     if structural == [], do: edits, else: structural
   end
 
-  defp semantic_edit(edit) do
+  defp semantic_edit(edit, module_name) do
     range = edit.old_range || edit.new_range
+    function = function_info(edit)
 
     %{
       op: edit.op,
       kind: edit.kind,
-      summary: semantic_summary(edit),
-      line: range_line(range)
+      summary: semantic_summary(edit, function, module_name),
+      line: range_line(range),
+      module: module_name,
+      visibility: function && function.visibility,
+      name: function && function.name,
+      arity: function && function.arity
     }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
   end
 
-  defp semantic_summary(%{kind: :function} = edit) do
-    case function_label(edit) do
-      nil -> edit.summary
-      label -> "#{edit.op} function #{label}"
-    end
+  defp semantic_summary(%{kind: :function} = edit, function, module_name) when is_map(function) do
+    target = function_target(function, module_name)
+    "#{op_verb(edit.op)} #{visibility_word(function.visibility)} #{target}"
   end
 
-  defp semantic_summary(edit), do: edit.summary
+  defp semantic_summary(edit, _function, _module_name), do: edit.summary
 
-  defp function_label(edit) do
+  defp function_info(edit) do
     source = get_in(edit.meta, [:new]) || get_in(edit.meta, [:old])
 
     with source when is_binary(source) <- source,
          {:ok, ast} <- Code.string_to_quoted(source) do
-      function_label_from_ast(ast)
+      function_info_from_ast(ast)
     else
       _ -> nil
     end
   end
 
-  defp function_label_from_ast({kind, _, [head | _]})
+  defp function_info_from_ast({kind, _, [head | _]})
        when kind in [:def, :defp, :defmacro, :defmacrop] do
     {name, arity} = function_head_name_arity(head)
-    if name, do: "#{kind} #{name}/#{arity}"
+
+    if name do
+      %{visibility: visibility(kind), name: name, arity: arity}
+    end
   end
 
-  defp function_label_from_ast(_ast), do: nil
+  defp function_info_from_ast(_ast), do: nil
+
+  defp visibility(kind) when kind in [:def, :defmacro], do: :public
+  defp visibility(kind) when kind in [:defp, :defmacrop], do: :private
+
+  defp visibility_word(:public), do: "public"
+  defp visibility_word(:private), do: "private"
+  defp visibility_word(_), do: "function"
+
+  defp function_target(%{name: name, arity: arity}, nil), do: "#{name}/#{arity}"
+
+  defp function_target(%{name: name, arity: arity}, module_name),
+    do: "#{module_name}.#{name}/#{arity}"
+
+  defp op_verb(:insert), do: "added"
+  defp op_verb(:delete), do: "removed"
+  defp op_verb(:update), do: "changed"
+  defp op_verb(:move), do: "moved"
+  defp op_verb(op), do: to_string(op)
 
   defp function_head_name_arity({:when, _, [head | _guards]}), do: function_head_name_arity(head)
 
@@ -283,18 +310,42 @@ defmodule Pi.AST do
   defp range_line(nil), do: nil
   defp range_line(%{start: start}), do: start[:line]
 
-  defp semantic_diff_summary(0, _files), do: "Semantic diff: no Elixir AST changes"
+  defp module_name(source) do
+    with {:ok, ast} <- Code.string_to_quoted(source) do
+      ast
+      |> Macro.prewalk(nil, fn
+        {:defmodule, _, [{:__aliases__, _, parts}, _]} = node, nil ->
+          {node, Module.concat(parts) |> inspect()}
+
+        node, acc ->
+          {node, acc}
+      end)
+      |> elem(1)
+    else
+      _ -> nil
+    end
+  end
+
+  defp semantic_diff_summary(0, _files), do: "Elixir syntax diff: no AST changes"
 
   defp semantic_diff_summary(total, files) do
-    "Semantic diff: #{total} AST edit(s) in #{length(files)} file(s)"
+    "Elixir syntax diff: #{total} edit(s) in #{length(files)} file(s)"
   end
 
   defp semantic_file_diff(path) do
     git_path = git_tracked_path(path) || path
     old = git_show("HEAD:#{git_path}") || ""
-    new = if File.exists?(path), do: File.read!(path), else: ""
+    new = read_worktree_file(path) || ""
 
-    %{file: path, edits: semantic_edits(old, new)}
+    module_name = module_name(new) || module_name(old)
+
+    %{
+      file: path,
+      module: module_name,
+      edits: semantic_edits(old, new, module_name)
+    }
+    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Map.new()
   end
 
   defp diff_paths(opts) do
@@ -312,6 +363,27 @@ defmodule Pi.AST do
     diff_names = git_lines(["diff", "--name-only", "HEAD", "--", "*.ex", "*.exs"])
     untracked = git_lines(["ls-files", "--others", "--exclude-standard", "--", "*.ex", "*.exs"])
     diff_names ++ untracked
+  end
+
+  defp read_worktree_file(path) do
+    cond do
+      File.exists?(path) -> File.read!(path)
+      root = git_root() -> root |> Path.join(path) |> maybe_read_file()
+      true -> nil
+    end
+  end
+
+  defp maybe_read_file(path) do
+    if File.exists?(path), do: File.read!(path)
+  end
+
+  defp git_root do
+    case System.cmd("git", ["rev-parse", "--show-toplevel"], stderr_to_stdout: true) do
+      {output, 0} -> String.trim(output)
+      _ -> nil
+    end
+  rescue
+    _ in ErlangError -> nil
   end
 
   defp git_lines(args) do

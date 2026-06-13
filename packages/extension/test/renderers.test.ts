@@ -77,7 +77,7 @@ describe('AST result rendering', () => {
                   op: 'update',
                   kind: 'function',
                   line: 2,
-                  summary: 'updated function def run/0'
+                  summary: 'changed public Demo.run/0'
                 }
               ]
             }
@@ -93,7 +93,7 @@ describe('AST result rendering', () => {
       renderAstReplaceResult(result, { expanded: true, isPartial: false }, theme)
     )
 
-    expect(compact).toContain('UPDATE function L2 updated function def run/0')
+    expect(compact).toContain('L2 changed public Demo.run/0')
     expect(compact).not.toContain('--- lib/demo.ex')
     expect(expanded).toContain('Semantic diff')
     expect(expanded).toContain('--- lib/demo.ex')

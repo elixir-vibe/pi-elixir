@@ -22,9 +22,9 @@ defmodule Pi.ASTTest do
 
       assert %Pi.Output{} = output = Pi.AST.diff(path: "lib/demo.ex")
       assert [part] = output.parts
-      assert part.title =~ "Semantic diff:"
+      assert part.title =~ "Elixir syntax diff:"
       refute part.title =~ "0 AST edit"
-      assert part.body =~ "run/1"
+      assert part.body =~ "changed public Demo.run/1"
       refute part.body =~ "insert function defmodule"
     end)
   end
