@@ -2,6 +2,26 @@
 
 Treat web work as verification work: check a witness before claiming success.
 
+## First check: installed webdev integrations
+
+Start by asking the running BEAM what webdev packages pi can see:
+
+```elixir
+Pi.Integrations.statuses()
+```
+
+Expected examples in a current Phoenix webdev stack:
+
+```elixir
+[
+  %Pi.Protocol.Integration.Status{key: :phoenix_iconify, text: "icons 0.3.2"},
+  %Pi.Protocol.Integration.Status{key: :phoenix_replay, text: "replay 0.2.0"},
+  %Pi.Protocol.Integration.Status{key: :volt, text: "volt 0.14.0 · qb 0.10.15"}
+]
+```
+
+If a status is missing, verify the dependency and setup before using package-specific recipes below.
+
 ## Loop 1: browser console → BEAM logs → agent
 
 When `volt` is installed, browser `console.*` messages are forwarded into Elixir `Logger` with a `[Volt][browser]` prefix. Inspect them with eval:
