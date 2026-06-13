@@ -1,6 +1,6 @@
 import type * as PiCodingAgent from '@earendil-works/pi-coding-agent'
 import type { AgentToolResult, Theme } from '@earendil-works/pi-coding-agent'
-import type { Component } from '@earendil-works/pi-tui'
+import { visibleWidth, type Component } from '@earendil-works/pi-tui'
 import { describe, expect, it, vi } from 'vitest'
 
 const { identity } = vi.hoisted(() => ({ identity: (text: string) => text }))
@@ -285,6 +285,27 @@ describe('elixir result rendering', () => {
     expect(compact).toContain('async/1, async/2, await…')
     expect(compact).not.toContain('await_many/2')
     expect(compact).toContain('1/2 rows · 2 columns · string, string · (ctrl+o to exp…')
+  })
+
+  it('clamps expanded structured output lines to render width', () => {
+    const longLine = 'x'.repeat(800)
+    const result = evalResult({
+      parts: [
+        {
+          kind: 'text',
+          body: longLine
+        }
+      ]
+    })
+
+    const width = 55
+    const lines = linesOf(
+      renderElixirResult(result, { expanded: true, isPartial: false }, theme),
+      width
+    )
+
+    expect(lines.some((line) => line.includes('…'))).toBe(true)
+    expect(lines.every((line) => visibleWidth(line) <= width)).toBe(true)
   })
 
   it('renders compact source parts with code preview', () => {
