@@ -28,4 +28,6 @@ Read the focused guidance files as needed:
 - `runtime-snippets.md` — useful runtime introspection snippets.
 - `workflow-verification.md` — edit and verification loop.
 
+For Phoenix/LiveView UI, frontend assets, styling, browser-console feedback, PhoenixReplay debugging, or render verification, load `elixir-webdev` in addition to this general Elixir skill.
+
 For phrases like “start a new package”, “see my vibe_kit package”, “use igniter”, `mix igniter.new`, or `mix igniter.install`, load `elixir-new-project` instead of treating the task as ordinary existing-project development.

@@ -10,13 +10,17 @@ Use this skill when creating or bootstrapping a new Elixir package/project.
 ## Default workflow
 
 1. Inspect `/Users/dannote/Development/vibe_kit` for the current installer behavior before starting.
-2. For Phoenix/web applications, use Phoenix plus VibeKit:
+2. For Phoenix/web applications, use Phoenix, then Igniter installers. Prefer the current published web stack unless the user asks otherwise:
 
 ```sh
 mix phx.new my_app
 cd my_app
 mix igniter.install vibe_kit --agents-md
+mix igniter.install volt
+mix igniter.install phoenix_replay phoenix_iconify
 ```
+
+`volt` has an Igniter installer and should resolve to the current Volt line (`~> 0.14`), which pulls QuickBEAM `~> 0.10.15` without the old `QuickBEAM.VM.Compiler.*` tree. `phoenix_replay` and `phoenix_iconify` are published packages; if their Igniter installers are unavailable, keep them as deps and apply their documented Phoenix router/live-session/compiler setup manually. Do not add `phoenix_vapor` to the default stack yet.
 
 3. For non-web Elixir projects/packages, prefer Igniter plus VibeKit:
 
