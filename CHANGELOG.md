@@ -2,6 +2,19 @@
 
 ## Unreleased
 
+## 0.6.15 - 2026-06-13
+
+### Added
+
+- Discover executable skills shipped by dependency packages under app `priv/skills` directories.
+- Added webdev skill guidance for integration health checks and optional PhoenixTestPlaywright browser acceptance tests.
+- Added integration coverage for installer progress, rollback, and Hex network failures.
+
+### Changed
+
+- Bridge installation now streams `mix deps.get` progress and rolls back `mix.exs` if dependency fetching fails.
+- Hex network failures during bridge install now include retry guidance.
+
 ## 0.6.14 - 2026-06-13
 
 ### Added
