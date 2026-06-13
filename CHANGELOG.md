@@ -2,6 +2,17 @@
 
 ## Unreleased
 
+## 0.6.14 - 2026-06-13
+
+### Added
+
+- Added an `elixir-webdev` skill for Phoenix/LiveView UI workflows, Volt feedback loops, replay debugging, and UI verification.
+- Added Volt, PhoenixReplay, and PhoenixIconify integration status badges.
+
+### Changed
+
+- Updated new-project guidance for Phoenix + Igniter + VibeKit apps with Volt, PhoenixReplay, and PhoenixIconify setup.
+
 ## 0.6.13 - 2026-06-12
 
 ### Changed
