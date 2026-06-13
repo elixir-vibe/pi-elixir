@@ -298,13 +298,18 @@ Path.wildcard("lib/pi/**/*.ex")
 
 Use `Pi.table(rows, columns: [...])` when you explicitly want to construct table output; otherwise columns are inferred from row keys.
 
-Docs/source discovery is also pipeline-first and auto-renders through the same output protocol:
+Docs discovery is Enum-friendly for installed modules:
 
 ```elixir
-Pi.Docs.module(Pi.Output)
-|> Pi.Docs.functions()
-|> Pi.Docs.search("table")
+Pi.Docs.entries(Pi.Output)
+|> Enum.filter(&(&1.kind == :function and &1.name == :table))
 ```
+
+```elixir
+Pi.Docs.get(Pi.Output, :table, 2)
+```
+
+Use source slices when you want read-tool-like context for installed modules:
 
 ```elixir
 Pi.Docs.module(Pi.Output)
@@ -454,7 +459,7 @@ The package ships pi skills for Elixir work:
 - `elixir-dev` — use BEAM eval for runtime introspection, ExAST tools for structural search/edit, LSP for editor semantics, and Mix only for build/test/format gates.
 - `elixir-new-project` — bootstrap new Elixir packages/projects with strict VibeKit/Igniter-style quality setup.
 
-The skill tells the agent how to work idiomatically: prefer runtime truth, inspect installed docs with `Code.fetch_docs/1`/`h/1`, use ExAST patterns for Elixir search/refactors before grep/regex, keep changes verified, and avoid inventing framework behavior.
+The skill tells the agent how to work idiomatically: prefer runtime truth, inspect installed docs with `h/1`, `exports/1`, `Pi.Docs.entries/1`, and `Pi.Docs.get/3`, use ExAST patterns for Elixir search/refactors before grep/regex, keep changes verified, and avoid inventing framework behavior.
 
 ## Quality stack
 

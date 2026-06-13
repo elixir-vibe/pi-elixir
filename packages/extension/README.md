@@ -276,12 +276,15 @@ end)
 |> Pi.table(columns: [:api, :module, :total, :functions])
 ```
 
-Docs/source discovery is pipeline-first and auto-renders through the generic output protocol:
+Docs discovery is Enum-friendly for installed modules:
 
 ```elixir
-Pi.Docs.module(Pi.Output)
-|> Pi.Docs.functions()
-|> Pi.Docs.search("table")
+Pi.Docs.entries(Pi.Output)
+|> Enum.filter(&(&1.kind == :function and &1.name == :table))
+```
+
+```elixir
+Pi.Docs.get(Pi.Output, :table, 2)
 ```
 
 Use source slices when you want read-tool-like context for installed modules:
