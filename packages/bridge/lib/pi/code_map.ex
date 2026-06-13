@@ -114,6 +114,7 @@ defmodule Pi.CodeMap do
   """
 
   alias Pi.CodeMap.{Boundary, FunctionRef, Hotspot, Reflection, Smell}
+  alias Pi.Protocol.Tool.OutputPart
   alias Reach.Check.Smells, as: ReachSmells
   alias Reach.Inspect.Context, as: ReachContext
   alias Reach.Inspect.Impact
@@ -568,6 +569,18 @@ defmodule Pi.CodeMap do
     "Review #{Enum.reverse(leads) |> Enum.join(", ")} before final. Apply one small behavior-preserving cleanup if it is in scope; otherwise document why it is deferred."
   end
 
+  defp reflection_summary(%Reflection{} = reflection) do
+    changed = length(reflection.changed_functions)
+    hotspots = length(reflection.hotspots)
+    boundaries = length(reflection.boundaries)
+    smells = length(reflection.smells)
+    leads = hotspots + boundaries + smells
+
+    suffix = if leads == 0, do: "no Reach review leads", else: "review leads present"
+
+    "Changed #{changed} · hotspots #{hotspots} · boundaries #{boundaries} · smells #{smells} · #{suffix}"
+  end
+
   defp field(value, key) when is_struct(value), do: value |> Map.from_struct() |> Map.get(key)
 
   defp field(value, key) when is_map(value),
@@ -627,6 +640,17 @@ defmodule Pi.CodeMap do
   end
 
   @doc false
+  def reflection_output(%Reflection{} = reflection, opts \\ []) do
+    plain = to_plain(reflection)
+    tree = Pi.Output.tree(plain, opts)
+
+    %Pi.Output{
+      parts: [OutputPart.text(reflection_summary(reflection)) | tree.parts],
+      text: inspect(plain)
+    }
+  end
+
+  @doc false
   def to_plain(value), do: normalize(value)
 
   defp normalize(value) when is_struct(value), do: value |> Map.from_struct() |> normalize()
@@ -648,11 +672,7 @@ defmodule Pi.CodeMap do
 end
 
 defimpl Pi.Output.Renderable, for: Pi.CodeMap.Reflection do
-  def to_output(reflection, opts) do
-    reflection
-    |> Pi.CodeMap.to_plain()
-    |> Pi.Output.tree(opts)
-  end
+  def to_output(reflection, opts), do: Pi.CodeMap.reflection_output(reflection, opts)
 end
 
 defimpl Pi.Output.Renderable, for: Pi.CodeMap.FunctionRef do

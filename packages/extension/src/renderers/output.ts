@@ -500,6 +500,22 @@ function renderWebFetchPart(part: OutputPart, expanded: boolean, theme: Theme): 
   return expanded ? renderExpandedWebFetchPart(part, theme) : renderCompactWebFetchPart(part, theme)
 }
 
+function renderCompactOutputParts(visibleParts: OutputPart[], theme: Theme): Component {
+  if (visibleParts.length > 1 && visibleParts[0]?.kind === 'text') {
+    return renderCompactLine('', theme.fg('toolOutput', partPreview(visibleParts[0])), true, theme)
+  }
+
+  const preview = visibleParts
+    .map((part, index) => {
+      const text = partPreview(part)
+      const styled = part.kind === 'text' && index === 0 ? theme.fg('toolOutput', text) : text
+      return index === 0 ? styled : theme.fg('muted', ` ↳ ${text}`)
+    })
+    .join('')
+  const semanticHidden = visibleParts.some(partHasSemanticHiddenOutput)
+  return renderCompactLine('', preview, semanticHidden, theme)
+}
+
 export function renderOutputParts(parts: OutputPart[], expanded: boolean, theme: Theme) {
   const visibleParts = parts.filter((part) => part.body)
   if (visibleParts.length === 0) return renderLines([theme.fg('muted', '(no output)')])
@@ -516,17 +532,7 @@ export function renderOutputParts(parts: OutputPart[], expanded: boolean, theme:
   const tree = renderOnlyTreePart(visibleParts, expanded, theme)
   if (tree) return tree
 
-  if (!expanded) {
-    const preview = visibleParts
-      .map((part, index) => {
-        const text = partPreview(part)
-        const styled = part.kind === 'text' && index === 0 ? theme.fg('toolOutput', text) : text
-        return index === 0 ? styled : theme.fg('muted', ` ↳ ${text}`)
-      })
-      .join('')
-    const semanticHidden = visibleParts.some(partHasSemanticHiddenOutput)
-    return renderCompactLine('', preview, semanticHidden, theme)
-  }
+  if (!expanded) return renderCompactOutputParts(visibleParts, theme)
 
   const lines: string[] = []
   for (const [index, part] of visibleParts.entries()) {

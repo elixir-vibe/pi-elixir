@@ -348,6 +348,36 @@ describe('elixir result rendering', () => {
     expect(expanded).toContain('13  def tree')
   })
 
+  it('summarizes multi-part reflection output before expandable details', () => {
+    const result = evalResult({
+      parts: [
+        {
+          kind: 'text',
+          body: 'Changed 2 · hotspots 0 · boundaries 0 · smells 0 · no Reach review leads'
+        },
+        {
+          kind: 'tree',
+          body: JSON.stringify([
+            { key: ':changed_functions', value: '[]' },
+            { key: ':recommendation', value: 'Prefer stopping.' }
+          ]),
+          title: 'map with 2 keys'
+        }
+      ]
+    })
+
+    const compact = textOf(renderElixirResult(result, { expanded: false, isPartial: false }, theme))
+    const expanded = textOf(renderElixirResult(result, { expanded: true, isPartial: false }, theme))
+
+    expect(compact).toBe(
+      '\nChanged 2 · hotspots 0 · boundaries 0 · smells 0 · no Reach review leads (ctrl+o to expand)'
+    )
+    expect(compact).not.toContain('map with 2 keys')
+    expect(compact).not.toContain('changed_functions')
+    expect(expanded).toContain('Changed 2 · hotspots 0')
+    expect(expanded).toContain('├─ changed_functions: []')
+  })
+
   it('renders compact tree parts with real data preview', () => {
     const result = evalResult({
       parts: [
