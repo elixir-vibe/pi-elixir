@@ -40,6 +40,10 @@ const markerTheme = {
   bold: (text: string) => `<bold>${text}</bold>`
 } as Theme
 
+function textResult(text: string): AgentToolResult<unknown> {
+  return { content: [{ type: 'text', text }], details: {} }
+}
+
 function linesOf(component: Component, width = 120) {
   return component.render(width)
 }
@@ -56,6 +60,32 @@ function evalResult(evalPayload: unknown): AgentToolResult<unknown> {
 }
 
 describe('elixir result rendering', () => {
+  it('renders install transcripts like streaming command output', () => {
+    const transcript = [
+      '[pi-elixir] Added {:pi_bridge, "== 0.6.15", only: :dev} to mix.exs',
+      '$ mix deps.get',
+      '',
+      'Resolving Hex dependencies...',
+      'Resolution completed in 0.1s',
+      'New:',
+      '  pi_bridge 0.6.15',
+      '* Getting pi_bridge (Hex package)'
+    ].join('\n')
+
+    const compact = textOf(
+      renderElixirResult(textResult(transcript), { expanded: false, isPartial: true }, theme)
+    )
+    const expanded = textOf(
+      renderElixirResult(textResult(transcript), { expanded: true, isPartial: true }, theme)
+    )
+
+    expect(compact).toContain('earlier lines')
+    expect(compact).toContain('Resolution completed in 0.1s')
+    expect(compact).toContain('* Getting pi_bridge (Hex package)')
+    expect(expanded).toContain('[pi-elixir] Added')
+    expect(expanded).toContain('$ mix deps.get')
+  })
+
   it('uses structured compact inspect previews without expansion noise when they fit', () => {
     const result = evalResult({
       result: '%{\n  bridge: "0.6.0",\n  app: :pi_bridge\n}',

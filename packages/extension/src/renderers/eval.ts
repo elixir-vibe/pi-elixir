@@ -10,6 +10,7 @@ import {
   codeLines,
   compactText,
   decodeInspectedString,
+  expandHint,
   firstContentLine,
   renderCompactLine,
   renderLines,
@@ -126,6 +127,30 @@ function renderErrorBlock(
   ])
 }
 
+const INSTALL_PREVIEW_LINES = 5
+
+function isInstallTranscript(text: string) {
+  return text.includes('$ mix deps.get') || text.startsWith('[pi-elixir] Added ')
+}
+
+function renderInstallTranscript(text: string, expanded: boolean, theme: Theme) {
+  const lines = stripFinalNewline(text).split('\n')
+  if (expanded || lines.length <= INSTALL_PREVIEW_LINES) {
+    return renderLines(lines.map((line) => theme.fg('toolOutput', line)))
+  }
+
+  const shown = lines.slice(-INSTALL_PREVIEW_LINES)
+  const hidden = lines.length - shown.length
+  return {
+    render: (_width: number) => [
+      '',
+      `${theme.fg('muted', `... (${hidden} earlier lines) `)}${expandHint(theme)}`,
+      ...shown.map((line) => theme.fg('toolOutput', line))
+    ],
+    invalidate: () => undefined
+  }
+}
+
 function renderEvalValue(value: string, expanded: boolean, theme: Theme) {
   if (!value) return renderLines([theme.fg('muted', '(no output)')])
   if (!expanded) {
@@ -194,6 +219,7 @@ export function renderEvalResult(
   else if (payload?.error)
     component = renderErrorBlock(payload.error, expanded, theme, payload.exception)
   else if (payload) component = renderStructuredEval(payload, expanded, theme)
+  else if (isInstallTranscript(text)) component = renderInstallTranscript(text, expanded, theme)
   else if (resultIsError(result)) component = renderErrorBlock(text, expanded, theme)
   else {
     const ioResult = parseIoResult(text)
