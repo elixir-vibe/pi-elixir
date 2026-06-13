@@ -286,9 +286,10 @@ function resolveBeamToolCwd(cwd: string): string | null {
 async function resolveUrlWithStartupGrace(
   beamCwd: string,
   confirmInstall: (prompt: InstallPrompt) => Promise<boolean>,
-  onProgress?: (message: string) => void
+  onProgress?: (message: string) => void,
+  signal?: AbortSignal
 ) {
-  const options = { confirmInstall, onProgress }
+  const options = { confirmInstall, onProgress, signal }
   let conn = await resolveUrl(beamCwd, options)
   if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
 
@@ -319,7 +320,8 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
         (message) => {
           if (message)
             onUpdate?.({ content: [{ type: 'text' as const, text: message }], details: {} })
-        }
+        },
+        signal
       )
       if (!conn) return connectionError(beamCwd)
 

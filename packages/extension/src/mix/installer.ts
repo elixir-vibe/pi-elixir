@@ -22,6 +22,7 @@ export interface InstallPrompt {
 export interface InstallOptions {
   confirmInstall?: (prompt: InstallPrompt) => Promise<boolean>
   onProgress?: (message: string) => void
+  signal?: AbortSignal
 }
 
 function localPiBeamPath(): string | null {
@@ -67,7 +68,11 @@ function installFailureMessage(code: number | null, output: string): string {
   return `${base}\n\nHex could not reach hex.pm while fetching pi_bridge. Check network/VPN/proxy access and retry the install. The mix.exs edit was rolled back so the next Elixir tool call can prompt again.${suffix}`
 }
 
-function runMixDepsGet(cwd: string, onProgress?: (message: string) => void): Promise<void> {
+function runMixDepsGet(
+  cwd: string,
+  onProgress?: (message: string) => void,
+  signal?: AbortSignal
+): Promise<void> {
   return new Promise((resolve, reject) => {
     const proc = childProcess.spawn('mix', ['deps.get'], {
       cwd,
@@ -76,20 +81,35 @@ function runMixDepsGet(cwd: string, onProgress?: (message: string) => void): Pro
     })
     let stdout = ''
     let stderr = ''
-    onProgress?.('Running mix deps.get for pi_bridge...')
+    let transcript = '$ mix deps.get\n\n'
+    let aborted = false
 
-    proc.stdout?.on('data', (chunk: Buffer) => {
+    const emit = () => onProgress?.(transcript.trimEnd())
+    const append = (chunk: Buffer, target: 'stdout' | 'stderr') => {
       const text = chunk.toString('utf8')
-      stdout += text
-      onProgress?.(text.trim())
-    })
-    proc.stderr?.on('data', (chunk: Buffer) => {
-      const text = chunk.toString('utf8')
-      stderr += text
-      onProgress?.(text.trim())
-    })
+      if (target === 'stdout') stdout += text
+      else stderr += text
+      transcript += text
+      emit()
+    }
+    const abort = () => {
+      aborted = true
+      proc.kill('SIGTERM')
+    }
+
+    emit()
+    if (signal?.aborted) abort()
+    else signal?.addEventListener('abort', abort, { once: true })
+
+    proc.stdout?.on('data', (chunk: Buffer) => append(chunk, 'stdout'))
+    proc.stderr?.on('data', (chunk: Buffer) => append(chunk, 'stderr'))
     proc.on('error', reject)
     proc.on('exit', (code) => {
+      signal?.removeEventListener('abort', abort)
+      if (aborted) {
+        reject(new Error(`${transcript.trimEnd()}\n\nCommand aborted`))
+        return
+      }
       if (code === 0) {
         resolve()
         return
@@ -120,13 +140,14 @@ export async function ensurePiBeamDependency(cwd: string, options?: InstallOptio
   const updated = addPiDependency(mixExs, dependency)
   if (!updated) return false
 
-  options.onProgress?.(`Adding ${dependency} to mix.exs...`)
+  options.onProgress?.(`[pi-elixir] Added ${dependency} to mix.exs`)
   fs.writeFileSync(mixExsPath, updated)
 
   try {
-    await runMixDepsGet(cwd, options.onProgress)
+    await runMixDepsGet(cwd, options.onProgress, options.signal)
   } catch (error) {
     fs.writeFileSync(mixExsPath, mixExs)
+    options.onProgress?.('[pi-elixir] Rolled back mix.exs')
     markMissingDependency(cwd)
     throw error
   }

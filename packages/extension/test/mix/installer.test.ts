@@ -168,8 +168,8 @@ describe('ensurePiBeamDependency', () => {
     })
 
     expect(ok).toBe(true)
-    expect(progress).toContain(`Adding ${expectedPiBridgeDependency()} to mix.exs...`)
-    expect(progress).toContain('Running mix deps.get for pi_bridge...')
-    expect(progress).toContain('fetching deps')
+    expect(progress).toContain(`[pi-elixir] Added ${expectedPiBridgeDependency()} to mix.exs`)
+    expect(progress).toContain('$ mix deps.get')
+    expect(progress.at(-1)).toContain('fetching deps')
   })
 })
