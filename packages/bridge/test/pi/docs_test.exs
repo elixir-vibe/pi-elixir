@@ -14,6 +14,13 @@ defmodule Pi.DocsTest do
     assert Enum.any?(entries, &(&1.name == :table and &1.arity == 2))
   end
 
+  test "entries and get expose a minimal Enum-friendly API" do
+    entries = Docs.entries(System)
+
+    assert Enum.any?(entries, &(&1.kind == :function and &1.name == :cmd and &1.arity == 3))
+    assert %Docs.Entry{kind: :function, name: :cmd, arity: 3} = Docs.get(System, :cmd, 3)
+  end
+
   test "function lookup returns source context" do
     source =
       Pi.Output

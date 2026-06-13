@@ -64,6 +64,18 @@ defmodule Pi.Docs do
     |> modules()
   end
 
+  @doc "Returns documented entries for a module or docs result as a plain list."
+  @spec entries(Result.t() | module()) :: [Entry.t()]
+  def entries(queryable), do: result_entries(queryable)
+
+  @doc "Finds one documented entry by name and arity."
+  @spec get(Result.t() | module(), atom(), non_neg_integer()) :: Entry.t() | nil
+  def get(queryable, name, arity) when is_atom(name) and is_integer(arity) do
+    queryable
+    |> result_entries()
+    |> Enum.find(&(&1.name == name and &1.arity == arity))
+  end
+
   @doc "Keeps function and macro entries from a docs result or module."
   @spec functions(Result.t() | module()) :: Result.t()
   def functions(module) when is_atom(module), do: module |> __MODULE__.module() |> functions()
