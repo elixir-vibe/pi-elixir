@@ -4,14 +4,20 @@
 
 `elixir_eval` runs inside the project VM with project modules, dependencies, application config, IEx helpers, docs chunks, and runtime state available.
 
-For installed Elixir modules, look up docs through BEAM APIs before guessing or web-searching. Use `Code.fetch_docs/1` for structured docs and IEx helpers for quick interactive docs:
+For installed Elixir modules, look up docs through BEAM APIs before guessing or web-searching. Use IEx helpers for quick interactive docs, and use the minimal `Pi.Docs` wrappers only when you need structured data to filter/map with normal `Enum`:
 
 ```elixir
-Code.fetch_docs(Ecto.Changeset)
 h(Ecto.Changeset.cast/4)
 exports(MyApp.Context)
 i(%MyApp.Schema{})
+
+Pi.Docs.entries(System)
+|> Enum.filter(&(&1.kind == :function and &1.name in [:cmd, :shell]))
+
+Pi.Docs.get(System, :cmd, 3)
 ```
+
+Avoid raw `Code.fetch_docs/1` tuple handling unless you specifically need the low-level docs chunk.
 
 Use Elixir/OTP stdlib directly for ordinary runtime and file work. Prefer eval pipelines over shell pipelines when you want typed lists/maps, follow-up transformations, or pi-elixir structured rendering:
 
