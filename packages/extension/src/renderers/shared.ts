@@ -1,18 +1,16 @@
-import {
-  highlightCode,
-  keyHint,
-  type AgentToolResult,
-  type Theme
-} from '@earendil-works/pi-coding-agent'
-import { Text, visibleWidth, type Component } from '@earendil-works/pi-tui'
+import { highlightCode, type AgentToolResult, type Theme } from '@earendil-works/pi-coding-agent'
+import { visibleWidth, type Component } from '@earendil-works/pi-tui'
 
 import { truncateLine } from '../helpers.ts'
+import {
+  expandHint as sharedExpandHint,
+  hiddenLine as sharedHiddenLine,
+  renderLines as sharedRenderLines,
+  resultText as sharedResultText
+} from '../shared/render.ts'
 
 export function resultText(result: AgentToolResult<unknown>) {
-  return result.content
-    .filter((content) => content.type === 'text')
-    .map((content) => content.text)
-    .join('\n')
+  return sharedResultText(result)
 }
 
 export function decodeInspectedString(text: string): string {
@@ -54,7 +52,7 @@ export function firstContentLine(text: string): string {
 }
 
 export function renderLines(lines: string[]) {
-  return new Text(['', ...lines].join('\n'), 0, 0)
+  return sharedRenderLines(lines)
 }
 
 interface TimedToolRenderContext {
@@ -95,15 +93,15 @@ export function resultIsError(result: AgentToolResult<unknown>): boolean {
 }
 
 export function hiddenLine(count: number, theme: Theme) {
-  return count > 0 ? theme.fg('muted', `… ${count} more`) : undefined
+  return sharedHiddenLine(count, theme)
 }
 
 export function expandHint(theme: Theme) {
-  return theme.fg('muted', '(') + keyHint('app.tools.expand', 'to expand') + theme.fg('muted', ')')
+  return sharedExpandHint(theme)
 }
 
 export function inlineExpandHint(theme: Theme) {
-  return theme.fg('muted', ' (') + keyHint('app.tools.expand', 'to expand') + theme.fg('muted', ')')
+  return theme.fg('muted', ' ') + sharedExpandHint(theme)
 }
 
 export function renderCompactLine(

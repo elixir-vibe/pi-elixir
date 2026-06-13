@@ -20,16 +20,23 @@ import {
   callTool,
   resolveUrl,
   getConnectionKind,
+  getStartupTranscript,
   type InstallPrompt
 } from './connection/resolver.ts'
 import { getIncompatibleDependency, getUnavailableReason } from './connection/status.ts'
 import { resolveMixProjectCwd } from './mix/project.ts'
 import type { ToolArgs, ToolResult } from './protocol/types.ts'
+import { sleep } from './shared/async.ts'
+import { parseIntegerEnv } from './shared/env.ts'
 
 export { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize }
 
 const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const ansiStylePrefix = new RegExp(`^${String.fromCharCode(27)}\\[[0-9;]*m`, 'u')
+const DEFAULT_STARTUP_RETRY_DELAY_MS = 750
+const DEFAULT_STARTUP_WAIT_BUDGET_MS = 120_000
+const TEST_STARTUP_RETRY_DELAY_MS = 0
+const TEST_STARTUP_WAIT_BUDGET_MS = 50
 
 export function sessionContext(pi: ExtensionAPI, ctx: ExtensionContext) {
   return {
@@ -222,17 +229,21 @@ function noConnectionError() {
   }
 }
 
-function startupRetryDelayMs(): number {
-  if (process.env.PI_ELIXIR_STARTUP_RETRY_MS) {
-    const parsed = Number.parseInt(process.env.PI_ELIXIR_STARTUP_RETRY_MS, 10)
-    return Number.isFinite(parsed) && parsed >= 0 ? parsed : 750
-  }
-
-  return process.env.NODE_ENV === 'test' ? 0 : 750
+function envIntegerOrDefault(name: string, fallback: number): number {
+  const parsed = parseIntegerEnv(name)
+  return parsed.ok && parsed.value !== undefined && parsed.value >= 0 ? parsed.value : fallback
 }
 
-function delay(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms))
+function startupRetryDelayMs(): number {
+  const fallback =
+    process.env.NODE_ENV === 'test' ? TEST_STARTUP_RETRY_DELAY_MS : DEFAULT_STARTUP_RETRY_DELAY_MS
+  return envIntegerOrDefault('PI_ELIXIR_STARTUP_RETRY_MS', fallback)
+}
+
+function startupWaitBudgetMs(): number {
+  const fallback =
+    process.env.NODE_ENV === 'test' ? TEST_STARTUP_WAIT_BUDGET_MS : DEFAULT_STARTUP_WAIT_BUDGET_MS
+  return envIntegerOrDefault('PI_ELIXIR_STARTUP_WAIT_MS', fallback)
 }
 
 function stillCompilingError() {
@@ -278,9 +289,68 @@ interface BeamToolRegistration {
   opts?: BridgeToolOpts
 }
 
-function resolveBeamToolCwd(cwd: string): string | null {
-  if (process.env.PI_MCP_URL) return cwd
-  return resolveMixProjectCwd(cwd)
+export function resolveBeamToolCwd(
+  pi: ExtensionAPI,
+  toolName: string,
+  params: ToolArgs,
+  ctx: ExtensionContext
+): string | null {
+  if (process.env.PI_MCP_URL) return ctx.cwd
+
+  return (
+    resolveMixProjectCwd(ctx.cwd) ??
+    resolveMixProjectCwdFromToolPath(params, ctx.cwd) ??
+    resolveBundledBridgeCwd(pi, toolName)
+  )
+}
+
+function resolveMixProjectCwdFromToolPath(params: ToolArgs, cwd: string): string | null {
+  const rawPath = params.path
+  if (typeof rawPath !== 'string' || rawPath.length === 0) return null
+
+  const absolutePath = path.isAbsolute(rawPath) ? rawPath : path.resolve(cwd, rawPath)
+  if (!fs.existsSync(absolutePath)) return null
+
+  let candidate = fs.statSync(absolutePath).isDirectory()
+    ? absolutePath
+    : path.dirname(absolutePath)
+  while (true) {
+    if (fs.existsSync(path.join(candidate, 'mix.exs'))) return candidate
+    const parent = path.dirname(candidate)
+    if (parent === candidate) return null
+    candidate = parent
+  }
+}
+
+function resolveBundledBridgeCwd(pi: ExtensionAPI, toolName: string): string | null {
+  const sourceInfo = pi.getAllTools().find((tool) => tool.name === toolName)?.sourceInfo
+  const candidates = bundledBridgeCandidates(sourceInfo?.baseDir, sourceInfo?.path)
+
+  for (const candidate of candidates) {
+    if (fs.existsSync(path.join(candidate, 'mix.exs'))) return candidate
+  }
+  return null
+}
+
+function bundledBridgeCandidates(...sources: Array<string | undefined>): string[] {
+  const candidates = new Set<string>()
+
+  for (const source of sources) {
+    if (!source || source.startsWith('<')) continue
+    const start =
+      fs.existsSync(source) && fs.statSync(source).isDirectory() ? source : path.dirname(source)
+    let dir = start
+    while (true) {
+      candidates.add(path.join(dir, 'packages', 'bridge'))
+      candidates.add(path.join(dir, '..', 'bridge'))
+
+      const parent = path.dirname(dir)
+      if (parent === dir) break
+      dir = parent
+    }
+  }
+
+  return [...candidates]
 }
 
 async function resolveUrlWithStartupGrace(
@@ -290,15 +360,20 @@ async function resolveUrlWithStartupGrace(
   signal?: AbortSignal
 ) {
   const options = { confirmInstall, onProgress, signal }
-  let conn = await resolveUrl(beamCwd, options)
-  if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
+  const startedAt = Date.now()
+  const waitBudget = startupWaitBudgetMs()
+  const retryDelay = startupRetryDelayMs()
 
-  await delay(startupRetryDelayMs())
-  conn = await resolveUrl(beamCwd, options)
-  if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
+  while (true) {
+    const conn = await resolveUrl(beamCwd, options)
+    if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
 
-  await delay(startupRetryDelayMs())
-  return resolveUrl(beamCwd, options)
+    const transcript = getStartupTranscript(beamCwd)
+    if (transcript) onProgress?.(transcript)
+
+    if (Date.now() - startedAt >= waitBudget || signal?.aborted) return null
+    await sleep(retryDelay)
+  }
 }
 
 function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
@@ -308,7 +383,7 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
     description: tool.description,
     parameters: tool.parameters,
     async execute(_id, params, signal, onUpdate, ctx) {
-      const beamCwd = resolveBeamToolCwd(ctx.cwd)
+      const beamCwd = resolveBeamToolCwd(pi, tool.name, params, ctx)
       if (!beamCwd) return noMixProjectError()
 
       let installTranscript = ''

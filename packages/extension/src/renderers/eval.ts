@@ -130,7 +130,11 @@ function renderErrorBlock(
 const INSTALL_PREVIEW_LINES = 5
 
 function isInstallTranscript(text: string) {
-  return text.includes('$ mix deps.get') || text.startsWith('[pi-elixir] Added ')
+  return (
+    text.includes('$ mix deps.get') ||
+    text.includes('$ mix run --no-halt') ||
+    text.startsWith('[pi-elixir] Added ')
+  )
 }
 
 function renderInstallTranscript(text: string, expanded: boolean, theme: Theme) {

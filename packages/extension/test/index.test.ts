@@ -4,6 +4,7 @@ vi.mock('../src/connection/resolver.ts', () => ({
   callTool: vi.fn(),
   resolveUrl: vi.fn(),
   getConnectionKind: vi.fn(),
+  getStartupTranscript: vi.fn(() => null),
   sendBridgeEvent: vi.fn()
 }))
 

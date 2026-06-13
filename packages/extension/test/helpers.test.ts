@@ -16,14 +16,70 @@ vi.mock('@earendil-works/pi-coding-agent', () => ({
 
 vi.mock('../src/beam-client.ts', () => ({}))
 
-import { displaySingleLine, normalizePathForBeam, truncated } from '#src/helpers.ts'
+import {
+  displaySingleLine,
+  normalizePathForBeam,
+  resolveBeamToolCwd,
+  truncated
+} from '#src/helpers.ts'
 import { truncateHead } from '@earendil-works/pi-coding-agent'
 
 const mockTruncateHead = vi.mocked(truncateHead)
 
+function piWithToolSource(baseDir: string) {
+  return {
+    getAllTools: () => [
+      {
+        name: 'elixir_eval',
+        sourceInfo: { baseDir, path: path.join(baseDir, 'src/index.ts') }
+      }
+    ]
+  } as never
+}
+
 describe('displaySingleLine', () => {
   it('normalizes multiline tool arguments for one-line call previews', () => {
     expect(displaySingleLine('foo\n  bar\t baz')).toBe('foo bar baz')
+  })
+})
+
+describe('resolveBeamToolCwd', () => {
+  let dir: string | undefined
+
+  afterEach(() => {
+    if (dir) fs.rmSync(dir, { recursive: true, force: true })
+    dir = undefined
+  })
+
+  it('falls back to the bundled pi-elixir bridge from tool source metadata', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-elixir-bundled-'))
+    const bridge = path.join(dir, 'packages/bridge')
+    fs.mkdirSync(bridge, { recursive: true })
+    fs.writeFileSync(path.join(bridge, 'mix.exs'), 'defmodule PiBridge.MixProject do end\n')
+
+    expect(
+      resolveBeamToolCwd(piWithToolSource(dir), 'elixir_eval', {}, {
+        cwd: path.join(dir, '..')
+      } as never)
+    ).toBe(bridge)
+  })
+
+  it('resolves a Mix project from an absolute path argument before bundled fallback', () => {
+    dir = fs.mkdtempSync(path.join(os.tmpdir(), 'pi-elixir-path-cwd-'))
+    const project = path.join(dir, 'apps/demo')
+    const file = path.join(project, 'lib/demo.ex')
+    fs.mkdirSync(path.dirname(file), { recursive: true })
+    fs.writeFileSync(path.join(project, 'mix.exs'), 'defmodule Demo.MixProject do end\n')
+    fs.writeFileSync(file, 'defmodule Demo do end\n')
+
+    expect(
+      resolveBeamToolCwd(
+        piWithToolSource(path.join(dir, 'package-without-bridge')),
+        'elixir_ast_search',
+        { path: file },
+        { cwd: dir } as never
+      )
+    ).toBe(project)
   })
 })
 

@@ -1,4 +1,6 @@
 import * as childProcess from 'node:child_process'
+import * as os from 'node:os'
+import * as path from 'node:path'
 
 import {
   clearIncompatibleDependency,
@@ -25,6 +27,10 @@ import { isPiBridgeVersionCompatible, piBridgeVersionMismatchMessage } from '#sr
 
 const START_STDIO_EXPR = 'Pi.Transport.Stdio.start()'
 const TOOL_CALL_TIMEOUT_MS = 120_000
+const STARTUP_OUTPUT_PREVIEW_CHARS = 8_000
+const STARTUP_OUTPUT_CHUNK_CHARS = 2_000
+const STDERR_PREVIEW_CHARS = 2_000
+const STDERR_PREVIEW_CHUNK_CHARS = 500
 
 interface EmbeddedProcess {
   proc: childProcess.ChildProcess
@@ -36,6 +42,7 @@ interface EmbeddedProcess {
   startedAt: number
   stderrBytes: number
   stderrPreview: string[]
+  startupOutputPreview: string[]
 }
 
 export type { BridgeInfo, BridgeUIEvent }
@@ -274,6 +281,13 @@ function handleMessage(cwd: string, entry: EmbeddedProcess, message: StdioMessag
   pending.resolve({ text: message.text ?? '', isError: message.isError ?? false })
 }
 
+function appendStartupOutput(entry: EmbeddedProcess, text: string): void {
+  if (entry.ready) return
+  if (entry.startupOutputPreview.join('\n').length >= STARTUP_OUTPUT_PREVIEW_CHARS) return
+  const cleaned = text.trimEnd()
+  if (cleaned) entry.startupOutputPreview.push(cleaned.slice(0, STARTUP_OUTPUT_CHUNK_CHARS))
+}
+
 function handleStdout(cwd: string, entry: EmbeddedProcess, chunk: Buffer): void {
   entry.buffer += chunk.toString()
 
@@ -300,6 +314,25 @@ function handleStdout(cwd: string, entry: EmbeddedProcess, chunk: Buffer): void 
 
     const message = parseMessage(line)
     if (message) handleMessage(cwd, entry, message)
+    else appendStartupOutput(entry, line)
+  }
+}
+
+export function embeddedStartupTranscript(cwd: string): string | null {
+  const entry = embeddedProcesses.get(cwd)
+  if (!entry || entry.ready) return null
+
+  const output = entry.startupOutputPreview.join('\n').trim()
+  return output ? `$ mix run --no-halt -e '<stdio-start>'\n\n${output}` : null
+}
+
+function mixChildEnv(): NodeJS.ProcessEnv {
+  const mixHome = path.join(os.homedir(), '.mix')
+  return {
+    ...process.env,
+    MIX_ENV: 'dev',
+    MIX_HOME: mixHome,
+    MIX_ARCHIVES: path.join(mixHome, 'archives')
   }
 }
 
@@ -328,7 +361,7 @@ export function startEmbeddedInBackground(cwd: string): void {
   const proc = childProcess.spawn('mix', ['run', '--no-halt', '-e', START_STDIO_EXPR], {
     cwd,
     stdio: ['pipe', 'pipe', 'pipe'],
-    env: { ...process.env, MIX_ENV: 'dev' }
+    env: mixChildEnv()
   })
 
   const entry: EmbeddedProcess = {
@@ -340,7 +373,8 @@ export function startEmbeddedInBackground(cwd: string): void {
     pending: new Map(),
     startedAt: Date.now(),
     stderrBytes: 0,
-    stderrPreview: []
+    stderrPreview: [],
+    startupOutputPreview: []
   }
   embeddedProcesses.set(cwd, entry)
 
@@ -350,10 +384,12 @@ export function startEmbeddedInBackground(cwd: string): void {
 
   proc.stderr?.on('data', (chunk: Buffer) => {
     entry.stderrBytes += chunk.length
-    if (entry.stderrPreview.join('\n').length < 2_000) {
-      entry.stderrPreview.push(chunk.toString().slice(0, 500))
+    if (entry.stderrPreview.join('\n').length < STDERR_PREVIEW_CHARS) {
+      entry.stderrPreview.push(chunk.toString().slice(0, STDERR_PREVIEW_CHUNK_CHARS))
     }
     // Drain stderr so verbose Mix/BEAM output cannot block the child process.
+    // Keep stderr in diagnostics only; streaming it into the styled TUI widget can
+    // include child terminal resets such as Mix build-lock notices.
   })
 
   proc.on('error', (error) => {

@@ -3,6 +3,7 @@ import {
   callEmbeddedTool,
   clearEmbeddedFailed,
   cwdFromEmbeddedUrl,
+  embeddedStartupTranscript,
   getEmbeddedKind,
   getEmbeddedUrl,
   hasEmbeddedFailed,
@@ -150,6 +151,10 @@ export async function resolveUrl(
     recordDiagnostic('resolve_url_phase', cwd, { phase: 'embedded_starting' })
     return null
   })
+}
+
+export function getStartupTranscript(cwd: string): string | null {
+  return embeddedStartupTranscript(cwd)
 }
 
 export function getConnectionKind(cwd: string): ConnectionKind {

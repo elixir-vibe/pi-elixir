@@ -1,5 +1,6 @@
 import * as childProcess from 'node:child_process'
 import * as fs from 'node:fs'
+import * as os from 'node:os'
 import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
@@ -45,9 +46,12 @@ function dependencyLine(cwd: string): string {
 }
 
 function mixDepsGetEnv(): NodeJS.ProcessEnv {
+  const mixHome = path.join(os.homedir(), '.mix')
   return {
     ...process.env,
-    HEX_HTTP_CONCURRENCY: process.env.HEX_HTTP_CONCURRENCY ?? '1'
+    HEX_HTTP_CONCURRENCY: process.env.HEX_HTTP_CONCURRENCY ?? '1',
+    MIX_HOME: mixHome,
+    MIX_ARCHIVES: path.join(mixHome, 'archives')
   }
 }
 

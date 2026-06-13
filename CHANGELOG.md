@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+### Added
+
+- Added shared extension primitives copied from `dot-pi` as a staging point for a future shared library.
+- Elixir tools can now fall back to the bundled `pi_bridge` project using Pi tool provenance when no Mix project is active.
+
+### Changed
+
+- Embedded BEAM startup now streams Mix stdout progress and waits longer for cold compilation.
+- Mix child processes use user-local Mix state to avoid system install permission issues.
+
 ## 0.6.17 - 2026-06-13
 
 ### Changed
