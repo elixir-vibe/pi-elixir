@@ -81,7 +81,39 @@ defmodule Pi.Skill.Loader do
       Path.join(File.cwd!(), "priv/skills"),
       Path.join(File.cwd!(), ".pi/skills"),
       Path.join(File.cwd!(), "skills")
-    ]
+    ] ++ dependency_skill_paths()
+  end
+
+  defp dependency_skill_paths do
+    (loaded_app_skill_paths() ++ mix_dependency_skill_paths())
+    |> Enum.uniq()
+  end
+
+  defp loaded_app_skill_paths do
+    Application.loaded_applications()
+    |> Enum.flat_map(fn {app, _description, _version} -> app_skill_path(app) end)
+  end
+
+  defp mix_dependency_skill_paths do
+    if Code.ensure_loaded?(Mix.Dep) and Mix.Project.get() do
+      Mix.Dep.cached()
+      |> Enum.flat_map(fn dep ->
+        [dep.opts[:build], dep.opts[:dest]]
+        |> Enum.reject(&is_nil/1)
+        |> Enum.map(&Path.join(&1, "priv/skills"))
+      end)
+    else
+      []
+    end
+  rescue
+    _exception in [Mix.Error, ArgumentError] -> []
+  end
+
+  defp app_skill_path(app) do
+    case :code.priv_dir(app) do
+      priv_dir when is_list(priv_dir) -> [Path.join([List.to_string(priv_dir), "skills"])]
+      {:error, :bad_name} -> []
+    end
   end
 
   defp files(dir) do
