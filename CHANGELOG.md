@@ -2,6 +2,14 @@
 
 ## Unreleased
 
+## 0.6.16 - 2026-06-13
+
+### Changed
+
+- Bridge installation progress now streams a bash-like `mix deps.get` transcript during tool-triggered setup.
+- Install transcript rendering now uses command-output previews with expansion hints and elapsed/took timing.
+- If the BEAM is still compiling after install, the tool result preserves the install transcript alongside startup guidance.
+
 ## 0.6.15 - 2026-06-13
 
 ### Added
