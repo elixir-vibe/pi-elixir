@@ -63,6 +63,57 @@ Do not use `phoenix_vapor` for this workflow yet. Its published dependency graph
 
 Plain Phoenix projects can use their existing view/component render helpers from eval or `Phoenix.LiveViewTest` in tests. Prefer exact HTML fragments or assigns over screenshots.
 
+## Real browser acceptance tests
+
+Use `phoenix_test_playwright` when the user needs an actual browser: JavaScript behavior, cross-browser checks, traces, screenshots, iframe/email flows, or browser-only regressions. Do not make it the first/default verification path; prefer BEAM-native checks first (`Pi.Integrations.statuses()`, Volt browser logs, PhoenixReplay recordings, render/eval checks).
+
+Setup, when explicitly needed:
+
+```elixir
+# mix.exs
+{:phoenix_test_playwright, "~> 0.14", only: :test, runtime: false}
+```
+
+It also requires Playwright and browsers in `assets`:
+
+```sh
+cd assets
+bun add -d playwright
+bunx playwright install chromium --with-deps
+```
+
+Phoenix test config:
+
+```elixir
+# config/test.exs
+config :phoenix_test, otp_app: :my_app
+config :my_app, MyAppWeb.Endpoint, server: true
+```
+
+Runtime setup:
+
+```elixir
+# test/test_helper.exs
+{:ok, _} = PhoenixTest.Playwright.Supervisor.start_link()
+Application.put_env(:phoenix_test, :base_url, MyAppWeb.Endpoint.url())
+```
+
+Example:
+
+```elixir
+defmodule MyAppWeb.FeatureTest do
+  use PhoenixTest.Playwright.Case, async: true
+
+  test "home page", %{conn: conn} do
+    conn
+    |> visit(~p"/")
+    |> assert_has("body .phx-connected")
+  end
+end
+```
+
+For debugging, prefer trace/screenshot evidence over prose. Example tags/config from the package docs include `@tag trace: :open` and CI retry with trace or screenshot enabled for failed tests.
+
 ## Vue SFC compile checks
 
 When `vize_ex` is installed:
