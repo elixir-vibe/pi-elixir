@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 0.6.17 - 2026-06-13
+
+### Changed
+
+- Dependency-shipped skill discovery now avoids duplicate source/build paths for already-loaded dependency apps.
+
 ## 0.6.16 - 2026-06-13
 
 ### Changed
