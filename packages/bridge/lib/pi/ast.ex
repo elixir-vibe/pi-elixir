@@ -61,9 +61,9 @@ defmodule Pi.AST do
       files =
         paths
         |> Enum.map(&semantic_file_diff/1)
-        |> Enum.reject(&(&1.edits == []))
+        |> Enum.reject(&(semantic_file_edit_count(&1) == 0))
 
-      total = Enum.reduce(files, 0, fn file, acc -> acc + length(file.edits) end)
+      total = Enum.reduce(files, 0, fn file, acc -> acc + semantic_file_edit_count(file) end)
 
       Pi.Output.tree(
         %{
@@ -339,14 +339,59 @@ defmodule Pi.AST do
 
     module_name = module_name(new) || module_name(old)
 
+    semantic_file(path, module_name, semantic_edits(old, new, module_name))
+  end
+
+  defp semantic_file(path, module_name, edits) do
+    public = Enum.filter(edits, &(&1[:visibility] == :public))
+    private = Enum.filter(edits, &(&1[:visibility] == :private))
+    other = Enum.reject(edits, &(&1[:visibility] in [:public, :private]))
+
     %{
       file: path,
       module: module_name,
-      edits: semantic_edits(old, new, module_name)
+      summary: semantic_file_summary(module_name, public, private, other),
+      public_api: public,
+      private_helpers: semantic_edit_group(private),
+      other_edits: semantic_edit_group(other)
     }
-    |> Enum.reject(fn {_key, value} -> is_nil(value) end)
+    |> Enum.reject(fn
+      {_key, nil} -> true
+      {_key, []} -> true
+      {_key, %{count: 0}} -> true
+      _entry -> false
+    end)
     |> Map.new()
   end
+
+  defp semantic_edit_group([]), do: nil
+  defp semantic_edit_group(edits), do: %{count: length(edits), edits: edits}
+
+  defp semantic_file_edit_count(file) do
+    length(Map.get(file, :public_api, [])) +
+      to_i(get_in(file, [:private_helpers, :count])) + to_i(get_in(file, [:other_edits, :count]))
+  end
+
+  defp semantic_file_summary(module_name, public, private, other) do
+    subject = module_name || "file"
+
+    [
+      edit_count(public, "public"),
+      edit_count(private, "private"),
+      edit_count(other, "other")
+    ]
+    |> Enum.reject(&is_nil/1)
+    |> case do
+      [] -> "#{subject}: no syntax changes"
+      parts -> "#{subject}: #{Enum.join(parts, ", ")}"
+    end
+  end
+
+  defp edit_count([], _label), do: nil
+  defp edit_count(edits, label), do: "#{length(edits)} #{label}"
+  defp to_i(nil), do: 0
+  defp to_i(value) when is_integer(value), do: value
+  defp to_i(_value), do: 0
 
   defp diff_paths(opts) do
     cond do
