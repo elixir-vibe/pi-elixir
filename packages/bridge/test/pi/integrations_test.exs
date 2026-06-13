@@ -2,6 +2,7 @@ defmodule Pi.IntegrationsTest do
   use ExUnit.Case, async: true
 
   alias Pi.Integrations.ExUnit, as: ExUnitIntegration
+  alias Pi.Integrations.PhoenixIconify
   alias Pi.Integrations.PhoenixReplay
   alias Pi.Integrations.Volt
   alias Pi.Protocol.Integration.Status
@@ -12,8 +13,10 @@ defmodule Pi.IntegrationsTest do
 
   test "webdev integrations are quiet when packages are unavailable" do
     assert Volt.name() == :volt
+    assert PhoenixIconify.name() == :phoenix_iconify
     assert PhoenixReplay.name() == :phoenix_replay
     assert Volt.statuses() == []
+    assert PhoenixIconify.statuses() == []
     assert PhoenixReplay.statuses() == []
   end
 end
