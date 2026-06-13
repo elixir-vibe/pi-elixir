@@ -99,6 +99,29 @@ function pathWarnings(): string[] {
   ]
 }
 
+export function buildElixirStatusReport(cwd: string): string {
+  const beamCwd = resolveMixProjectCwd(cwd)
+  const connectionKind = beamCwd ? getConnectionKind(beamCwd) : null
+  const bridgeInfo = beamCwd ? getBridgeInfo(beamCwd) : undefined
+  const unavailable = beamCwd ? getUnavailableReason(beamCwd) : undefined
+  const runtimeProblem = elixirRuntimeProblem()
+  const bridgeVersion = bridgeInfo?.version ?? 'unknown'
+  const source = connectionKind ?? (beamCwd ? 'not connected' : 'no Mix project')
+  const lines = [
+    'pi-elixir status',
+    '',
+    `Bridge: ${source}`,
+    `Project: ${beamCwd ?? 'not found'}`,
+    `pi_bridge: ${bridgeVersion}`,
+    `Bundled fallback: ${bundledBridgeStatus()}`,
+    ...(runtimeProblem ? [`Runtime problem: ${runtimeProblem}`] : []),
+    ...(unavailable ? [`Unavailable: ${unavailable}`] : []),
+    '',
+    `Next: ${nextStep({ beamCwd, runtimeProblem, unavailable, connectionKind })}`
+  ]
+  return lines.join('\n')
+}
+
 export function buildElixirDoctorReport(cwd: string): string {
   const beamCwd = resolveMixProjectCwd(cwd)
   const runtimeProblem = elixirRuntimeProblem()

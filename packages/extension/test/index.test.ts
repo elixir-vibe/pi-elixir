@@ -101,6 +101,7 @@ describe('extension registration', () => {
   })
 
   afterEach(() => {
+    vi.useRealTimers()
     delete process.env.PI_MCP_URL
     delete process.env.PI_ELIXIR_AUTO_INSTALL
     fs.rmSync(tempRoot, { recursive: true, force: true })
@@ -124,19 +125,24 @@ describe('extension registration', () => {
     expect(ctx.ui.notify).toHaveBeenCalledWith('Pi BEAM tools are installed', 'info')
   })
 
-  it('registers elixir doctor command', async () => {
+  it('registers elixir doctor and status commands', async () => {
     const cwd = makeProject('doctor')
     const { pi } = fakePi()
     extension(pi as any)
 
-    const command = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:doctor')?.[1]
-    expect(command).toBeTruthy()
+    const doctor = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:doctor')?.[1]
+    const status = pi.registerCommand.mock.calls.find(([name]) => name === 'elixir:status')?.[1]
+    expect(doctor).toBeTruthy()
+    expect(status).toBeTruthy()
 
     const ctx = fakeCtx(cwd)
-    await command.handler('', ctx)
+    await doctor.handler('', ctx)
+    await status.handler('', ctx)
 
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('pi-elixir doctor'), 'info')
     expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining(`Mix cwd: ${cwd}`), 'info')
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining('pi-elixir status'), 'info')
+    expect(ctx.ui.notify).toHaveBeenCalledWith(expect.stringContaining(`Project: ${cwd}`), 'info')
   })
 
   it('keeps the model-facing Elixir tool surface minimal', () => {
@@ -388,7 +394,81 @@ describe('extension status lifecycle', () => {
     )
   })
 
+  it('does not show bridge preparation notice for warm bridge calls', async () => {
+    const projectA = makeProject('project-a')
+    vi.mocked(resolveUrl).mockResolvedValue({ url: 'stdio:test', kind: 'embedded' })
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({ kind: 'eval', text: '42' }),
+      isError: false
+    })
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+    const onUpdate = vi.fn()
+
+    const result = await tool.execute(
+      'tool-1',
+      { code: 'Pi.project()' },
+      undefined,
+      onUpdate,
+      fakeCtx(projectA)
+    )
+
+    expect(result.isError).toBe(false)
+    expect(onUpdate).not.toHaveBeenCalled()
+  })
+
+  it('shows bridge preparation notice only after startup delay', async () => {
+    vi.useFakeTimers()
+    const projectA = makeProject('project-a')
+    let resolveBridge: ((value: { url: string; kind: 'embedded' }) => void) | undefined
+    vi.mocked(resolveUrl).mockReturnValue(
+      new Promise((resolve) => {
+        resolveBridge = resolve
+      })
+    )
+    vi.mocked(callTool).mockResolvedValue({
+      text: JSON.stringify({ kind: 'eval', text: '42' }),
+      isError: false
+    })
+
+    const { pi } = fakePi()
+    extension(pi as any)
+    const tool = pi.registerTool.mock.calls.find(
+      ([registered]) => registered.name === 'elixir_eval'
+    )?.[0]
+    const onUpdate = vi.fn()
+
+    const pending = tool.execute(
+      'tool-1',
+      { code: 'Pi.project()' },
+      undefined,
+      onUpdate,
+      fakeCtx(projectA)
+    )
+
+    await vi.advanceTimersByTimeAsync(499)
+    expect(onUpdate).not.toHaveBeenCalled()
+
+    await vi.advanceTimersByTimeAsync(1)
+    expect(onUpdate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        content: [
+          expect.objectContaining({ text: expect.stringContaining('Preparing Elixir BEAM') })
+        ]
+      })
+    )
+
+    resolveBridge?.({ url: 'stdio:test', kind: 'embedded' })
+    const result = await pending
+    expect(result.isError).toBe(false)
+  })
+
   it('waits briefly for an embedded BEAM that is already starting', async () => {
+    vi.useFakeTimers()
     const projectA = makeProject('project-a')
     vi.mocked(resolveUrl)
       .mockResolvedValueOnce(null)
@@ -405,13 +485,15 @@ describe('extension status lifecycle', () => {
       ([registered]) => registered.name === 'elixir_eval'
     )?.[0]
 
-    const result = await tool.execute(
+    const pending = tool.execute(
       'tool-1',
       { code: 'Pi.project()' },
       undefined,
       undefined,
       fakeCtx(projectA)
     )
+    await vi.advanceTimersByTimeAsync(0)
+    const result = await pending
 
     expect(result.isError).toBe(false)
     expect(resolveUrl).toHaveBeenCalledTimes(2)

@@ -24,7 +24,7 @@ import {
   withDiagnosticSpan,
   writeDiagnosticDump
 } from './diagnostics.ts'
-import { buildElixirDoctorReport } from './diagnostics/doctor.ts'
+import { buildElixirDoctorReport, buildElixirStatusReport } from './diagnostics/doctor.ts'
 import {
   getBridgeInfo,
   onBridgeBusEvent,
@@ -187,6 +187,16 @@ export default function (pi: ExtensionAPI) {
       description: 'Show pi-elixir environment and bridge diagnostics',
       handler: async (_args, ctx) => {
         ctx.ui.notify(buildElixirDoctorReport(ctx.cwd), 'info')
+      }
+    })
+  }
+
+  if (!registeredCommands.has('elixir:status')) {
+    registeredCommands.add('elixir:status')
+    pi.registerCommand('elixir:status', {
+      description: 'Show concise pi-elixir bridge status',
+      handler: async (_args, ctx) => {
+        ctx.ui.notify(buildElixirStatusReport(ctx.cwd), 'info')
       }
     })
   }
