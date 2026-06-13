@@ -1,6 +1,7 @@
 import * as childProcess from 'node:child_process'
 import * as fs from 'node:fs'
 import * as path from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 import { getConnectionKind } from '#src/connection/resolver.ts'
 import { getIncompatibleDependency, getUnavailableReason } from '#src/connection/status.ts'
@@ -76,6 +77,16 @@ function dependencyStatus(beamCwd: string | null): string[] {
   return lines
 }
 
+function bundledBridgeStatus(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  const candidates = [
+    path.resolve(here, '..', '..', 'bridge'),
+    path.resolve(here, '..', '..', '..', 'bridge')
+  ]
+  const bridge = candidates.find((candidate) => fs.existsSync(path.join(candidate, 'mix.exs')))
+  return bridge ? `available (${bridge})` : 'not found'
+}
+
 function pathWarnings(): string[] {
   const entries = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean)
   const missingMiseEntries = entries.filter(
@@ -101,6 +112,7 @@ export function buildElixirDoctorReport(cwd: string): string {
     '',
     `cwd: ${cwd}`,
     `Mix cwd: ${beamCwd ?? 'not found'}`,
+    `bundled bridge fallback: ${bundledBridgeStatus()}`,
     `extension version: ${EXTENSION_VERSION}`,
     '',
     `Elixir: ${elixirVersion(beamCwd ?? cwd)}`,
