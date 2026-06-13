@@ -42,11 +42,28 @@ interface EvalPayload {
   parts?: OutputPart[]
 }
 
-function evalPayload(result: AgentToolResult<unknown>): EvalPayload | null {
+interface BridgeDetails {
+  cwd?: string
+  source?: string
+  phase?: string
+  connection?: string
+}
+
+function resultDetails(result: AgentToolResult<unknown>): Record<string, unknown> | null {
   const details = (result as { details?: unknown }).details
-  if (typeof details !== 'object' || details === null) return null
-  const payload = (details as { eval?: unknown }).eval
+  return typeof details === 'object' && details !== null
+    ? (details as Record<string, unknown>)
+    : null
+}
+
+function evalPayload(result: AgentToolResult<unknown>): EvalPayload | null {
+  const payload = resultDetails(result)?.eval
   return typeof payload === 'object' && payload !== null ? (payload as EvalPayload) : null
+}
+
+function bridgeDetails(result: AgentToolResult<unknown>): BridgeDetails | null {
+  const bridge = resultDetails(result)?.bridge
+  return typeof bridge === 'object' && bridge !== null ? (bridge as BridgeDetails) : null
 }
 
 function errorTitle(text: string) {
@@ -127,6 +144,44 @@ function renderErrorBlock(
   ])
 }
 
+function displayPathForUser(value: string | undefined): string | undefined {
+  if (!value) return undefined
+  const home = process.env.HOME
+  if (home && value === home) return '~'
+  if (home && value.startsWith(`${home}/`)) return `~${value.slice(home.length)}`
+  return value
+}
+
+function bridgeSourceLabel(source: string | undefined): string {
+  switch (source) {
+    case 'external-env':
+      return 'external bridge'
+    case 'workspace':
+      return 'current Mix project'
+    case 'path-argument':
+      return 'path Mix project'
+    case 'bundled-bridge':
+      return 'bundled pi_bridge'
+    default:
+      return 'pi_bridge'
+  }
+}
+
+function renderBridgeStatus(bridge: BridgeDetails, text: string, expanded: boolean, theme: Theme) {
+  const phase = bridge.phase === 'starting' ? 'starting' : 'preparing'
+  const cwd = displayPathForUser(bridge.cwd)
+  const summary = ['Elixir BEAM', phase, bridgeSourceLabel(bridge.source), cwd]
+    .filter(Boolean)
+    .join(' · ')
+
+  if (!expanded) return renderCompactLine('', theme.fg('muted', summary), true, theme)
+
+  const lines = stripFinalNewline(text)
+    .split('\n')
+    .map((line, index) => theme.fg(index === 0 ? 'toolOutput' : 'muted', line))
+  return renderLines(lines)
+}
+
 function isInstallTranscript(text: string) {
   return (
     text.includes('$ mix deps.get') ||
@@ -201,12 +256,15 @@ export function renderEvalResult(
   context?: unknown
 ) {
   const payload = evalPayload(result)
+  const bridge = bridgeDetails(result)
   const text = decodeInspectedString(resultText(result)).trim()
   let component: Component
   if (!text && !payload) component = renderLines([theme.fg('muted', '(no output)')])
   else if (payload?.error)
     component = renderErrorBlock(payload.error, expanded, theme, payload.exception)
   else if (payload) component = renderStructuredEval(payload, expanded, theme)
+  else if (bridge?.phase === 'preparing')
+    component = renderBridgeStatus(bridge, text, expanded, theme)
   else if (isInstallTranscript(text)) component = renderInstallTranscript(text, expanded, theme)
   else if (resultIsError(result)) component = renderErrorBlock(text, expanded, theme)
   else {

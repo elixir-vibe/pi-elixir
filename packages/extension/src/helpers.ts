@@ -36,6 +36,7 @@ const segmenter = new Intl.Segmenter(undefined, { granularity: 'grapheme' })
 const ansiStylePrefix = new RegExp(`^${String.fromCharCode(27)}\\[[0-9;]*m`, 'u')
 const DEFAULT_STARTUP_RETRY_DELAY_MS = 750
 const DEFAULT_STARTUP_WAIT_BUDGET_MS = 120_000
+const PREPARATION_NOTICE_DELAY_MS = 500
 const TEST_STARTUP_RETRY_DELAY_MS = 0
 const TEST_STARTUP_WAIT_BUDGET_MS = 50
 
@@ -479,56 +480,73 @@ function registerBeamTool(pi: ExtensionAPI, tool: BeamToolRegistration) {
 
       const beamCwd = target.cwd
       let installTranscript = ''
-      onUpdate?.({
-        content: [{ type: 'text' as const, text: bridgePreparationMessage(target) }],
-        details: { bridge: { cwd: beamCwd, source: target.source, phase: 'preparing' } }
-      })
-      const conn = await resolveUrlWithStartupGrace(
-        beamCwd,
-        (prompt) =>
-          ctx.hasUI
-            ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
-            : Promise.resolve(allowNonInteractiveInstall()),
-        (message) => {
-          if (message) {
-            installTranscript = message
-            onUpdate?.({
-              content: [{ type: 'text' as const, text: message }],
-              details: { bridge: { cwd: beamCwd, source: target.source, phase: 'starting' } }
+      let preparationNoticeShown = false
+      const preparationTimer = onUpdate
+        ? setTimeout(() => {
+            preparationNoticeShown = true
+            onUpdate({
+              content: [{ type: 'text' as const, text: bridgePreparationMessage(target) }],
+              details: { bridge: { cwd: beamCwd, source: target.source, phase: 'preparing' } }
             })
-          }
-        },
-        signal
-      )
-      if (!conn) {
-        const error = connectionError(beamCwd)
-        if (!installTranscript) return error
+          }, PREPARATION_NOTICE_DELAY_MS)
+        : undefined
+      preparationTimer?.unref?.()
 
-        return {
-          ...error,
-          content: [
-            {
-              type: 'text' as const,
-              text: `${installTranscript}\n\n${error.content.map((part) => part.text).join('\n')}`
+      try {
+        const conn = await resolveUrlWithStartupGrace(
+          beamCwd,
+          (prompt) =>
+            ctx.hasUI
+              ? ctx.ui.confirm('Install Pi BEAM tools?', installPromptMessage(prompt))
+              : Promise.resolve(allowNonInteractiveInstall()),
+          (message) => {
+            if (message) {
+              installTranscript = message
+              if (preparationTimer && !preparationNoticeShown) clearTimeout(preparationTimer)
+              onUpdate?.({
+                content: [{ type: 'text' as const, text: message }],
+                details: { bridge: { cwd: beamCwd, source: target.source, phase: 'starting' } }
+              })
             }
-          ]
-        }
-      }
+          },
+          signal
+        )
+        if (!conn) {
+          const error = connectionError(beamCwd)
+          if (!installTranscript) return error
 
-      const bridgeParams = tool.opts?.prepareParams?.(params, ctx, beamCwd, _id) ?? params
-      const { text: rawText, isError } = await tool.executeToolCall(bridgeParams, conn.url, signal)
-      const extraDetails = tool.opts?.resultDetails?.(rawText, params) ?? {}
-      const text = tool.opts?.transformResult ? tool.opts.transformResult(rawText) : rawText
-      const forcedError = tool.opts?.isErrorResult?.(rawText, params) ?? false
-      return {
-        content: [{ type: 'text' as const, text: truncated(text) }],
-        isError: isError || forcedError,
-        details: {
-          args: params,
-          mcpName: tool.name,
-          bridge: { cwd: beamCwd, source: target.source, connection: conn.kind },
-          ...extraDetails
+          return {
+            ...error,
+            content: [
+              {
+                type: 'text' as const,
+                text: `${installTranscript}\n\n${error.content.map((part) => part.text).join('\n')}`
+              }
+            ]
+          }
         }
+
+        const bridgeParams = tool.opts?.prepareParams?.(params, ctx, beamCwd, _id) ?? params
+        const { text: rawText, isError } = await tool.executeToolCall(
+          bridgeParams,
+          conn.url,
+          signal
+        )
+        const extraDetails = tool.opts?.resultDetails?.(rawText, params) ?? {}
+        const text = tool.opts?.transformResult ? tool.opts.transformResult(rawText) : rawText
+        const forcedError = tool.opts?.isErrorResult?.(rawText, params) ?? false
+        return {
+          content: [{ type: 'text' as const, text: truncated(text) }],
+          isError: isError || forcedError,
+          details: {
+            args: params,
+            mcpName: tool.name,
+            bridge: { cwd: beamCwd, source: target.source, connection: conn.kind },
+            ...extraDetails
+          }
+        }
+      } finally {
+        if (preparationTimer) clearTimeout(preparationTimer)
       }
     },
     renderCall: (args, theme, context) => tool.renderCall(args as ToolArgs, theme, context),
