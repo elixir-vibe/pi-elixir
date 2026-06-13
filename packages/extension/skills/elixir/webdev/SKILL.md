@@ -1,6 +1,6 @@
 ---
 name: elixir-webdev
-description: Phoenix/LiveView web development in existing projects: UI building, frontend assets, styling, browser-console feedback, PhoenixReplay debugging, and interactive verification. Use elixir-dev for general Elixir work and elixir-new-project for bootstrapping new projects.
+description: "Phoenix/LiveView web development in existing projects: UI building, frontend assets, styling, browser-console feedback, PhoenixReplay debugging, and interactive verification. Use elixir-dev for general Elixir work and elixir-new-project for bootstrapping new projects."
 ---
 
 # Elixir Web Development
