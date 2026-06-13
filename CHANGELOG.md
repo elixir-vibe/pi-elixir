@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 0.6.19 - 2026-06-13
+
 ### Added
 
 - Added `AST.diff(changed: true)` / `Pi.AST.diff/1` for syntax-aware review of Elixir git changes before reading textual patches.
@@ -10,6 +12,7 @@
 ### Changed
 
 - Elixir agent guidance now prefers semantic diffs for Elixir code review before large or truncated `git diff` output.
+- Elixir syntax diff output now groups evidence by file/module and separates public API edits from private helper changes.
 
 ## 0.6.18 - 2026-06-13
 

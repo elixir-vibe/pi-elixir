@@ -285,7 +285,6 @@ defmodule Pi.AST do
 
   defp visibility_word(:public), do: "public"
   defp visibility_word(:private), do: "private"
-  defp visibility_word(_), do: "function"
 
   defp function_target(%{name: name, arity: arity}, nil), do: "#{name}/#{arity}"
 
@@ -311,18 +310,20 @@ defmodule Pi.AST do
   defp range_line(%{start: start}), do: start[:line]
 
   defp module_name(source) do
-    with {:ok, ast} <- Code.string_to_quoted(source) do
-      ast
-      |> Macro.prewalk(nil, fn
-        {:defmodule, _, [{:__aliases__, _, parts}, _]} = node, nil ->
-          {node, Module.concat(parts) |> inspect()}
+    case Code.string_to_quoted(source) do
+      {:ok, ast} ->
+        ast
+        |> Macro.prewalk(nil, fn
+          {:defmodule, _, [{:__aliases__, _, parts}, _]} = node, nil ->
+            {node, Module.concat(parts) |> inspect()}
 
-        node, acc ->
-          {node, acc}
-      end)
-      |> elem(1)
-    else
-      _ -> nil
+          node, acc ->
+            {node, acc}
+        end)
+        |> elem(1)
+
+      _ ->
+        nil
     end
   end
 
