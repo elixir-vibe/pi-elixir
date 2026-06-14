@@ -1,327 +1,20 @@
 # pi-elixir
 
-`pi-elixir` is the pi bridge for BEAM-native, verifiable Elixir development.
+`pi-elixir` is the pi extension for BEAM-native, verifiable Elixir development.
 
-It gives pi a live connection to the running Elixir system, structural Elixir AST tools, supervised BEAM sessions, and resumable eval state. The emphasis is on callable capabilities and verifiers, not only instructions: the agent can inspect runtime state, make syntax-aware changes, and validate them from formatter/compile/test checks up through duplication, static analysis, and architecture/smell checks.
+It connects pi to the running Elixir system so an agent can inspect runtime state, make syntax-aware Elixir edits, and verify changes with real project checks. The model-facing surface stays intentionally small: eval for runtime truth, ExAST tools for structural code work, and normal Mix/LSP/shell commands for everything else.
 
-This follows the broader [Vibe](https://github.com/elixir-vibe/vibe) direction: few model-facing tools outside, rich composable Elixir APIs inside, structured BEAM payloads rendered by pi, and verification through runtime state plus structural analysis.
+## What it gives pi
 
-Real pi TUI output looks like this — compact tool calls, real BEAM status, and session trees rendered in the transcript/widget:
+- **Live BEAM eval** — `elixir_eval` runs trusted Elixir inside the loaded app with project modules, deps, config, processes, ETS, logs, and IEx helpers available.
+- **Stateful IEx-like cells** — bindings, aliases, imports, and requires persist across eval calls and resume/branch navigation via sidecar snapshots.
+- **Structural Elixir tools** — `elixir_ast_search` and `elixir_ast_replace` use [ExAST](https://hex.pm/packages/ex_ast) patterns instead of text/regex matching.
+- **Syntax-aware review orientation** — `AST.diff(changed: true)` / `CodeMap.reflect(changed: true)` summarize changed modules/functions before the agent reads a large `git diff`.
+- **OTP-backed sessions and agents** — optional BEAM sessions/subagents render as compact pi session trees without spawning more pi processes.
+- **Project-local skills/plugins** — trusted local Elixir can add project workflows, guardrails, slash commands, tool hooks, and UI widgets.
+- **Strict verification** — this repo gates releases with JS lint/typecheck/tests, BEAM compile/test/Credo/Dialyzer, ExDNA clone detection, Reach architecture/smell checks, Hex build validation, and npm pack validation.
 
-```text
-iex case Pi.Agent.parallel(["Reply only: child A ok", "Reply only: child B ok"], name: :review_smoke, timeout: 60000) d…
-(70000ms)
-
-%{status: :ok, kind: :parallel, results: ["child A ok", "child B ok"]}
-
-Took 6.8s
-
-✓ review_smoke
-  2 done
-  ├─ ✓ review_smoke  child A ok
-  └─ ✓ review_smoke  child B ok
-  (ctrl+o to expand)
-
-~/my_app
-↑37k ↓156 $0.190 (sub) 6.9%/272k (auto)                                                                      (openai-codex) gpt-5.5 • medium
-⬡ BEAM (embedded)
-```
-
-## Why this is different
-
-Instructions are included, but they are not the foundation. The foundation is executable capability: `iex` into the live app, ExAST-backed structural tools, OTP sessions, project-local plugins/skills, and strict verification gates.
-
-`pi-elixir` gives the agent concrete operations and checks:
-
-- **Live runtime inspection** — evaluate trusted Elixir inside the loaded app with project modules, config, deps, application env, processes, ETS, logs, and IEx helpers available.
-- **Stateful IEx-like eval** — bindings, aliases, imports, and requires persist across `elixir_eval` calls. The state is stored as sidecar snapshots next to the pi session, so resume and branch navigation keep the right context.
-- **Structural code intelligence** — `elixir_ast_search` and `elixir_ast_replace` use [ExAST](https://hex.pm/packages/ex_ast) patterns, so the agent searches and edits Elixir syntax instead of playing regex roulette.
-- **OTP-native subagents** — `Pi.Session` and `Pi.Agent` run logical child sessions inside the embedded BEAM. Active work renders as a pi widget; completed trees land in transcript once.
-- **Active-model LLM from BEAM** — `Pi.LLM` and optional `Pi.ReqLLM` route BEAM calls through pi's current model. pi owns provider/model selection, credentials, streaming, cancellation, usage, and transcript UI; the BEAM side sends structured completion/stream requests over the active bridge.
-- **Project-local skills and plugins** — trusted Elixir code can teach the agent your app's workflows, guardrails, slash commands, UI widgets, and tool hooks.
-- **Hard quality gates** — the repo itself is checked with JS lint/typecheck/tests, BEAM compile/test/Credo/Dialyzer, [ExDNA](https://hex.pm/packages/ex_dna) clone detection, and [Reach](https://hex.pm/packages/reach) architecture/smell checks.
-
-The philosophy is the same as Vibe: compact agent APIs, structured BEAM payloads, runtime state, and Elixir/OTP idioms first. The implementation is pi-native: TypeScript owns tool registration/TUI rendering, while BEAM owns Elixir semantics.
-
-## What you can do every day
-
-### Debug a Phoenix/Ecto issue in the running app
-
-The agent uses `iex` (`elixir_eval`) to inspect the live BEAM. Calls render as compact pi tool rows, not giant JSON blobs:
-
-```text
-iex alias MyApp.Repo; alias MyApp.Billing.Invoice; stale = Repo.all(...); length(stale)
-
-14
-
-Took 0.1s
-```
-
-The next eval continues from the same IEx-like state:
-
-```text
-iex stale |> Enum.group_by(& &1.customer_id) |> Enum.map(fn {id, xs} -> {id, length(xs)} end)
-
-[{"cust_123", 5}, {"cust_456", 9}]
-
-Took 0.1s
-```
-
-That continuity is real state, not prompt memory. On resume/branch navigation, `pi-elixir` restores the newest matching sidecar eval snapshot.
-
-### Inspect OTP instead of guessing
-
-The agent can ask the live system about supervisors, queues, process state, ETS, logs, and application config:
-
-```text
-iex Supervisor.which_children(MyApp.Supervisor)
-
-[
-  {MyApp.Repo, #PID<0.421.0>, :worker, [MyApp.Repo]},
-  {MyAppWeb.Endpoint, #PID<0.422.0>, :supervisor, [MyAppWeb.Endpoint]}
-]
-
-Took 0.1s
-```
-
-For Elixir bugs, this is the daily win: pi does not have to infer runtime truth from files alone.
-
-### Search and edit by Elixir syntax shape
-
-ExAST-backed tools show pi-style compact calls and semantic results. The agent can search for code shape instead of text:
-
-Real captured `ast grep` output:
-
-```text
-ast grep defmodule _ do _ end lib/pi/ast.ex · limit 2 · allow broad
-
-1 match  defmodule _ do _ end
-  lib/pi/ast.ex:1  defmodule Pi.AST do @moduledoc "Structured ExAST helpers for bridge tools." ali…
-  (ctrl+o to expand)
-```
-
-Real captured `ast edit` dry-run/no-match output:
-
-```text
-ast edit Logger.debug(_) → Logger.info(_) lib/pi/eval/snapshot.ex · limit 2 ·…
-
-No matches found.
-```
-
-The structure is Elixir AST. Captures, partial structs/maps, nested expressions, and broad-pattern guards are handled by ExAST, not a regex pretending to know Elixir. When a replacement matches, the same tool row renders syntax-aware edit summaries before textual patch details. For ordinary code review, use `AST.diff(changed: true)` from eval to orient on changed modules/functions before reading large `git diff` output.
-
-### Run OTP-backed child agents without spawning more pi processes
-
-BEAM sessions render as real pi session trees. This is captured from tmux; names/strings are sanitized only:
-
-```text
-iex {:ok, root} = Pi.Session.start(name: :showcase); ...; :ok
-
-:ok
-
-Took 0.1s
-
-○ showcase
-  3 done
-  └─ ✓ tests done · done  70 passed
-  └─ ✓ review done · done  LGTM
-  └─ ✓ research done · done  notes ready
-  (ctrl+o to expand)
-
-~/my_app
-↑17k ↓223 R16k CH96.4% $0.102 (sub) 6.3%/272k (auto)                                                                   (openai-codex) gpt-5.5 • medium
-⬡ BEAM (embedded)
-```
-
-For real model-backed BEAM agents, the transcript shape is the same:
-
-```text
-iex case Pi.Agent.parallel(["Review API", "Review tests"], name: :review_smoke, timeout: 60000) d…
-(70000ms)
-
-%{status: :ok, kind: :parallel, results: ["API ok", "tests ok"]}
-
-Took 6.8s
-
-✓ review_smoke
-  2 done
-  ├─ ✓ review_smoke  API ok
-  └─ ✓ review_smoke  tests ok
-  (ctrl+o to expand)
-```
-
-Active/running BEAM snapshots are widget-only. Completed root trees are sent once as transcript messages, so you do not get repeated live snapshot artifacts.
-
-### Add project-specific Elixir knowledge
-
-The startup screen shows `elixir-dev` / `elixir-new-project` as normal pi skills:
-
-```text
-[Skills]
-  ... context-management, elixir-dev, elixir-new-project, ...
-
-[Extensions]
-  ... src, webfetch, websearch, ...
-```
-
-Your project can add executable Elixir skills and plugins. The main UX effect is that pi gets your release checklist, Oban conventions, Ecto rules, UI widgets, and slash commands as local trusted project behavior — not as generic prompt text.
-
-## The model-facing tool surface
-
-`pi-elixir` deliberately exposes only three model tools:
-
-| Tool | Label | Purpose |
-|---|---:|---|
-| `elixir_eval` | `iex` | Trusted eval inside the running app. Stateful by default for pi session branches; sandbox mode available for untrusted snippets. |
-| `elixir_ast_search` | `ast grep` | ExAST structural search over Elixir code. |
-| `elixir_ast_replace` | `ast edit` | ExAST structural rewrite with dry-run diffs. |
-
-Everything else is regular Elixir API reachable through eval:
-
-```elixir
-Pi.project()
-Pi.logs(tail: 50)
-Pi.Bridge.Info.runtime_apis()
-
-Pi.Eval.bindings()
-Pi.Eval.forget(:huge_result)
-Pi.Eval.reset()
-
-Pi.LLM.complete("Summarize this module")
-Pi.LLM.stream("Draft a migration plan")
-Pi.ReqLLM.install()
-ReqLLM.generate_text(Pi.ReqLLM.current_model(), "Summarize this module")
-
-Pi.Session.start(name: :reviewer)
-Pi.Agent.parallel(["Review API", "Review tests", "Review OTP risks"])
-
-{:ok, job} = Pi.Agent.start("Review this module", role: :reviewer)
-{:ok, done} = Pi.Agent.await(job, 60_000)
-{:ok, text} = Pi.Agent.result(done)
-```
-
-Eval also preloads token-efficient aliases for QuackDB session analytics:
-
-```elixir
-# preloaded: import Ecto.Query; use QuackDB.Ecto
-# preloaded: alias Pi.Self, as: Self
-# preloaded: alias Pi.CodeMap, as: CodeMap
-# preloaded: alias Pi.Quack, as: Q; require Q
-# preloaded: alias Pi.Quack.Event, as: E; alias Pi.Quack.SessionFile, as: SF
-
-Self.status()
-Self.context("why did sync crash?", limit: 5)
-
-# After non-trivial Elixir edits, reflect before finalizing.
-CodeMap.reflect(changed: true)
-
-q = "function_clause"
-
-from(e in Q.errors(),
-  where: Q.matches(e.id, ^q),
-  order_by: [desc: Q.score(e.id, ^q)],
-  limit: 20,
-  select: %{s: Q.score(e.id, ^q), tool: e.tool_name, content: Q.json_text(e.payload_json, "$.content")}
-)
-|> Q.table()
-```
-
-This keeps the transcript understandable: the model writes Elixir to control Elixir.
-
-## Stateful eval and session-tree resume
-
-`elixir_eval` behaves like an IEx/Livebook cell runtime scoped to the current pi execution path:
-
-- variables persist across calls;
-- `alias`, `import`, and `require` persist through `Macro.Env`;
-- errors do not replace the previous good state;
-- `Pi.Eval.bindings/0`, `forget/1`, and `reset/0` manage state from inside eval;
-- snapshots are stored as sidecar blobs, **not** in the JSONL transcript.
-
-Physical storage:
-
-```text
-<session.jsonl>.pi-elixir/
-  eval-state/
-    <toolCallId>.term
-    <toolCallId>.term.meta.json
-```
-
-When you navigate or resume a pi branch, the extension walks the session branch, finds the newest ancestor eval snapshot, and starts the next eval from that state. New evals write a new immutable checkpoint keyed by the tool call id, so old branch state is not overwritten.
-
-Large or unsafe bindings are handled defensively:
-
-- PIDs, ports, refs, functions, and containers containing them are not persisted.
-- Live evaluator memory can hold runtime values while the bridge is active.
-- Sidecar snapshots have a size budget and drop largest serializable bindings first.
-- Metadata JSON contains only names/types/bytes, never the full state.
-
-## Architecture
-
-```text
-pi Node/TUI
-  ├─ TypeScript extension
-  │  ├─ registers tools and skills
-  │  ├─ starts embedded stdio by default, with explicit/discovered HTTP MCP escape hatches
-  │  ├─ owns TUI rendering and sidecar eval-state paths
-  │  └─ forwards lifecycle/tool events
-  │
-  └─ embedded or external BEAM
-     ├─ Pi.Transport.Stdio / MCP endpoint
-     ├─ Pi.Eval.Supervisor
-     ├─ Pi.LLM.Broker
-     ├─ Pi.Session.Supervisor
-     ├─ Pi.Plugin.Manager
-     ├─ Pi.Skill.Loader
-     └─ project modules, deps, processes, Repo
-```
-
-The BEAM side emits structured protocol payloads. The TS side renders them in pi style. For example, eval can return an ordered, typed table while staying plain Elixir until the final output helper:
-
-```elixir
-Path.wildcard("lib/pi/**/*.ex")
-|> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})
-|> Enum.sort_by(& &1.bytes, :desc)
-|> Enum.take(8)
-|> Pi.table(columns: [:path, :bytes])
-```
-
-Final eval values auto-render when their shape is known (tables for lists of maps/keywords, trees for maps, text for strings). Use `Pi.output(value, opts)` only when you want to force rendering options such as column order:
-
-```elixir
-Path.wildcard("lib/pi/**/*.ex")
-|> Enum.map(&%{path: &1, bytes: File.stat!(&1).size})
-|> Enum.sort_by(& &1.bytes, :desc)
-|> Enum.take(8)
-|> Pi.output(columns: [:path, :bytes])
-```
-
-Use `Pi.table(rows, columns: [...])` when you explicitly want to construct table output; otherwise columns are inferred from row keys.
-
-Docs discovery is Enum-friendly for installed modules:
-
-```elixir
-Pi.Docs.entries(Pi.Output)
-|> Enum.filter(&(&1.kind == :function and &1.name == :table))
-```
-
-```elixir
-Pi.Docs.get(Pi.Output, :table, 2)
-```
-
-Use source slices when you want read-tool-like context for installed modules:
-
-```elixir
-Pi.Docs.module(Pi.Output)
-|> Pi.Docs.function(:table, 2)
-|> Pi.Docs.source(context: 25)
-```
-
-Bounded web fetches return structured values and do not expose raw `Req`:
-
-```elixir
-Pi.Web.fetch!("https://example.com", format: :text)
-```
+`pi-elixir` follows the broader [Elixir Vibe](https://github.com/elixir-vibe) direction: compact agent APIs outside, rich composable Elixir APIs inside, structured BEAM payloads rendered by pi, and verification through runtime state plus structural analysis.
 
 ## Install
 
@@ -335,7 +28,7 @@ Check the bridge from inside pi:
 /elixir:status
 ```
 
-Use full diagnostics when something looks wrong:
+Use full diagnostics when setup looks wrong:
 
 ```text
 /elixir:doctor
@@ -355,6 +48,151 @@ That adds an exact-versioned dependency such as:
 
 The exact version matters: npm `pi-elixir` and Hex `pi_bridge` are released together and must speak the same protocol. If you skip `/elixir:install`, the first Elixir tool call can still prompt to add the dependency.
 
+## Daily workflow
+
+### Inspect the running app
+
+Use `iex` / `elixir_eval` when runtime truth matters:
+
+```text
+iex alias MyApp.Repo; alias MyApp.Billing.Invoice; stale = Repo.all(...); length(stale)
+
+14
+
+Took 0.1s
+```
+
+The next eval continues from the same IEx-like state:
+
+```text
+iex stale |> Enum.group_by(& &1.customer_id) |> Enum.map(fn {id, xs} -> {id, length(xs)} end)
+
+[{"cust_123", 5}, {"cust_456", 9}]
+
+Took 0.1s
+```
+
+For Phoenix/Ecto/OTP bugs, prefer asking the running system over guessing from files:
+
+```elixir
+Supervisor.which_children(MyApp.Supervisor)
+Application.get_env(:my_app, MyApp.Repo)
+Process.info(pid, [:status, :message_queue_len, :current_stacktrace])
+Pi.logs(tail: 50)
+```
+
+### Search and edit by syntax
+
+Use ExAST-backed tools for Elixir code shape:
+
+```text
+ast grep defmodule _ do _ end lib/my_app
+ast edit Logger.debug(_) → Logger.info(_) lib/my_app --dry-run
+```
+
+These tools match Elixir AST, including captures and nested expressions. They are for structural Elixir search/refactors; use LSP for editor semantics and `mix format`/tests for verification.
+
+### Review changed Elixir safely
+
+Before reading a large or truncated textual diff, orient on changed modules/functions:
+
+```elixir
+AST.diff(changed: true)
+CodeMap.reflect(changed: true)
+```
+
+Then inspect only the relevant source slices or `git diff` sections. This keeps review focused on semantic changes instead of raw patch volume.
+
+## Model-facing tools
+
+`pi-elixir` deliberately exposes only three model tools:
+
+| Tool | Label | Purpose |
+|---|---:|---|
+| `elixir_eval` | `iex` | Trusted eval inside the running app. Stateful by default for pi session branches; sandbox mode is available for untrusted snippets. |
+| `elixir_ast_search` | `ast grep` | ExAST structural search over Elixir code. |
+| `elixir_ast_replace` | `ast edit` | ExAST structural rewrite with dry-run diffs. |
+
+Everything else is ordinary Elixir API reachable through eval:
+
+```elixir
+Pi.project()
+Pi.logs(tail: 50)
+Pi.Bridge.Info.runtime_apis()
+
+Pi.Eval.bindings()
+Pi.Eval.forget(:huge_result)
+Pi.Eval.reset()
+
+Pi.Docs.entries(Pi.Output)
+Pi.Docs.get(Pi.Output, :table, 2)
+Pi.Web.fetch!("https://example.com", format: :text)
+
+Pi.Session.start(name: :reviewer)
+Pi.Agent.parallel(["Review API", "Review tests"], timeout: 60_000)
+```
+
+For model calls from the BEAM, pi still owns provider/model selection, credentials, streaming, cancellation, usage, and transcript UI:
+
+```elixir
+Pi.LLM.complete("Summarize this module")
+Pi.LLM.stream("Draft a migration plan")
+
+Pi.ReqLLM.install()
+ReqLLM.generate_text(Pi.ReqLLM.current_model(), "Summarize this module")
+```
+
+## Stateful eval and sidecars
+
+`elixir_eval` behaves like an IEx/Livebook cell runtime scoped to the current pi execution path:
+
+- variables persist across calls;
+- `alias`, `import`, and `require` persist through `Macro.Env`;
+- errors do not replace the previous good state;
+- `Pi.Eval.bindings/0`, `forget/1`, and `reset/0` manage state from inside eval;
+- snapshots are stored as sidecar blobs, **not** in the JSONL transcript.
+
+Physical storage:
+
+```text
+<session.jsonl>.pi-elixir/
+  eval-state/
+    <toolCallId>.term
+    <toolCallId>.term.meta.json
+```
+
+Unsafe or oversized bindings are handled defensively: PIDs/ports/refs/functions are not persisted, containers containing them are skipped, and sidecar snapshots have a size budget.
+
+## Connection model
+
+The normal path is an embedded stdio bridge started inside the Mix project with `Pi.Transport.Stdio.start()`. HTTP MCP endpoints are advanced/debug escape hatches.
+
+Resolution order:
+
+1. `PI_MCP_URL`, only when explicitly configured for a manually exposed HTTP MCP endpoint.
+2. Discovered local HTTP MCP endpoint matching the Mix app name.
+3. Embedded stdio transport inside the project.
+
+```sh
+# Advanced/debug only: bypass embedded stdio and use your own HTTP MCP endpoint.
+export PI_MCP_URL=http://localhost:4001/mcp
+export PI_DISABLE_EMBEDDED=1
+```
+
+Status is transport-focused and actionable: external/embedded/starting/missing/incompatible/offline. It does **not** show project package versions or optional integration guesses; project-specific checks belong in explicit eval snippets, prompts, and skills.
+
+Feature flags are escape hatches for noisy, sensitive, or experimental environments:
+
+| Capability | Default | Escape hatch |
+|---|---:|---|
+| Stateful `elixir_eval` | on | `PI_ELIXIR_STATEFUL_EVAL=0` |
+| Eval sidecar snapshots | on | `PI_ELIXIR_EVAL_SIDECAR=0` |
+| BEAM LLM / ReqLLM | on | `PI_ELIXIR_LLM=0` |
+| BEAM sessions/widgets/control | on | `PI_ELIXIR_SESSIONS=0` |
+| Project plugins/hooks/UI/commands | on | `PI_ELIXIR_PLUGINS=0` |
+| Executable Elixir skills | on | `PI_ELIXIR_SKILLS=0` |
+| Extra-short eval previews | off | `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` |
+
 ## Recommended project stack
 
 For new web applications, use Phoenix with Igniter and VibeKit, then add pi-elixir in the project:
@@ -368,7 +206,7 @@ mix igniter.install vibe_kit --agents-md
 pi install npm:pi-elixir
 ```
 
-For non-web Elixir projects and packages, use Igniter with VibeKit as the baseline:
+For non-web Elixir projects and packages:
 
 ```sh
 mix archive.install hex igniter_new
@@ -377,12 +215,24 @@ cd my_lib
 pi install npm:pi-elixir
 ```
 
-VibeKit provides the project quality baseline (`mix ci`, Credo strict with ExSlop, Dialyzer, ExDNA, and Reach). pi-elixir provides the live BEAM tools used by agents while they work inside that project. In each generated project, run `/elixir:install` once to add the exact matching dev-only `:pi_bridge` dependency.
+VibeKit provides the project quality baseline (`mix ci`, Credo strict with ExSlop, Dialyzer, ExDNA, and Reach). pi-elixir provides the live BEAM tools used by agents while they work inside that project. Run `/elixir:install` once per project to add the exact matching dev-only `:pi_bridge` dependency.
 
-For local development:
+## Troubleshooting setup
+
+| Symptom | What to do |
+|---|---|
+| `Mix cwd: not found` | Start pi from a Mix project directory, or from a supported repo root with a known nested Mix project. |
+| `Elixir is not installed or not available on PATH` | Start pi from a shell where Elixir/Mix are available. If you just changed `mise`/`asdf` versions, restart pi. |
+| Stale `mise` PATH warning | Restart the shell/pi process so removed tool install paths disappear from `PATH`. |
+| `pi_bridge dependency: missing` | Run `/elixir:install` in the Mix project. |
+| Embedded BEAM exited before ready | Fix the Mix/Elixir error shown in doctor, then run `/elixir:restart`. Wrong Elixir versions surface here as the real Mix error. |
+| `pi_bridge version mismatch` | Update the Mix dependency to the exact version expected by installed `pi-elixir`, then run `mix deps.get`. |
+| Tool registration conflicts with another `pi-elixir` path | Remove the duplicate install, usually `pi remove npm:pi-elixir`, then install only the checkout or only the npm package. |
+
+## Local development
 
 ```sh
-git clone https://github.com/dannote/pi-elixir
+git clone https://github.com/elixir-vibe/pi-elixir
 cd pi-elixir
 pnpm install
 cd packages/bridge && mix deps.get && cd ../..
@@ -398,134 +248,6 @@ pi install "$PWD"
 
 From an already-running local checkout, `/elixir:dogfood` performs that switch for you.
 
-### Troubleshooting setup
-
-Use `/elixir:status` first for a short bridge summary. Use `/elixir:doctor` when setup looks wrong; it reports the resolved Mix project, Elixir/Mix availability, `pi_bridge` dependency status, connection state, embedded startup failures, and a suggested next step.
-
-Common cases:
-
-| Symptom | What to do |
-|---|---|
-| `Mix cwd: not found` | Start pi from a Mix project directory, or from a supported repo root with a known nested Mix project. |
-| `Elixir is not installed or not available on PATH` | Start pi from a shell where Elixir/Mix are available. If you just changed `mise`/`asdf` versions, restart pi. |
-| Stale `mise` PATH warning | Restart the shell/pi process so removed tool install paths disappear from `PATH`. |
-| `pi_bridge dependency: missing` | Run `/elixir:install` in the Mix project. |
-| Embedded BEAM exited before ready | Fix the Mix/Elixir error shown in doctor, then run `/elixir:restart`. Wrong Elixir versions surface here as the real Mix error. |
-| `pi_bridge version mismatch` | Update the Mix dependency to the exact version expected by the installed `pi-elixir`, then run `mix deps.get`. |
-| Tool registration conflicts with another `pi-elixir` path | Remove the duplicate install, usually `pi remove npm:pi-elixir`, then install only the checkout or only the npm package. |
-
-For setup-flow regression testing in this repository:
-
-```sh
-scripts/manual-setup-flow.sh
-```
-
-It runs tmux/asciinema playground scenarios for non-Mix directories, missing bridge dependency, explicit install, wrong Elixir startup failure, happy path tools, and duplicate package conflicts.
-
-## Connection model
-
-The normal connection path is an embedded stdio bridge started inside the Mix project with `Pi.Transport.Stdio.start()`. HTTP MCP endpoints are escape hatches for advanced/debug setups.
-
-Resolution order:
-
-1. `PI_MCP_URL`, only when explicitly configured for a manually exposed HTTP MCP endpoint.
-2. Discovered local HTTP MCP endpoint matching the Mix app name.
-3. Embedded stdio transport inside the project.
-
-```sh
-# Advanced/debug only: bypass embedded stdio and use your own HTTP MCP endpoint.
-export PI_MCP_URL=http://localhost:4001/mcp
-export PI_DISABLE_EMBEDDED=1
-```
-
-Status is transport-focused and actionable: external/embedded/starting/missing/incompatible/offline. Project-specific recommendations live in prompts/skills, not status-bar integrations.
-
-Feature flags are escape hatches for noisy, sensitive, or experimental environments:
-
-| Capability | Default | Escape hatch |
-|---|---:|---|
-| Stateful `elixir_eval` | on | `PI_ELIXIR_STATEFUL_EVAL=0` |
-| Eval sidecar snapshots | on | `PI_ELIXIR_EVAL_SIDECAR=0` |
-| BEAM LLM / ReqLLM | on | `PI_ELIXIR_LLM=0` |
-| BEAM sessions/widgets/control | on | `PI_ELIXIR_SESSIONS=0` |
-| Project plugins/hooks/UI/commands | on | `PI_ELIXIR_PLUGINS=0` |
-| Executable Elixir skills | on | `PI_ELIXIR_SKILLS=0` |
-| Extra-short eval previews | off | `PI_ELIXIR_COMPACT_EVAL_PREVIEW=1` |
-
-## Included Elixir development skill
-
-The package ships pi skills for Elixir work:
-
-- `elixir-dev` — use BEAM eval for runtime introspection, ExAST tools for structural search/edit, LSP for editor semantics, and Mix only for build/test/format gates.
-- `elixir-new-project` — bootstrap new Elixir packages/projects with strict VibeKit/Igniter-style quality setup.
-
-The skill tells the agent how to work idiomatically: prefer runtime truth, inspect installed docs with `h/1`, `exports/1`, `Pi.Docs.entries/1`, and `Pi.Docs.get/3`, use ExAST patterns for Elixir search/refactors before grep/regex, keep changes verified, and avoid inventing framework behavior.
-
-## Quality stack
-
-The release gate is intentionally strict. `pnpm run check` runs:
-
-- TypeScript lint/typecheck/format/tests/duplication checks.
-- BEAM compile with warnings as errors.
-- ExUnit.
-- Credo strict.
-- Dialyzer.
-- ExDNA clone detection with zero clone budget.
-- Reach architecture and smell checks in strict mode.
-- Hex package build validation.
-- npm pack validation.
-
-Reach and ExAST are not decorative dependencies. They are the direction: agentic Elixir coding should be semantic, structural, and architecture-aware.
-
-## Debugging
-
-Hidden pi command:
-
-```text
-/elixir:debug
-```
-
-Writes extension diagnostics to `~/.pi/agent/pi-elixir-debug.log` by default.
-
-For event-loop/embedded bridge investigations:
-
-```sh
-export PI_ELIXIR_DEBUG=1
-export PI_ELIXIR_DEBUG_LOG=/tmp/pi-elixir-debug.json
-```
-
-## Repository shape
-
-```text
-packages/
-  extension/   # npm/pi package: TS extension, tools, skills, embedded stdio launcher
-  bridge/      # Hex/Mix package: Pi runtime facade, protocol, eval, plugins, sessions
-```
-
-The npm package is the user-facing pi package. The Hex package is installed into target Mix projects as a dev-only bridge.
-
-## Relationship to Vibe
-
-[Vibe](https://github.com/elixir-vibe/vibe) is a BEAM-native coding-agent runtime. `pi-elixir` ports the most useful ideas into pi:
-
-- minimal model-facing Elixir tools;
-- Livebook-style eval state;
-- structured BEAM payloads rendered by pi;
-- executable Elixir skills;
-- project-local plugins;
-- OTP-backed child sessions;
-- BEAM-first runtime inspection.
-
-`pi-elixir` keeps pi's UI and tool model, but moves Elixir-specific work into the running BEAM: eval state, AST operations, sessions, skills, plugins, and runtime checks.
-
-## Development
-
-Prerequisites:
-
-- pnpm
-- Elixir `~> 1.20` with OTP 28+
-- pi installed globally
-
 Common commands:
 
 ```sh
@@ -539,13 +261,14 @@ pnpm run pack:check
 
 `pnpm run check` is the release-readiness gate.
 
+## More docs
+
+- [`packages/extension/README.md`](packages/extension/README.md) — pi extension behavior, connection resolution, slash commands, debugging, rendering, and tool discipline.
+- [`packages/bridge/README.md`](packages/bridge/README.md) — BEAM APIs for eval, docs, LLM, sessions/agents, plugins, host bridge calls, and protocol concepts.
+- [`packages/bridge/docs/protocol.md`](packages/bridge/docs/protocol.md) — stdio/protocol payload examples.
+
 ## Part of Elixir Vibe
 
 pi-elixir gives the pi coding agent a live door into the BEAM: stateful eval, AST tools, and composable runtime APIs.
 
-It is one building block of a larger stack — tools that make AI-generated
-software checkable: structural search, dependence analysis, duplication and
-slop detection, session replay, and ecosystem-wide code search. See the
-[Elixir Vibe](https://github.com/elixir-vibe) organization for the rest, and
-[Building Blocks for the Future Web](https://github.com/elixir-vibe/building-blocks)
-for the thesis, architecture, and roadmap that tie them together.
+It is one building block of a larger stack — tools that make AI-generated software checkable: structural search, dependency analysis, duplication/slop detection, session replay, and ecosystem-wide code search. See the [Elixir Vibe](https://github.com/elixir-vibe) organization and [Building Blocks for the Future Web](https://github.com/elixir-vibe/building-blocks) for the broader thesis and roadmap.

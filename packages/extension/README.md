@@ -21,7 +21,7 @@ pi install npm:pi-elixir
 Works with Phoenix apps, libraries, monorepos with a nested Mix project, and other Mix projects. When a pi tool needs the embedded server and the project does not have Pi BEAM tools installed, pi asks for confirmation, adds a dev-only exact `:pi_bridge` dependency to `mix.exs`, runs `mix deps.get`, then starts the server:
 
 ```elixir
-{:pi_bridge, "== 0.5.4", only: :dev}
+{:pi_bridge, "== 0.6.21", only: :dev}
 ```
 
 The exact version is deliberate: the TypeScript extension and BEAM bridge are released together and must speak the same stdio protocol. If the installed `pi_bridge` version differs from the extension version, pi reports the mismatch and asks you to update the Mix dependency.
@@ -38,7 +38,7 @@ HTTP MCP endpoints are advanced/debug escape hatches. Resolution order:
 2. **Discovered HTTP MCP endpoint** — probes local dev ports and matches `project_name` to the `app:` in `mix.exs`.
 3. **Embedded stdio transport** — default fallback inside the project.
 
-Status bar states:
+Status bar output is intentionally transport-focused and actionable:
 
 | Status | Meaning |
 |---|---|
@@ -47,6 +47,8 @@ Status bar states:
 | `⬡ BEAM starting…` | The embedded stdio process has been launched and is compiling/booting; retry the tool after it reaches ready. |
 | `⬡ BEAM tools missing` | This Mix project does not yet depend on `:pi_bridge`; the first BEAM tool call can prompt to add the dev-only dependency and run `mix deps.get`. |
 | `⬡ BEAM offline` | No BEAM connection is available: no matching external endpoint, embedded fallback disabled, not a Mix project, or embedded startup failed after tools were installed. |
+
+It does **not** show package versions, optional integration guesses, or project telemetry such as Phoenix/Ecto/Oban/Volt/Iconify presence. Put those checks in explicit `elixir_eval` snippets, project prompts, or skills.
 
 ### Configuration
 
@@ -200,7 +202,7 @@ Active BEAM snapshots are widget-only and are reloaded directly from the bridge 
 
 ## Bidirectional UI bridge
 
-BEAM code can emit structured UI payloads through the stdio transport, and the TS extension renders them in pi:
+BEAM code can emit explicit structured UI payloads through the stdio transport, and the TS extension renders them in pi. These APIs are for intentional project/plugin UI, not automatic package-version telemetry:
 
 ```elixir
 Pi.Plugin.UI.set_status(:indexer, "indexing")

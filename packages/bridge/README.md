@@ -1,6 +1,6 @@
 # pi_bridge
 
-BEAM runtime bridge for [pi](https://github.com/earendil-works/pi-coding-agent) and the [`pi-elixir`](https://github.com/dannote/pi-elixir) package. It provides the Elixir-side `Pi.*` modules used for Livebook-style stateful eval, ExAST-backed structural tools, stdio transport, executable Elixir skills, LLM calls through pi's active model, OTP-backed logical agents, and bidirectional plugin UI events.
+BEAM runtime bridge for [pi](https://github.com/earendil-works/pi-coding-agent) and the [`pi-elixir`](https://github.com/elixir-vibe/pi-elixir) package. It provides the Elixir-side `Pi.*` modules used for Livebook-style stateful eval, ExAST-backed structural tools, stdio transport, executable Elixir skills, LLM calls through pi's active model, OTP-backed logical agents, and bidirectional plugin UI events.
 
 `pi_bridge` is inspired by [Vibe](https://github.com/elixir-vibe/vibe): keep the model-facing surface small, but let trusted Elixir code operate from inside the running BEAM.
 
@@ -9,7 +9,7 @@ BEAM runtime bridge for [pi](https://github.com/earendil-works/pi-coding-agent) 
 ```elixir
 def deps do
   [
-    {:pi_bridge, "== 0.5.4", only: :dev}
+    {:pi_bridge, "== 0.6.21", only: :dev}
   ]
 end
 ```
