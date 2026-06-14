@@ -27,6 +27,7 @@ Read the focused guidance files as needed:
 - `tool-discipline.md` — eval/AST/LSP/shell choice rules.
 - `runtime-snippets.md` — useful runtime introspection snippets.
 - `workflow-verification.md` — edit and verification loop.
+- `publishing-packages.md` — Hex package release/publish workflow. Load this before publishing, releasing, shipping, updating Hex package versions, creating package docs, or touching GitHub releases.
 
 For Phoenix/LiveView UI, frontend assets, styling, browser-console feedback, PhoenixReplay debugging, or render verification, load `elixir-webdev` in addition to this general Elixir skill.
 
