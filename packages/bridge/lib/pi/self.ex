@@ -158,7 +158,6 @@ defmodule Pi.Self do
       project: snapshot.project,
       version: snapshot.version,
       transport: snapshot.transport,
-      integrations: snapshot.integrations,
       plugins: Enum.map(snapshot.plugins, & &1.name),
       commands: Enum.map(snapshot.commands, & &1.name)
     }

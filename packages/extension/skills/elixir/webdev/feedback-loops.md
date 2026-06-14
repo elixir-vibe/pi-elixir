@@ -2,25 +2,22 @@
 
 Treat web work as verification work: check a witness before claiming success.
 
-## First check: installed webdev integrations
+## First check: installed webdev packages
 
-Start by asking the running BEAM what webdev packages pi can see:
-
-```elixir
-Pi.Integrations.statuses()
-```
-
-Expected examples in a current Phoenix webdev stack:
+Start by asking the running BEAM which webdev packages are loaded. Keep this as an explicit eval check, not status-bar noise:
 
 ```elixir
-[
-  %Pi.Protocol.Integration.Status{key: :phoenix_iconify, text: "icons 0.3.2"},
-  %Pi.Protocol.Integration.Status{key: :phoenix_replay, text: "replay 0.2.0"},
-  %Pi.Protocol.Integration.Status{key: :volt, text: "volt 0.14.0 · qb 0.10.15"}
-]
+%{
+  phoenix?: Code.ensure_loaded?(Phoenix),
+  live_view?: Code.ensure_loaded?(Phoenix.LiveView),
+  volt?: Code.ensure_loaded?(Volt),
+  quickbeam?: Code.ensure_loaded?(QuickBEAM),
+  phoenix_replay?: Code.ensure_loaded?(PhoenixReplay),
+  phoenix_iconify?: Code.ensure_loaded?(PhoenixIconify)
+}
 ```
 
-If a status is missing, verify the dependency and setup before using package-specific recipes below.
+If a package is missing, verify the dependency and setup before using package-specific recipes below.
 
 ## Loop 1: browser console → BEAM logs → agent
 

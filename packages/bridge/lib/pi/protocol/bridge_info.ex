@@ -4,7 +4,6 @@ defmodule Pi.Protocol.BridgeInfo do
   use JSONCodec, fast_path: :json
 
   alias Pi.Protocol.API.Inventory
-  alias Pi.Protocol.Endpoint
   alias Pi.Protocol.PluginCommand
   alias Pi.Protocol.PluginInfo
   alias Pi.Protocol.SkillInfo
@@ -13,11 +12,9 @@ defmodule Pi.Protocol.BridgeInfo do
     :project,
     :version,
     :transport,
-    integrations: [],
     skills: [],
     plugins: [],
     commands: [],
-    endpoints: [],
     apis: %Inventory{}
   ]
 
@@ -25,15 +22,12 @@ defmodule Pi.Protocol.BridgeInfo do
           project: atom() | nil,
           version: String.t() | nil,
           transport: atom() | nil,
-          integrations: [atom()],
           skills: [SkillInfo.t()],
           plugins: [PluginInfo.t()],
           commands: [PluginCommand.t()],
-          endpoints: [Endpoint.t()],
           apis: Inventory.t()
         }
 
   codec(:project, atom: :unsafe)
   codec(:transport, atom: :existing)
-  codec(:integrations, atom: :unsafe)
 end

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Changed
+
+- Removed optional project integration discovery/status modules. Project-specific Phoenix/Ecto/Oban/Volt/Iconify checks now live as explicit eval recommendations in skills instead of status-bar metadata.
+
 ## 0.6.20 - 2026-06-14
 
 ### Fixed

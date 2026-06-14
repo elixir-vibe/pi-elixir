@@ -65,7 +65,7 @@ Plain Phoenix projects can use their existing view/component render helpers from
 
 ## Real browser acceptance tests
 
-Use `phoenix_test_playwright` when the user needs an actual browser: JavaScript behavior, cross-browser checks, traces, screenshots, iframe/email flows, or browser-only regressions. Do not make it the first/default verification path; prefer BEAM-native checks first (`Pi.Integrations.statuses()`, Volt browser logs, PhoenixReplay recordings, render/eval checks).
+Use `phoenix_test_playwright` when the user needs an actual browser: JavaScript behavior, cross-browser checks, traces, screenshots, iframe/email flows, or browser-only regressions. Do not make it the first/default verification path; prefer BEAM-native checks first (explicit `Code.ensure_loaded?/1` package checks, Volt browser logs, PhoenixReplay recordings, render/eval checks).
 
 Setup, when explicitly needed:
 

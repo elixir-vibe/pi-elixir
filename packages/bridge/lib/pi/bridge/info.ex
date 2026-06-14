@@ -1,14 +1,12 @@
 defmodule Pi.Bridge.Info do
   @moduledoc "Startup inventory for pi_bridge sessions."
 
-  alias Pi.Integrations
   alias Pi.Plugin.Manager
   alias Pi.Protocol.API.Extension
   alias Pi.Protocol.API.Function
   alias Pi.Protocol.API.Inventory
   alias Pi.Protocol.API.Module, as: APIModule
   alias Pi.Protocol.BridgeInfo
-  alias Pi.Protocol.Endpoint
   alias Pi.Protocol.PluginCommand
   alias Pi.Protocol.PluginInfo
   alias Pi.Protocol.SkillInfo
@@ -26,8 +24,7 @@ defmodule Pi.Bridge.Info do
     plugin_ui: Pi.Plugin.UI,
     plugin_events: Pi.Plugin.Event,
     session: Pi.Session,
-    eval_sandbox: Pi.Eval.Sandbox,
-    integrations: Pi.Integrations
+    eval_sandbox: Pi.Eval.Sandbox
   ]
 
   def snapshot(transport \\ :stdio) do
@@ -35,11 +32,9 @@ defmodule Pi.Bridge.Info do
       project: Mix.Project.config()[:app],
       version: bridge_version(),
       transport: transport,
-      integrations: Integrations.loaded(),
       skills: skills(),
       plugins: plugins(),
       commands: commands(),
-      endpoints: endpoints(),
       apis: %Inventory{
         runtime: runtime_apis(),
         extensions: extension_apis()
@@ -135,11 +130,6 @@ defmodule Pi.Bridge.Info do
     else
       []
     end
-  end
-
-  defp endpoints do
-    Integrations.endpoints()
-    |> Enum.map(&Endpoint.from_map!/1)
   end
 
   defp normalize_skill(%SkillInfo{} = skill), do: skill

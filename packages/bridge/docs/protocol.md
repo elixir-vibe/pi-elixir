@@ -10,10 +10,8 @@ The bridge keeps protocol data as JSONCodec structs internally. These examples s
   "info": {
     "project": "pi_bridge",
     "transport": "stdio",
-    "integrations": ["ex_unit"],
     "skills": [],
     "plugins": [],
-    "endpoints": [],
     "apis": {
       "runtime": [
         {

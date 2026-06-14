@@ -5,7 +5,6 @@ defmodule Pi.Transport.Stdio do
   require Pi.Features
 
   alias Pi.Bridge.Info
-  alias Pi.Integrations
   alias Pi.LLM.Broker
   alias Pi.MCP.Tools
   alias Pi.Plugin.Event
@@ -54,7 +53,6 @@ defmodule Pi.Transport.Stdio do
     Broker.install()
     Pi.Eval.Supervisor.install()
     ready()
-    emit_integration_statuses()
 
     parent = self()
 
@@ -260,12 +258,6 @@ defmodule Pi.Transport.Stdio do
   end
 
   defp ready, do: write(%Ready{type: :ready, info: Info.snapshot(:stdio)})
-
-  defp emit_integration_statuses do
-    Enum.each(Integrations.statuses(), fn %{key: key, text: text} ->
-      write(%Pi.Protocol.UIEvent{type: :ui, op: :status, key: key, text: text})
-    end)
-  end
 
   defp encode_structs(values) do
     values

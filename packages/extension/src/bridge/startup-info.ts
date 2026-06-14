@@ -2,21 +2,14 @@ import type { BridgeInfo } from '#src/embedded/stdio-process.ts'
 import { EXTENSION_VERSION } from '#src/version.ts'
 import type { ExtensionContext } from '@earendil-works/pi-coding-agent'
 
-function list<T>(value: T[] | undefined, render: (value: T) => string | undefined) {
-  if (!value || value.length === 0) return 'none'
-  return value.map(render).filter(Boolean).join(', ') || 'none'
-}
-
 export function renderStartupInfo(info: BridgeInfo) {
   const lines = [
     'pi_bridge',
     `  project: ${info.project ?? 'unknown'}`,
     `  pi_bridge: ${info.version ?? 'unknown'} (extension ${EXTENSION_VERSION})`,
     `  transport: ${info.transport ?? 'unknown'}`,
-    `  integrations: ${list(info.integrations, (name) => name)}`,
     `  executable skills: ${info.skills?.length ?? 0}`,
-    `  plugins: ${info.plugins?.length ?? 0}`,
-    `  endpoints: ${list(info.endpoints, (endpoint) => endpoint.url ?? (endpoint.port ? `:${endpoint.port}` : endpoint.module))}`
+    `  plugins: ${info.plugins?.length ?? 0}`
   ]
 
   return lines.join('\n')

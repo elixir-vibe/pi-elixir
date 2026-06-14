@@ -24,11 +24,9 @@ export interface BridgeInfo {
   project?: string
   version?: string
   transport?: string
-  integrations?: string[]
   skills?: BridgeSkillInfo[]
   plugins?: BridgePluginInfo[]
   commands?: BridgePluginCommand[]
-  endpoints?: BridgeEndpoint[]
   apis?: BridgeAPIInventory
 }
 
@@ -50,12 +48,6 @@ export interface BridgePluginCommand {
   name?: string
   description?: string
   plugin?: string
-}
-
-export interface BridgeEndpoint {
-  module?: string
-  url?: string | null
-  port?: number | null
 }
 
 export interface BridgeAPIInventory {

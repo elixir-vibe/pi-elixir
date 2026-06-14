@@ -273,7 +273,7 @@ pi Node/TUI
      ├─ Pi.Session.Supervisor
      ├─ Pi.Plugin.Manager
      ├─ Pi.Skill.Loader
-     └─ project modules, deps, processes, Repo, endpoints
+     └─ project modules, deps, processes, Repo
 ```
 
 The BEAM side emits structured protocol payloads. The TS side renders them in pi style. For example, eval can return an ordered, typed table while staying plain Elixir until the final output helper:
@@ -438,7 +438,7 @@ export PI_MCP_URL=http://localhost:4001/mcp
 export PI_DISABLE_EMBEDDED=1
 ```
 
-Status is actionable: external/embedded/starting/missing/incompatible/offline plus integration-specific status such as Phoenix endpoints.
+Status is transport-focused and actionable: external/embedded/starting/missing/incompatible/offline. Project-specific recommendations live in prompts/skills, not status-bar integrations.
 
 Feature flags are escape hatches for noisy, sensitive, or experimental environments:
 
