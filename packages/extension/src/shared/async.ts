@@ -11,6 +11,7 @@ export async function waitForValue<T>(
   while (Date.now() - start < options.timeoutMs) {
     const value = read()
     if (value !== undefined) return value
+    // eslint-disable-next-line no-await-in-loop -- polling must wait between sequential reads.
     await sleep(intervalMs)
   }
   return read()

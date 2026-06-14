@@ -457,6 +457,7 @@ async function resolveUrlWithStartupGrace(
   const retryDelay = startupRetryDelayMs()
 
   while (true) {
+    // eslint-disable-next-line no-await-in-loop -- startup grace retries must observe sequential connection state.
     const conn = await resolveUrl(beamCwd, options)
     if (conn || getConnectionKind(beamCwd) !== 'starting') return conn
 
@@ -464,6 +465,7 @@ async function resolveUrlWithStartupGrace(
     if (transcript) onProgress?.(transcript)
 
     if (Date.now() - startedAt >= waitBudget || signal?.aborted) return null
+    // eslint-disable-next-line no-await-in-loop -- retry loop intentionally waits before the next connection attempt.
     await sleep(retryDelay)
   }
 }
