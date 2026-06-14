@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+### Fixed
+
+- Added missing `dedent` dependency to the published `package.json` so the extension loads after `pi install npm:pi-elixir`. The inner workspace already declared it; the root manifest did not, so the published tarball shipped without it and `helpers.ts` failed with `Cannot find module 'dedent'`.
+
 ## 0.6.19 - 2026-06-13
 
 ### Added

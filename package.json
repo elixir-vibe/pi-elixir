@@ -49,6 +49,7 @@
   "dependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
+    "dedent": "^1.7.2",
     "typebox": "*"
   },
   "devDependencies": {
