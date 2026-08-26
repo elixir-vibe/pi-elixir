@@ -63,7 +63,7 @@ defmodule PiBridge.MixProject do
   defp deps do
     [
       {:jason, "~> 1.4"},
-      {:json_codec, "~> 0.1.5"},
+      {:json_codec, "~> 0.2.3"},
       {:lumis, "~> 0.6.1"},
       {:ex_ast, "~> 0.12"},
       {:floki, "~> 0.38.4"},
