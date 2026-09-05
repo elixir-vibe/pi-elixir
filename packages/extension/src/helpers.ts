@@ -64,7 +64,7 @@ export function truncateLine(text: string, maxWidth: number): string {
 
 export function renderSingleLine(text: string): Component {
   return {
-    render: (width) => [truncateLine(text, width)],
+    render: (width) => [truncateLine(text.replace(/\r\n|\r|\n/gu, ' '), width)],
     invalidate: () => undefined
   }
 }

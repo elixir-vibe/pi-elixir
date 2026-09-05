@@ -62,7 +62,10 @@ export function renderEmpty(): Component {
 
 export function renderLines(lines: string[]): Component {
   return {
-    render: (width) => ['', ...lines.map((line) => truncateLine(line, width))],
+    render: (width) => [
+      '',
+      ...lines.flatMap((line) => line.split(/\r\n|\r|\n/u).map((part) => truncateLine(part, width)))
+    ],
     invalidate: () => undefined
   }
 }
