@@ -1,7 +1,8 @@
-import { rawKeyHint, type AgentToolResult, type Theme } from '@earendil-works/pi-coding-agent'
+import { keyHint, type AgentToolResult, type Theme } from '@earendil-works/pi-coding-agent'
 import {
   Markdown,
   truncateToWidth,
+  wrapTextWithAnsi,
   type Component,
   type MarkdownTheme
 } from '@earendil-works/pi-tui'
@@ -72,7 +73,10 @@ export function renderLines(lines: string[]): Component {
 
 export function clampRenderedLines(component: Component): Component {
   return {
-    render: (width) => component.render(width).map((line) => truncateLine(line, width)),
+    render: (width) =>
+      component
+        .render(width)
+        .flatMap((line) => line.split(/\r\n|\r|\n/u).map((part) => truncateLine(part, width))),
     invalidate: () => component.invalidate()
   }
 }
@@ -236,7 +240,11 @@ export function renderMarkdownPreview(
 }
 
 export function renderError(text: string, theme: Theme): Component {
-  return renderLines([theme.fg('error', text || 'Error')])
+  const content = renderWrappedText(theme.fg('error', text || 'Error'))
+  return {
+    render: (width) => ['', ...content.render(width)],
+    invalidate: () => content.invalidate()
+  }
 }
 
 export function renderErrorOrPartial(
@@ -269,7 +277,14 @@ export function truncateLine(text: string, maxWidth: number): string {
 
 export function renderSingleLine(text: string): Component {
   return {
-    render: (width) => [truncateLine(text, width)],
+    render: (width) => [truncateLine(text.replace(/\r\n|\r|\n/gu, ' '), width)],
+    invalidate: () => undefined
+  }
+}
+
+export function renderWrappedText(text: string): Component {
+  return {
+    render: (width) => (width <= 0 ? [] : wrapTextWithAnsi(text.replace(/\r\n|\r/gu, '\n'), width)),
     invalidate: () => undefined
   }
 }
@@ -309,12 +324,14 @@ export function renderToolCall(
     text += theme.fg('dim', ` (${String(options.suffix)})`)
   }
 
-  return renderSingleLine(text)
+  return renderWrappedText(text.replace(/\r\n|\r|\n/gu, ' '))
 }
 
 export function expandHint(theme: Theme): string {
   try {
-    return theme.fg('muted', '(') + rawKeyHint('ctrl+o', 'to expand') + theme.fg('muted', ')')
+    return (
+      theme.fg('muted', '(') + keyHint('app.tools.expand', 'to expand') + theme.fg('muted', ')')
+    )
   } catch {
     return theme.fg('muted', '(ctrl+o to expand)')
   }

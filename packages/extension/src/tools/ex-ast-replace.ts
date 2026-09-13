@@ -2,10 +2,10 @@ import {
   astOptionSuffix,
   bridgeTool,
   displaySingleLine,
-  normalizePathForBeam,
-  renderSingleLine
+  normalizePathForBeam
 } from '#src/helpers.ts'
 import { renderAstReplaceResult } from '#src/renderers.ts'
+import { renderWrappedText } from '#src/shared/render.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 
@@ -88,7 +88,7 @@ Examples:
       text += theme.fg('accent', displaySingleLine(args.pattern))
       text += theme.fg('muted', ' → ')
       text += theme.fg('accent', displaySingleLine(args.replacement))
-      return renderSingleLine(text + astOptionSuffix(args, theme))
+      return renderWrappedText(text + astOptionSuffix(args, theme))
     },
     {
       transformResult: astReplaceText,

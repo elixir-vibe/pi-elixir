@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+## 0.8.5 - 2026-09-13
+
+### Fixed
+
+- Embedded bridge startup preserves caller-provided Mix home and archive paths, including version-manager isolation.
+- Umbrella projects without an application name can complete the bridge handshake.
+- AST searches find local helper calls in modules with broad imports.
+- Multiline tool output renders as separate terminal rows without corrupting widget layout.
+- Long AST call arguments wrap instead of being hidden behind ellipses, and expansion hints respect configured keybindings.
+
 ## 0.8.4 - 2026-07-10
 
 ### Fixed

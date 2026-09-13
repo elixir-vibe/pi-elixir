@@ -4,7 +4,7 @@ defmodule PiBridge.MixProject do
   def project do
     [
       app: :pi_bridge,
-      version: "0.8.4",
+      version: "0.8.5",
       elixir: "~> 1.16",
       elixirc_paths: elixirc_paths(Mix.env()),
       start_permanent: Mix.env() == :prod,

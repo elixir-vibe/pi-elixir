@@ -2,10 +2,10 @@ import {
   astOptionSuffix,
   bridgeTool,
   displaySingleLine,
-  normalizePathForBeam,
-  renderSingleLine
+  normalizePathForBeam
 } from '#src/helpers.ts'
 import { renderAstSearchResult } from '#src/renderers.ts'
+import { renderWrappedText } from '#src/shared/render.ts'
 import type { ExtensionAPI } from '@earendil-works/pi-coding-agent'
 import { Type } from 'typebox'
 
@@ -103,7 +103,7 @@ Examples:
     (args, theme) => {
       let text = theme.fg('toolTitle', theme.bold('ast grep '))
       text += theme.fg('accent', patternSummary(args))
-      return renderSingleLine(text + astOptionSuffix(args, theme))
+      return renderWrappedText(text + astOptionSuffix(args, theme))
     },
     {
       transformResult: astSearchText,
