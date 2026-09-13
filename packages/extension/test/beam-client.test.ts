@@ -230,6 +230,7 @@ describe('resolveUrl', () => {
 
   afterEach(() => {
     resetModuleState()
+    vi.unstubAllEnvs()
     vi.restoreAllMocks()
     vi.useRealTimers()
   })
@@ -299,7 +300,12 @@ describe('resolveUrl', () => {
     expect(fetch).toHaveBeenCalled()
   })
 
-  it('returns null and starts embedded when no external MCP server found', async () => {
+  it('preserves caller Mix paths when starting embedded', async () => {
+    const mixHome = '/mise/elixir/1.20.1-otp-28/.mix'
+    const mixArchives = `${mixHome}/archives`
+    vi.stubEnv('MIX_HOME', mixHome)
+    vi.stubEnv('MIX_ARCHIVES', mixArchives)
+    vi.stubEnv('PI_ELIXIR_BRIDGE_MIX_ENV', 'test')
     vi.mocked(fetch).mockRejectedValue(new Error('connection refused'))
     vi.mocked(fs.readFileSync).mockImplementation(() => {
       throw new Error('ENOENT')
@@ -313,13 +319,25 @@ describe('resolveUrl', () => {
     vi.mocked(childProcess.spawn).mockReturnValue(fakeProc)
 
     const result = await resolveUrl('/embedded-project')
+    const expectedMixEnv = {
+      MIX_ARCHIVES: mixArchives,
+      MIX_ENV: 'test',
+      MIX_HOME: mixHome,
+      PI_ELIXIR_PROJECT_CWD: '/embedded-project'
+    }
+
     expect(result).toBeNull()
+    expect(childProcess.execFileSync).toHaveBeenCalledWith(
+      'mix',
+      ['deps.get'],
+      expect.objectContaining({ env: expect.objectContaining(expectedMixEnv) })
+    )
     expect(childProcess.spawn).toHaveBeenCalledWith(
       'mix',
       ['run', '-e', 'Pi.Transport.Stdio.start()'],
       expect.objectContaining({
         cwd: expect.stringContaining('packages/bridge'),
-        env: expect.objectContaining({ PI_ELIXIR_PROJECT_CWD: '/embedded-project' })
+        env: expect.objectContaining(expectedMixEnv)
       })
     )
   })

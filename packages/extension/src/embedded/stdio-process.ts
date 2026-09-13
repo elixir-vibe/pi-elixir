@@ -1,6 +1,4 @@
 import * as childProcess from 'node:child_process'
-import * as os from 'node:os'
-import * as path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 import {
@@ -353,12 +351,9 @@ function ensureBundledBridgeDeps(projectCwd: string, bridgeCwd: string): string 
 }
 
 function mixChildEnv(projectCwd: string): NodeJS.ProcessEnv {
-  const mixHome = path.join(os.homedir(), '.mix')
   return {
     ...process.env,
     MIX_ENV: process.env.PI_ELIXIR_BRIDGE_MIX_ENV || 'dev',
-    MIX_HOME: mixHome,
-    MIX_ARCHIVES: path.join(mixHome, 'archives'),
     PI_ELIXIR_PROJECT_CWD: projectCwd
   }
 }
