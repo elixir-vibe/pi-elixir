@@ -6,7 +6,7 @@ import type { StdioMessage } from './types.ts'
 const openObject = { additionalProperties: true } as const
 const bridgeInfoSchema = Type.Object(
   {
-    project: Type.Optional(Type.String()),
+    project: Type.Optional(Type.Union([Type.String(), Type.Null()])),
     version: Type.Optional(Type.String()),
     build: Type.Optional(Type.String()),
     protocol: Type.Optional(Type.Number()),

@@ -22,7 +22,14 @@ describe('decodeStdioMessage', () => {
     })
   })
 
+  it('accepts a ready message without an umbrella application name', () => {
+    const message = { type: 'ready', info: { project: null } }
+
+    expect(decodeStdioMessage(message)).toEqual(message)
+  })
+
   it('rejects malformed known messages instead of casting them', () => {
+    expect(decodeStdioMessage({ type: 'ready', info: { project: 42 } })).toBeNull()
     expect(decodeStdioMessage({ type: 'result', id: '1', text: '42', isError: false })).toBeNull()
     expect(
       decodeStdioMessage({

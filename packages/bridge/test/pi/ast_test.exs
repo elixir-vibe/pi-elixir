@@ -24,6 +24,26 @@ defmodule Pi.ASTTest do
     assert result.pattern == "foo(first, ...)"
   end
 
+  test "finds local helper calls next to a broad import" do
+    in_git_repo(fn ->
+      File.mkdir_p!("lib")
+
+      File.write!("lib/demo.ex", """
+      defmodule Demo do
+        import Ecto.Changeset
+
+        def run(a, b, c, d, e), do: ensure_vector_store_mapping(a, b, c, d, e)
+        defp ensure_vector_store_mapping(a, b, c, d, e), do: {a, b, c, d, e}
+      end
+      """)
+
+      assert {:ok, result} =
+               Pi.AST.search("ensure_vector_store_mapping(_, _, _, _, _)", path: "lib")
+
+      assert result.total == 2
+    end)
+  end
+
   test "diff compares a changed file against git HEAD" do
     in_git_repo(fn ->
       File.mkdir_p!("lib")
