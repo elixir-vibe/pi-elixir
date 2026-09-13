@@ -21,7 +21,7 @@ export interface PendingToolCall {
 }
 
 export interface BridgeInfo {
-  project?: string
+  project?: string | null
   version?: string
   build?: string
   protocol?: number

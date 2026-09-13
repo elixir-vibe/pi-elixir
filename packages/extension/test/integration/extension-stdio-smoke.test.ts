@@ -1,5 +1,6 @@
 import { execSync } from 'node:child_process'
 import * as fs from 'node:fs'
+import { tmpdir } from 'node:os'
 import path from 'node:path'
 
 import { getUnavailableReason } from '#src/connection/status.ts'
@@ -132,6 +133,34 @@ describe.skipIf(!elixirAvailable || !projectAvailable)(
       expect(info?.apis?.runtime?.some((api) => api.name === 'llm')).toBe(true)
       expect(info?.skills?.map((skill) => skill.name)).toContain('demo-skill')
       expect(info?.plugins?.map((plugin) => plugin.name)).toContain('DemoPlugin')
+    })
+
+    it('starts an umbrella bridge and serves AST requests without an application name', async () => {
+      const cwd = fs.mkdtempSync(path.join(tmpdir(), 'pi-elixir-umbrella-'))
+
+      try {
+        fs.mkdirSync(path.join(cwd, 'apps'))
+        fs.writeFileSync(
+          path.join(cwd, 'mix.exs'),
+          'defmodule Umbrella.MixProject do\n  use Mix.Project\n  def project, do: [apps_path: "apps"]\nend\n'
+        )
+        fs.copyFileSync(path.join(cwd, 'mix.exs'), path.join(cwd, 'fixture.ex'))
+        startEmbeddedInBackground(cwd)
+        await waitForReady(cwd)
+
+        expect(getBridgeInfo(cwd)?.project).toBeNull()
+        const result = await callEmbeddedTool(cwd, 'ex_ast_search', {
+          pattern: 'defmodule _ do _ end',
+          path: 'fixture.ex'
+        })
+
+        expect(result.isError).toBe(false)
+        expect(structuredPayload(result).kind).toBe('ast_search')
+        expect(result.text).toContain('Umbrella.MixProject')
+      } finally {
+        stopEmbedded(cwd)
+        fs.rmSync(cwd, { recursive: true, force: true })
+      }
     })
 
     it('routes Pi.LLM.complete through the extension request handler', async () => {
