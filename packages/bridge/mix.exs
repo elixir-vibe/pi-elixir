@@ -65,7 +65,7 @@ defmodule PiBridge.MixProject do
       {:jason, "~> 1.4"},
       {:json_codec, "~> 0.1.5"},
       {:lumis, "~> 0.6.1"},
-      {:ex_ast, "~> 0.12"},
+      {:ex_ast, "~> 0.12.10"},
       {:floki, "~> 0.38.4"},
       {:req, "~> 0.5"},
       {:quackdb, "~> 0.5.4"},
