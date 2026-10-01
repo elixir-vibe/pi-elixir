@@ -53,9 +53,11 @@
     "dogfood:smoke": "PI_OFFLINE=1 pi --no-extensions --no-context-files --no-session --extension ./packages/extension/src/index.ts --tools elixir_eval --print 'Use elixir_eval with target bridge to return Application.spec(:pi_bridge, :vsn) |> to_string().'"
   },
   "dependencies": {
+    "dedent": "^1.7.2"
+  },
+  "peerDependencies": {
     "@earendil-works/pi-coding-agent": "*",
     "@earendil-works/pi-tui": "*",
-    "dedent": "^1.7.2",
     "typebox": "*"
   },
   "devDependencies": {
