@@ -53,7 +53,7 @@ defmodule Pi.Target.Attached do
 
   def handle_call(:reset, _from, state) do
     Enum.each(state, fn {{node, _session_id}, evaluator} ->
-      _ = remote_call(node, Process, :exit, [evaluator, :kill], 5_000)
+      :erpc.cast(node, Process, :exit, [evaluator, :kill])
     end)
 
     {:reply, :ok, %{}}
@@ -114,7 +114,7 @@ defmodule Pi.Target.Attached do
         {:ok, value}
 
       valid_node_name?(value) ->
-        bounded_atom({__MODULE__, :configured_node}, value)
+        bounded_atom({__MODULE__, :configured_node}, value, 64)
 
       true ->
         {:error,
@@ -197,7 +197,7 @@ defmodule Pi.Target.Attached do
         {:ok, value}
 
       value when is_binary(value) and byte_size(value) <= 255 ->
-        bounded_atom({__MODULE__, :configured_cookie}, value)
+        bounded_atom({__MODULE__, :configured_cookie}, value, 1)
 
       _other ->
         {:error, %{kind: :invalid_cookie, message: "Distribution cookie is invalid"}}
@@ -213,19 +213,21 @@ defmodule Pi.Target.Attached do
     end
   end
 
-  # Erlang distribution requires atom node/cookie identifiers. Each key is immutable after
-  # its first explicit configuration, bounding this VM to at most one new atom per key.
-  defp bounded_atom(key, value) do
-    case :persistent_term.get(key, :unset) do
-      :unset ->
+  # Distribution needs atoms. Cap the distinct values so changing targets cannot
+  # exhaust the atom table.
+  defp bounded_atom(key, value, limit) do
+    atoms = :persistent_term.get(key, %{})
+
+    cond do
+      atom = Map.get(atoms, value) ->
+        {:ok, atom}
+
+      map_size(atoms) < limit ->
         atom = :erlang.binary_to_atom(value)
-        :persistent_term.put(key, {value, atom})
+        :persistent_term.put(key, Map.put(atoms, value, atom))
         {:ok, atom}
 
-      {^value, atom} ->
-        {:ok, atom}
-
-      {_configured, _atom} ->
+      true ->
         {:error,
          %{
            kind: :distribution_configuration_changed,

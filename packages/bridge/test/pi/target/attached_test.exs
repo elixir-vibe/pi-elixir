@@ -58,6 +58,43 @@ defmodule Pi.Target.AttachedTest do
     refute message =~ "{:ok,"
   end
 
+  test "switches runtime nodes without restarting the bridge" do
+    first = peer() |> Atom.to_string()
+    second = peer() |> Atom.to_string()
+
+    assert {:ok, _} = Attached.run_structured("marker = :first", node: first)
+    assert {:ok, result} = Attached.run_structured("binding()[:marker]", node: second)
+    assert result.result == "nil"
+    assert {:ok, result} = Attached.run_structured("marker", node: first)
+    assert result.result == ":first"
+  end
+
+  test "reset tolerates disconnected nodes" do
+    node = peer()
+    assert {:ok, _} = Attached.run_structured("1 + 1", node: node)
+    Node.monitor(node, true)
+    :erpc.cast(node, :init, :stop, [])
+    assert_receive {:nodedown, ^node}, 5_000
+    assert :ok = Attached.reset()
+  end
+
+  defp peer do
+    name = :"pi_attached_peer_#{System.unique_integer([:positive])}"
+    cookie = Atom.to_charlist(Node.get_cookie())
+
+    {:ok, pid, node} =
+      :peer.start(%{
+        name: name,
+        connection: :standard_io,
+        args: [~c"-hidden", ~c"-setcookie", cookie]
+      })
+
+    on_exit(fn -> if Process.alive?(pid), do: :peer.stop(pid) end)
+    :ok = :peer.call(pid, :code, :add_paths, [:code.get_path()])
+    {:ok, _} = :peer.call(pid, :application, :ensure_all_started, [:elixir])
+    node
+  end
+
   test "requires an explicit node", %{node: _node} do
     previous = System.get_env("PI_ELIXIR_NODE")
     System.delete_env("PI_ELIXIR_NODE")
